@@ -30,8 +30,8 @@ $violations = @($allPaths | Where-Object {
 $oversized = @()
 foreach ($relative in $tracked) {
     $absolute = Join-Path $repoRoot $relative
-    if ((Test-Path -LiteralPath $absolute -PathType Leaf) -and
-        (Get-Item -LiteralPath $absolute).Length -gt 5MB) {
+    if ([System.IO.File]::Exists($absolute) -and
+        [System.IO.FileInfo]::new($absolute).Length -gt 5MB) {
         $oversized += $relative
     }
 }
