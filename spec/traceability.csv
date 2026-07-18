@@ -1,0 +1,9 @@
+requirement_id,user_story_id,acceptance_id,design_section,engine_gap_id,status
+FR-001,US-001,AC-001,System boundary,PROC-002,baseline
+FR-002,US-002,AC-002,Public/private evidence split,PROC-015,baseline
+FR-003,US-003,AC-003,Services,,baseline
+FR-004,US-004,AC-004,System boundary,ENG-036,baseline
+FR-005,US-005,AC-005,State model,PROC-015,baseline
+FR-006,US-002,AC-002,Intended deviations,,baseline
+FR-007,US-004,AC-004,Persistence,ENG-036,baseline
+FR-008,US-005,AC-005,State model,PROC-015,baseline

@@ -1,0 +1,23 @@
+.gradle/
+**/build/
+local.properties
+.idea/
+*.iml
+.engine/
+
+# Reference-game evidence is local-only and must never enter public history.
+.reference-local/
+**/reference-raw/
+**/ui-dumps/
+**/screen-recordings/
+*.apk
+*.aab
+*.apks
+*.xapk
+*.mp4
+*.webm
+*.mov
+
+.DS_Store
+Thumbs.db
+*.hprof

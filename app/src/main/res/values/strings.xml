@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">MySD</string>
+    <string name="foundation_status">MySD\nPhase: %1$s\nPinned engine tick: %2$d\n\nAwaiting Luna Gate 1 evidence.</string>
+</resources>

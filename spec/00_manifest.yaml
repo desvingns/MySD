@@ -1,0 +1,37 @@
+schema_version: mysd-spec.v1
+app: MySD
+mode: clone
+depth: reference
+platforms:
+  - android
+status: gate1_blocked
+source_reference:
+  package: com.gdzsq.crazy_td
+  public_listing: https://play.google.com/store/apps/details?id=com.gdzsq.crazy_td
+gates:
+  gate1:
+    status: pending_luna_crawl
+    accepts: observed inventory, scope, mandatory deviations
+  evaluator:
+    status: not_run
+  gate2:
+    status: blocked_by_gate1
+    accepts: full bundle, coverage gaps, risks
+engine_pin:
+  lock_file: ../gradle/myengine.lock
+artifacts:
+  evidence: evidence/
+  product_brief: product-brief.md
+  requirements: requirements.md
+  user_stories: user-stories.md
+  acceptance: acceptance/
+  design: design.md
+  android: platform/android.md
+  content: content-plan.md
+  balance: balance-plan.md
+  engine_gaps: engine-gap-analysis.md
+  fit: fit/
+  traceability: traceability.csv
+notes:
+  - Only human-locked constraints are normative before Gate 1.
+  - Reference mechanic candidates remain outside FR/US/AC until observed.

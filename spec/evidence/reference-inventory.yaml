@@ -1,0 +1,37 @@
+schema_version: reference-inventory.v1
+status: provisional_pre_crawl
+reference:
+  package: com.gdzsq.crazy_td
+  public_source:
+    type: google_play_listing
+    url: https://play.google.com/store/apps/details?id=com.gdzsq.crazy_td
+    reviewed_date: 2026-07-18
+rules:
+  - Public-listing statements are inventory candidates, not mechanic requirements.
+  - Every candidate needs observed crawl evidence or an explicit human decision at Gate 1.
+candidates:
+  - id: INV-001
+    semantic_summary: campaign tower-defense loop
+    source: public_listing
+    confidence: 0.6
+    gate1_status: needs_observation
+  - id: INV-002
+    semantic_summary: controllable or progressable hero/unit roster
+    source: public_listing
+    confidence: 0.5
+    gate1_status: needs_observation
+  - id: INV-003
+    semantic_summary: defensive building placement or development
+    source: public_listing
+    confidence: 0.6
+    gate1_status: needs_observation
+  - id: INV-004
+    semantic_summary: wave progression with boss-class threats
+    source: public_listing
+    confidence: 0.6
+    gate1_status: needs_observation
+  - id: INV-005
+    semantic_summary: persistent base and technology progression
+    source: public_listing
+    confidence: 0.6
+    gate1_status: needs_observation

@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout MySD
+        uses: actions/checkout@v4
+
+      - name: Read pinned MyEngine revision
+        id: engine-lock
+        shell: bash
+        run: |
+          sha="$(sed -n 's/^commit=//p' gradle/myengine.lock)"
+          test -n "$sha"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout pinned MyEngine
+        uses: actions/checkout@v4
+        with:
+          repository: desvingns/MyEngine
+          ref: ${{ steps.engine-lock.outputs.sha }}
+          path: .engine/MyEngine
+
+      - name: Verify engine checkout
+        shell: bash
+        run: test "$(git -C .engine/MyEngine rev-parse HEAD)" = "${{ steps.engine-lock.outputs.sha }}"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Public safety gate
+        shell: pwsh
+        run: ./scripts/public-safety.ps1
+
+      - name: Spec and evidence contract gates
+        shell: pwsh
+        run: |
+          ./scripts/validate-evidence.ps1
+          ./scripts/validate-spec.ps1
+
+      - name: Test and assemble
+        run: ./gradlew test :app:assembleDebug -Pmyengine.path=.engine/MyEngine

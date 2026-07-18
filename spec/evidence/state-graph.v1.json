@@ -1,0 +1,19 @@
+{
+  "schema_version": "state-graph.v1",
+  "reference": {
+    "package": "com.gdzsq.crazy_td",
+    "capture_meta_evidence_id": null
+  },
+  "nodes": [],
+  "edges": [],
+  "observations": [],
+  "coverage": {
+    "gate1_status": "not_started",
+    "root_routes_expected": ["shop", "troops", "battle", "tech", "arena"],
+    "root_routes_seen": [],
+    "terminal_states_seen": [],
+    "unmatched_affordance_ids": [],
+    "plateau_iterations": 0,
+    "low_confidence_open_questions": 0
+  }
+}

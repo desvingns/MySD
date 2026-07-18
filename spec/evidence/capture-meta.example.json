@@ -1,0 +1,17 @@
+{
+  "package": "com.gdzsq.crazy_td",
+  "version_name": "REPLACE_FROM_DEVICE",
+  "version_code": 1,
+  "locale": "REPLACE_FROM_DEVICE",
+  "android_version": "REPLACE_FROM_DEVICE",
+  "api_level": 1,
+  "device_profile": "Pixel 9",
+  "resolution_px": {
+    "width": 1,
+    "height": 1
+  },
+  "density_dpi": 1,
+  "font_scale": 1.0,
+  "install_source": "Google Play",
+  "captured_at_utc": "2026-07-18T00:00:00Z"
+}

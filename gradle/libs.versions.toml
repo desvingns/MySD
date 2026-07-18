@@ -1,0 +1,15 @@
+[versions]
+agp = "9.2.1"
+androidCompileSdk = "36"
+androidMinSdk = "26"
+androidTargetSdk = "36"
+junitJupiter = "5.14.4"
+kotlin = "2.4.0"
+
+[libraries]
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junitJupiter" }
+kotlin-test-junit5 = { module = "org.jetbrains.kotlin:kotlin-test-junit5", version.ref = "kotlin" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }

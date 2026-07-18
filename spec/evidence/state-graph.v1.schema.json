@@ -1,0 +1,296 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/desvingns/MySD/spec/evidence/state-graph.v1.schema.json",
+  "title": "MySD reference state graph",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "reference", "nodes", "edges", "observations", "coverage"],
+  "properties": {
+    "schema_version": {
+      "const": "state-graph.v1"
+    },
+    "reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["package", "capture_meta_evidence_id"],
+      "properties": {
+        "package": { "type": "string", "minLength": 1 },
+        "capture_meta_evidence_id": { "type": ["string", "null"] }
+      }
+    },
+    "nodes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/node" }
+    },
+    "edges": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/edge" }
+    },
+    "observations": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/observation" }
+    },
+    "coverage": { "$ref": "#/$defs/coverage" }
+  },
+  "$defs": {
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "boundsDp": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["left", "top", "right", "bottom"],
+      "properties": {
+        "left": { "type": "number" },
+        "top": { "type": "number" },
+        "right": { "type": "number" },
+        "bottom": { "type": "number" }
+      }
+    },
+    "affordance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "role", "action", "coverage_status"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^AF-[0-9]{4}$" },
+        "role": { "type": "string", "minLength": 1 },
+        "action": { "type": "string", "minLength": 1 },
+        "bounds_dp": {
+          "oneOf": [
+            { "$ref": "#/$defs/boundsDp" },
+            { "type": "null" }
+          ]
+        },
+        "coverage_status": {
+          "enum": ["edge", "deviation", "blocker", "unmatched"]
+        },
+        "coverage_ref": { "type": ["string", "null"] }
+      }
+    },
+    "signatures": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["structural", "visual", "semantic"],
+      "properties": {
+        "structural": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["activity", "normalized_affordances", "digest"],
+          "properties": {
+            "activity": { "type": ["string", "null"] },
+            "normalized_affordances": {
+              "type": "array",
+              "items": { "type": "string" },
+              "uniqueItems": true
+            },
+            "digest": { "type": ["string", "null"] }
+          }
+        },
+        "visual": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["algorithm", "perceptual_hash", "masked_regions"],
+          "properties": {
+            "algorithm": { "type": "string" },
+            "perceptual_hash": { "type": ["string", "null"] },
+            "distance_threshold": { "type": ["integer", "null"], "minimum": 0 },
+            "masked_regions": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["reason", "bounds_dp"],
+                "properties": {
+                  "reason": {
+                    "enum": ["currency", "timer", "hp", "wave", "animation", "reference_ip"]
+                  },
+                  "bounds_dp": { "$ref": "#/$defs/boundsDp" }
+                }
+              }
+            }
+          }
+        },
+        "semantic": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["route", "overlay", "battle_phase", "flags", "digest"],
+          "properties": {
+            "route": { "type": "string" },
+            "overlay": { "type": ["string", "null"] },
+            "battle_phase": { "type": ["string", "null"] },
+            "flags": {
+              "type": "object",
+              "additionalProperties": {
+                "type": ["boolean", "string", "number", "null"]
+              }
+            },
+            "digest": { "type": ["string", "null"] }
+          }
+        }
+      }
+    },
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "parent",
+        "route",
+        "phase",
+        "semantic_flags",
+        "visible_affordances",
+        "signatures",
+        "evidence_ids",
+        "source",
+        "confidence"
+      ],
+      "properties": {
+        "id": { "type": "string", "pattern": "^ST-[0-9]{4}$" },
+        "kind": {
+          "enum": ["screen", "overlay", "battle_phase", "meta_state"]
+        },
+        "parent": {
+          "type": ["string", "null"],
+          "pattern": "^ST-[0-9]{4}$"
+        },
+        "route": { "type": "string", "minLength": 1 },
+        "phase": { "type": ["string", "null"] },
+        "semantic_flags": {
+          "type": "object",
+          "additionalProperties": {
+            "type": ["boolean", "string", "number", "null"]
+          }
+        },
+        "visible_affordances": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/affordance" }
+        },
+        "signatures": { "$ref": "#/$defs/signatures" },
+        "evidence_ids": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^EV-[0-9]{4}$" },
+          "uniqueItems": true
+        },
+        "source": { "enum": ["observed", "inferred"] },
+        "confidence": { "$ref": "#/$defs/confidence" }
+      }
+    },
+    "edge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "from",
+        "to",
+        "action",
+        "preconditions",
+        "cost_observation_ids",
+        "observed_effect",
+        "wait_ms",
+        "before_evidence_ids",
+        "after_evidence_ids",
+        "classification",
+        "source",
+        "confidence"
+      ],
+      "properties": {
+        "id": { "type": "string", "pattern": "^ED-[0-9]{4}$" },
+        "from": { "type": "string", "pattern": "^ST-[0-9]{4}$" },
+        "to": {
+          "type": ["string", "null"],
+          "pattern": "^ST-[0-9]{4}$"
+        },
+        "action": { "type": "string", "minLength": 1 },
+        "preconditions": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "cost_observation_ids": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^OB-[0-9]{4}$" }
+        },
+        "observed_effect": { "type": "string" },
+        "wait_ms": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["min", "max", "samples"],
+          "properties": {
+            "min": { "type": ["integer", "null"], "minimum": 0 },
+            "max": { "type": ["integer", "null"], "minimum": 0 },
+            "samples": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "before_evidence_ids": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^EV-[0-9]{4}$" }
+        },
+        "after_evidence_ids": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^EV-[0-9]{4}$" }
+        },
+        "classification": {
+          "enum": ["navigation", "phase", "meta", "service_adapter", "blocked"]
+        },
+        "source": { "enum": ["observed", "inferred"] },
+        "confidence": { "$ref": "#/$defs/confidence" }
+      }
+    },
+    "observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "node_id", "metric", "value", "unit", "evidence_id", "captured_at_utc"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^OB-[0-9]{4}$" },
+        "node_id": { "type": "string", "pattern": "^ST-[0-9]{4}$" },
+        "metric": {
+          "enum": ["hp", "currency", "wave", "timer", "energy", "cost", "entity_count", "other"]
+        },
+        "value": { "type": ["number", "string", "boolean", "null"] },
+        "unit": { "type": ["string", "null"] },
+        "evidence_id": { "type": "string", "pattern": "^EV-[0-9]{4}$" },
+        "captured_at_utc": { "type": "string", "format": "date-time" }
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "gate1_status",
+        "root_routes_expected",
+        "root_routes_seen",
+        "terminal_states_seen",
+        "unmatched_affordance_ids",
+        "plateau_iterations",
+        "low_confidence_open_questions"
+      ],
+      "properties": {
+        "gate1_status": { "enum": ["not_started", "collecting", "ready", "accepted", "rejected"] },
+        "root_routes_expected": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        },
+        "root_routes_seen": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        },
+        "terminal_states_seen": {
+          "type": "array",
+          "items": { "enum": ["victory", "defeat"] },
+          "uniqueItems": true
+        },
+        "unmatched_affordance_ids": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^AF-[0-9]{4}$" },
+          "uniqueItems": true
+        },
+        "plateau_iterations": { "type": "integer", "minimum": 0 },
+        "low_confidence_open_questions": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/desvingns/MySD/spec/evidence/capture-meta.schema.json",
+  "title": "Reference capture metadata",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "package",
+    "version_name",
+    "version_code",
+    "locale",
+    "android_version",
+    "api_level",
+    "device_profile",
+    "resolution_px",
+    "density_dpi",
+    "font_scale",
+    "install_source",
+    "captured_at_utc"
+  ],
+  "properties": {
+    "package": { "type": "string" },
+    "version_name": { "type": "string" },
+    "version_code": { "type": "integer", "minimum": 1 },
+    "locale": { "type": "string" },
+    "android_version": { "type": "string" },
+    "api_level": { "type": "integer", "minimum": 1 },
+    "device_profile": { "type": "string" },
+    "resolution_px": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["width", "height"],
+      "properties": {
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "density_dpi": { "type": "integer", "minimum": 1 },
+    "font_scale": { "type": "number", "exclusiveMinimum": 0 },
+    "install_source": { "type": "string" },
+    "captured_at_utc": { "type": "string", "format": "date-time" }
+  }
+}
