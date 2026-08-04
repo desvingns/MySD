@@ -15,7 +15,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            val session = remember { AcceptedCampaignFixture.createSession() }
+            val session = remember { AcceptedCampaignFixture.createSession(runSave = null) }
             var snapshot by remember { mutableStateOf(session.snapshot()) }
 
             MySDTheme(dynamicColor = false) {

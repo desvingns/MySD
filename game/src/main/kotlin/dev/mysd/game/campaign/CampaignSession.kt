@@ -1,5 +1,7 @@
 package dev.mysd.game.campaign
 
+import dev.mysd.game.persistence.RunSave
+
 @JvmInline
 value class CampaignStageId private constructor(val value: String) {
     companion object {
@@ -134,8 +136,10 @@ class CampaignSession(
 object AcceptedCampaignFixture {
     val STAGE_ID: CampaignStageId = CampaignStageId.of("stage-ember-path")
 
-    fun createSession(): CampaignSession = CampaignSession(
+    fun createSession(runSave: RunSave?): CampaignSession = CampaignSession(
         acceptedStageIds = listOf(STAGE_ID),
-        unfinishedRun = UnfinishedCampaignRun(stageId = STAGE_ID),
+        unfinishedRun = runSave
+            ?.takeIf { it.active && it.terminalResult == null }
+            ?.let { UnfinishedCampaignRun(stageId = CampaignStageId.of(it.stageId)) },
     )
 }

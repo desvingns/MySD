@@ -51,18 +51,11 @@ fun CampaignScreenContent(
             modifier = modifier,
         )
 
-        CampaignRoute.CAMPAIGN_SELECTION -> {
-            val stageId = state.acceptedStageIds.single()
-            CampaignRouteContent(
-                title = stringResource(R.string.campaign_selection_title),
-                body = stageTitle(stageId),
-                detail = stringResource(R.string.campaign_level_body),
-                actionLabel = stringResource(R.string.campaign_level_setup_action),
-                titleColor = MaterialTheme.colorScheme.secondary,
-                onAction = { onIntent(CampaignIntent.SelectLevel(stageId)) },
-                modifier = modifier,
-            )
-        }
+        CampaignRoute.CAMPAIGN_SELECTION -> CampaignSelectionContent(
+            stageIds = state.acceptedStageIds,
+            onSelectStage = { stageId -> onIntent(CampaignIntent.SelectLevel(stageId)) },
+            modifier = modifier,
+        )
 
         CampaignRoute.LEVEL_SETUP -> CampaignRouteContent(
             title = stringResource(R.string.campaign_level_setup_title),
@@ -83,6 +76,41 @@ fun CampaignScreenContent(
             onCancel = { onIntent(CampaignIntent.CancelUnfinishedRun) },
             onContinue = { onIntent(CampaignIntent.ContinueUnfinishedRun) },
         )
+    }
+}
+
+@Composable
+private fun CampaignSelectionContent(
+    stageIds: List<CampaignStageId>,
+    onSelectStage: (CampaignStageId) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val spacing = LocalSpacing.current
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(spacing.l),
+        verticalArrangement = Arrangement.spacedBy(spacing.l, Alignment.CenterVertically),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = stringResource(R.string.campaign_selection_title),
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.secondary,
+        )
+        stageIds.forEach { stageId ->
+            Text(text = stageTitle(stageId), style = MaterialTheme.typography.titleLarge)
+            Text(
+                text = stringResource(R.string.campaign_level_body),
+                style = MaterialTheme.typography.bodyLarge,
+            )
+            Button(onClick = { onSelectStage(stageId) }) {
+                Text(
+                    text = stringResource(R.string.campaign_level_setup_action),
+                    style = MaterialTheme.typography.labelLarge,
+                )
+            }
+        }
     }
 }
 
