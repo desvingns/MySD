@@ -28,6 +28,19 @@ fun CampaignScreen(
     onIntent: (CampaignIntent) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    CampaignScreenContent(
+        state = state,
+        onIntent = onIntent,
+        modifier = modifier,
+    )
+}
+
+@Composable
+fun CampaignScreenContent(
+    state: CampaignSnapshot,
+    onIntent: (CampaignIntent) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     when (state.route) {
         CampaignRoute.CLEAN_LAUNCH -> CampaignRouteContent(
             title = stringResource(R.string.campaign_launch_title),
