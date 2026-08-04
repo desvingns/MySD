@@ -139,7 +139,11 @@ object AcceptedCampaignFixture {
     fun createSession(runSave: RunSave?): CampaignSession = CampaignSession(
         acceptedStageIds = listOf(STAGE_ID),
         unfinishedRun = runSave
-            ?.takeIf { it.active && it.terminalResult == null }
-            ?.let { UnfinishedCampaignRun(stageId = CampaignStageId.of(it.stageId)) },
+            ?.takeIf {
+                it.active &&
+                    it.terminalResult == null &&
+                    it.stageId == STAGE_ID.value
+            }
+            ?.let { UnfinishedCampaignRun(stageId = STAGE_ID) },
     )
 }
