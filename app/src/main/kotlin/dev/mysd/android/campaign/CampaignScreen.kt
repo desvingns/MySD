@@ -13,6 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.window.DialogProperties
 import dev.mysd.android.R
 import dev.mysd.android.ui.theme.LocalSpacing
 import dev.mysd.game.campaign.CampaignIntent
@@ -142,6 +143,10 @@ private fun UnfinishedRunPrompt(
                 )
             }
         },
+        properties = DialogProperties(
+            dismissOnBackPress = false,
+            dismissOnClickOutside = false,
+        ),
         shape = MaterialTheme.shapes.medium,
     )
 }
