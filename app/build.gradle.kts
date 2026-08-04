@@ -1,5 +1,6 @@
 plugins {
     alias(libs.plugins.android.application)
+    alias(libs.plugins.compose.compiler)
 }
 
 android {
@@ -10,8 +11,12 @@ android {
         applicationId = "dev.mysd.android"
         minSdk = libs.versions.androidMinSdk.get().toInt()
         targetSdk = libs.versions.androidTargetSdk.get().toInt()
-        versionCode = 1
-        versionName = "0.1.0-foundation"
+        versionCode = 2
+        versionName = "0.1.1"
+    }
+
+    buildFeatures {
+        compose = true
     }
 
     compileOptions {
@@ -28,4 +33,9 @@ kotlin {
 
 dependencies {
     implementation(project(":game"))
+
+    val composeBom = platform(libs.androidx.compose.bom)
+    implementation(composeBom)
+    implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.compose.material3)
 }

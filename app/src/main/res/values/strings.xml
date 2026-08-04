@@ -1,5 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">MySD</string>
-    <string name="foundation_status">MySD\nPhase: %1$s\nPinned engine tick: %2$d\n\nAwaiting Luna Gate 1 evidence.</string>
+    <string name="campaign_launch_title">MySD</string>
+    <string name="campaign_launch_body">An offline campaign is ready.</string>
+    <string name="campaign_enter_action">Enter campaign</string>
+    <string name="campaign_selection_title">Campaign</string>
+    <string name="campaign_level_ember_path">Ember Path</string>
+    <string name="campaign_level_body">Accepted local level</string>
+    <string name="campaign_level_setup_action">Set up level</string>
+    <string name="campaign_level_setup_title">Level setup</string>
+    <string name="campaign_new_setup_body">This local run is ready for the accepted setup contour.</string>
+    <string name="campaign_unfinished_setup_body">The unfinished local run is ready to continue.</string>
+    <string name="campaign_unfinished_title">Unfinished run</string>
+    <string name="campaign_unfinished_body">A local run is waiting. Continue it or return to campaign selection.</string>
+    <string name="campaign_cancel_action">Cancel</string>
+    <string name="campaign_continue_action">Continue</string>
 </resources>
