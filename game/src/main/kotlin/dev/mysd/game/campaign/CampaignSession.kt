@@ -35,6 +35,7 @@ data class CampaignSnapshot(
     val selectedStageId: CampaignStageId?,
     val setupOrigin: LevelSetupOrigin?,
     val unfinishedRunPromptVisible: Boolean,
+    val battleStart: BattleStartTransition? = null,
 )
 
 sealed interface CampaignIntent {
@@ -47,6 +48,14 @@ sealed interface CampaignIntent {
     data object CancelUnfinishedRun : CampaignIntent
 
     data object ContinueUnfinishedRun : CampaignIntent
+
+    data class SelectInitialOption(
+        val choice: BattleSetupChoice,
+    ) : CampaignIntent
+
+    data object ContinueTutorialSetup : CampaignIntent
+
+    data object StartBattle : CampaignIntent
 }
 
 /**
@@ -60,6 +69,8 @@ class CampaignSession(
     private val unfinishedRun: UnfinishedCampaignRun?,
 ) {
     private val stages = acceptedStageIds.toList()
+
+    private var battleSetupSession: BattleSetupSession? = null
 
     private var state = CampaignSnapshot(
         route = CampaignRoute.CLEAN_LAUNCH,
@@ -79,9 +90,57 @@ class CampaignSession(
 
     fun snapshot(): CampaignSnapshot = state
 
+    /** Immutable setup snapshot for the selected stage, if level setup has been opened. */
+    fun battleSetupSnapshot(): BattleSetupSnapshot? = battleSetupSession?.snapshot()
+
     fun submit(intent: CampaignIntent): CampaignSnapshot {
-        state = reduce(state, intent)
+        when (intent) {
+            is CampaignIntent.SelectInitialOption -> {
+                if (state.route == CampaignRoute.LEVEL_SETUP && state.battleStart == null) {
+                    battleSetupSession?.selectChoice(intent.choice)
+                }
+            }
+
+            CampaignIntent.ContinueTutorialSetup -> {
+                if (state.route == CampaignRoute.LEVEL_SETUP && state.battleStart == null) {
+                    battleSetupSession?.continueTutorial()
+                }
+            }
+
+            CampaignIntent.StartBattle -> startBattleIfReady()
+
+            else -> {
+                val previous = state
+                state = reduce(state, intent)
+                if (
+                    state.route == CampaignRoute.LEVEL_SETUP &&
+                    state.selectedStageId != previous.selectedStageId
+                ) {
+                    battleSetupSession = BattleSetupSession(requireNotNull(state.selectedStageId))
+                } else if (state.route != CampaignRoute.LEVEL_SETUP) {
+                    battleSetupSession = null
+                }
+            }
+        }
         return state
+    }
+
+    private fun startBattleIfReady() {
+        val setup = battleSetupSession?.snapshot()
+        if (
+            state.route != CampaignRoute.LEVEL_SETUP ||
+            state.battleStart != null ||
+            setup?.canStartBattle != true
+        ) {
+            return
+        }
+
+        state = state.copy(
+            battleStart = BattleStartTransition(
+                stageId = requireNotNull(state.selectedStageId),
+                selectedChoice = setup.selectedChoice,
+            ),
+        )
     }
 
     private fun reduce(
@@ -92,6 +151,7 @@ class CampaignSession(
             if (current.route != CampaignRoute.CLEAN_LAUNCH) current else current.copy(
                 route = CampaignRoute.CAMPAIGN_SELECTION,
                 unfinishedRunPromptVisible = unfinishedRun != null,
+                battleStart = null,
             )
         }
 
@@ -119,6 +179,11 @@ class CampaignSession(
                 current.toLevelSetup(run.stageId, LevelSetupOrigin.UNFINISHED_RUN)
             }
         }
+
+        is CampaignIntent.SelectInitialOption,
+        CampaignIntent.ContinueTutorialSetup,
+        CampaignIntent.StartBattle,
+        -> current
     }
 
     private fun CampaignSnapshot.toLevelSetup(
@@ -129,6 +194,7 @@ class CampaignSession(
         selectedStageId = stageId,
         setupOrigin = origin,
         unfinishedRunPromptVisible = false,
+        battleStart = null,
     )
 }
 

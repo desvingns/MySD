@@ -20,6 +20,9 @@ import dev.mysd.game.campaign.CampaignIntent
 import dev.mysd.game.campaign.CampaignRoute
 import dev.mysd.game.campaign.CampaignSnapshot
 import dev.mysd.game.campaign.CampaignStageId
+import dev.mysd.game.campaign.BattleSetupChoice
+import dev.mysd.game.campaign.BattleSetupSnapshot
+import dev.mysd.game.campaign.BattleStartTransition
 import dev.mysd.game.campaign.LevelSetupOrigin
 
 @Composable
@@ -27,11 +30,13 @@ fun CampaignScreen(
     state: CampaignSnapshot,
     onIntent: (CampaignIntent) -> Unit,
     modifier: Modifier = Modifier,
+    battleSetup: BattleSetupSnapshot? = null,
 ) {
     CampaignScreenContent(
         state = state,
         onIntent = onIntent,
         modifier = modifier,
+        battleSetup = battleSetup,
     )
 }
 
@@ -40,41 +45,164 @@ fun CampaignScreenContent(
     state: CampaignSnapshot,
     onIntent: (CampaignIntent) -> Unit,
     modifier: Modifier = Modifier,
+    battleSetup: BattleSetupSnapshot? = null,
 ) {
-    when (state.route) {
-        CampaignRoute.CLEAN_LAUNCH -> CampaignRouteContent(
-            title = stringResource(R.string.campaign_launch_title),
-            body = stringResource(R.string.campaign_launch_body),
-            actionLabel = stringResource(R.string.campaign_enter_action),
-            titleColor = MaterialTheme.colorScheme.primary,
-            onAction = { onIntent(CampaignIntent.EnterCampaign) },
+    val battleStart = state.battleStart
+    if (battleStart != null) {
+        BattleStartContent(
+            transition = battleStart,
             modifier = modifier,
         )
+    } else {
+        when (state.route) {
+            CampaignRoute.CLEAN_LAUNCH -> CampaignRouteContent(
+                title = stringResource(R.string.campaign_launch_title),
+                body = stringResource(R.string.campaign_launch_body),
+                actionLabel = stringResource(R.string.campaign_enter_action),
+                titleColor = MaterialTheme.colorScheme.primary,
+                onAction = { onIntent(CampaignIntent.EnterCampaign) },
+                modifier = modifier,
+            )
 
-        CampaignRoute.CAMPAIGN_SELECTION -> CampaignSelectionContent(
-            stageIds = state.acceptedStageIds,
-            onSelectStage = { stageId -> onIntent(CampaignIntent.SelectLevel(stageId)) },
-            modifier = modifier,
-        )
+            CampaignRoute.CAMPAIGN_SELECTION -> CampaignSelectionContent(
+                stageIds = state.acceptedStageIds,
+                onSelectStage = { stageId -> onIntent(CampaignIntent.SelectLevel(stageId)) },
+                modifier = modifier,
+            )
 
-        CampaignRoute.LEVEL_SETUP -> CampaignRouteContent(
-            title = stringResource(R.string.campaign_level_setup_title),
-            body = stageTitle(requireNotNull(state.selectedStageId)),
-            detail = stringResource(
-                when (requireNotNull(state.setupOrigin)) {
-                    LevelSetupOrigin.NEW_RUN -> R.string.campaign_new_setup_body
-                    LevelSetupOrigin.UNFINISHED_RUN -> R.string.campaign_unfinished_setup_body
-                },
-            ),
-            titleColor = MaterialTheme.colorScheme.tertiary,
-            modifier = modifier,
-        )
+            CampaignRoute.LEVEL_SETUP -> if (battleSetup != null) {
+                BattleSetupContent(
+                    state = battleSetup,
+                    onIntent = onIntent,
+                    modifier = modifier,
+                )
+            } else {
+                CampaignRouteContent(
+                    title = stringResource(R.string.campaign_level_setup_title),
+                    body = stageTitle(requireNotNull(state.selectedStageId)),
+                    detail = stringResource(
+                        when (requireNotNull(state.setupOrigin)) {
+                            LevelSetupOrigin.NEW_RUN -> R.string.campaign_new_setup_body
+                            LevelSetupOrigin.UNFINISHED_RUN -> R.string.campaign_unfinished_setup_body
+                        },
+                    ),
+                    titleColor = MaterialTheme.colorScheme.tertiary,
+                    modifier = modifier,
+                )
+            }
+        }
     }
 
     if (state.unfinishedRunPromptVisible) {
         UnfinishedRunPrompt(
             onCancel = { onIntent(CampaignIntent.CancelUnfinishedRun) },
             onContinue = { onIntent(CampaignIntent.ContinueUnfinishedRun) },
+        )
+    }
+}
+
+@Composable
+fun BattleSetupContent(
+    state: BattleSetupSnapshot,
+    onIntent: (CampaignIntent) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val spacing = LocalSpacing.current
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(spacing.l),
+        verticalArrangement = Arrangement.spacedBy(spacing.m, Alignment.CenterVertically),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = stringResource(R.string.battle_setup_title),
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.tertiary,
+        )
+        Text(
+            text = stageTitle(state.stageId),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.secondary,
+        )
+        Text(
+            text = stringResource(R.string.battle_setup_body),
+            style = MaterialTheme.typography.bodyLarge,
+        )
+        state.availableChoices.forEach { choice ->
+            Button(
+                onClick = { onIntent(CampaignIntent.SelectInitialOption(choice)) },
+                shape = MaterialTheme.shapes.medium,
+            ) {
+                Text(
+                    text = choiceLabel(choice),
+                    style = MaterialTheme.typography.labelLarge,
+                )
+            }
+        }
+        state.selectedChoice?.let { choice ->
+            Text(
+                text = stringResource(R.string.battle_setup_selected, choiceLabel(choice)),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.secondary,
+            )
+        }
+        if (state.tutorialContinuationVisible) {
+            Button(
+                onClick = { onIntent(CampaignIntent.ContinueTutorialSetup) },
+                shape = MaterialTheme.shapes.medium,
+            ) {
+                Text(
+                    text = stringResource(R.string.battle_setup_continue_action),
+                    style = MaterialTheme.typography.labelLarge,
+                )
+            }
+        }
+        if (state.setupCompleted) {
+            Text(
+                text = stringResource(R.string.battle_setup_ready_body),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Button(
+                onClick = { onIntent(CampaignIntent.StartBattle) },
+                shape = MaterialTheme.shapes.medium,
+            ) {
+                Text(
+                    text = stringResource(R.string.battle_start_action),
+                    style = MaterialTheme.typography.labelLarge,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun BattleStartContent(
+    transition: BattleStartTransition,
+    modifier: Modifier = Modifier,
+) {
+    val spacing = LocalSpacing.current
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(spacing.l),
+        verticalArrangement = Arrangement.spacedBy(spacing.m, Alignment.CenterVertically),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = stringResource(R.string.battle_started_title),
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        Text(
+            text = stageTitle(transition.stageId),
+            style = MaterialTheme.typography.bodyLarge,
+        )
+        Text(
+            text = stringResource(R.string.battle_started_body),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.secondary,
         )
     }
 }
@@ -199,4 +327,11 @@ private fun stageTitle(stageId: CampaignStageId): String = when (stageId) {
     }
 
     else -> stageId.value
+}
+
+@Composable
+private fun choiceLabel(choice: BattleSetupChoice): String = when (choice) {
+    BattleSetupChoice.OPTION_A -> stringResource(R.string.battle_setup_choice_a)
+    BattleSetupChoice.OPTION_B -> stringResource(R.string.battle_setup_choice_b)
+    BattleSetupChoice.OPTION_C -> stringResource(R.string.battle_setup_choice_c)
 }

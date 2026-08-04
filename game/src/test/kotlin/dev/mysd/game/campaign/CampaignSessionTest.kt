@@ -137,6 +137,80 @@ class CampaignSessionTest {
             ),
             snapshot,
         )
+        assertEquals(
+            BattleSetupSnapshot(
+                stageId = acceptedStage,
+                availableChoices = BattleSetupChoice.entries,
+                selectedChoice = null,
+                tutorialContinuationVisible = true,
+                setupCompleted = false,
+            ),
+            session.battleSetupSnapshot(),
+        )
+    }
+
+    @Test
+    fun `selecting an initial option updates setup state without changing the route snapshot`() {
+        val session = CampaignSession(listOf(acceptedStage), unfinishedRun = null)
+        session.submit(CampaignIntent.EnterCampaign)
+        session.submit(CampaignIntent.SelectLevel(acceptedStage))
+        val routeBeforeChoice = session.snapshot()
+
+        val routeAfterChoice = session.submit(
+            CampaignIntent.SelectInitialOption(BattleSetupChoice.OPTION_B),
+        )
+
+        assertEquals(routeBeforeChoice, routeAfterChoice)
+        assertEquals(
+            BattleSetupChoice.OPTION_B,
+            session.battleSetupSnapshot()?.selectedChoice,
+        )
+        assertEquals(
+            BattleSetupChoice.entries,
+            session.battleSetupSnapshot()?.availableChoices,
+        )
+        assertFalse(session.battleSetupSnapshot()?.setupCompleted ?: true)
+    }
+
+    @Test
+    fun `start battle is blocked until tutorial continuation makes setup ready`() {
+        val session = CampaignSession(listOf(acceptedStage), unfinishedRun = null)
+        session.submit(CampaignIntent.EnterCampaign)
+        session.submit(CampaignIntent.SelectLevel(acceptedStage))
+        session.submit(CampaignIntent.SelectInitialOption(BattleSetupChoice.OPTION_A))
+
+        val beforeContinuation = session.submit(CampaignIntent.StartBattle)
+
+        assertNull(beforeContinuation.battleStart)
+        assertEquals(CampaignRoute.LEVEL_SETUP, beforeContinuation.route)
+
+        session.submit(CampaignIntent.ContinueTutorialSetup)
+        val started = session.submit(CampaignIntent.StartBattle)
+
+        assertEquals(
+            BattleStartTransition(
+                stageId = acceptedStage,
+                selectedChoice = BattleSetupChoice.OPTION_A,
+            ),
+            started.battleStart,
+        )
+        assertEquals(CampaignRoute.LEVEL_SETUP, started.route)
+        assertTrue(session.battleSetupSnapshot()?.canStartBattle == true)
+    }
+
+    @Test
+    fun `start battle remains idempotent after the setup handoff`() {
+        val session = CampaignSession(listOf(acceptedStage), unfinishedRun = null)
+        session.submit(CampaignIntent.EnterCampaign)
+        session.submit(CampaignIntent.SelectLevel(acceptedStage))
+        session.submit(CampaignIntent.ContinueTutorialSetup)
+
+        val first = session.submit(CampaignIntent.StartBattle)
+        val second = session.submit(CampaignIntent.StartBattle)
+
+        assertEquals(first, second)
+        assertEquals(acceptedStage, first.battleStart?.stageId)
+        assertNull(first.battleStart?.selectedChoice)
     }
 
     @Test

@@ -15,4 +15,15 @@
     <string name="campaign_unfinished_body">A local run is waiting. Continue it or return to campaign selection.</string>
     <string name="campaign_cancel_action">Cancel</string>
     <string name="campaign_continue_action">Continue</string>
+    <string name="battle_setup_title">Battle setup</string>
+    <string name="battle_setup_body">Choose a starting path, then continue the setup.</string>
+    <string name="battle_setup_choice_a">Starting path A</string>
+    <string name="battle_setup_choice_b">Starting path B</string>
+    <string name="battle_setup_choice_c">Starting path C</string>
+    <string name="battle_setup_selected">Selected: %1$s</string>
+    <string name="battle_setup_continue_action">Continue setup</string>
+    <string name="battle_setup_ready_body">Setup is complete and ready to start.</string>
+    <string name="battle_start_action">Start battle</string>
+    <string name="battle_started_title">Battle started</string>
+    <string name="battle_started_body">The battle handoff is ready for the next contour.</string>
 </resources>

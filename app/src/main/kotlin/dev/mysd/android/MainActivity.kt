@@ -27,11 +27,17 @@ class MainActivity : ComponentActivity() {
         setContent {
             val session = remember { AcceptedCampaignFixture.createSession(runSave = runSave) }
             var snapshot by remember { mutableStateOf(session.snapshot()) }
+            var battleSetup by remember { mutableStateOf(session.battleSetupSnapshot()) }
 
             MySDTheme(dynamicColor = false) {
                 CampaignScreen(
                     state = snapshot,
-                    onIntent = { intent -> snapshot = session.submit(intent) },
+                    battleSetup = battleSetup,
+                    onIntent = { intent ->
+                        session.submit(intent)
+                        snapshot = session.snapshot()
+                        battleSetup = session.battleSetupSnapshot()
+                    },
                 )
             }
         }
