@@ -16,6 +16,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.window.DialogProperties
 import dev.mysd.android.R
 import dev.mysd.android.ui.theme.LocalSpacing
+import dev.mysd.game.battle.ActiveBattleIntent
+import dev.mysd.game.battle.ActiveBattleSnapshot
+import dev.mysd.game.battle.ActiveBattleSpeedIndicator
 import dev.mysd.game.campaign.CampaignIntent
 import dev.mysd.game.campaign.CampaignRoute
 import dev.mysd.game.campaign.CampaignSnapshot
@@ -29,14 +32,18 @@ import dev.mysd.game.campaign.LevelSetupOrigin
 fun CampaignScreen(
     state: CampaignSnapshot,
     onIntent: (CampaignIntent) -> Unit,
+    onActiveBattleIntent: (ActiveBattleIntent) -> Unit = {},
     modifier: Modifier = Modifier,
     battleSetup: BattleSetupSnapshot? = null,
+    activeBattle: ActiveBattleSnapshot? = null,
 ) {
     CampaignScreenContent(
         state = state,
         onIntent = onIntent,
+        onActiveBattleIntent = onActiveBattleIntent,
         modifier = modifier,
         battleSetup = battleSetup,
+        activeBattle = activeBattle,
     )
 }
 
@@ -44,15 +51,25 @@ fun CampaignScreen(
 fun CampaignScreenContent(
     state: CampaignSnapshot,
     onIntent: (CampaignIntent) -> Unit,
+    onActiveBattleIntent: (ActiveBattleIntent) -> Unit = {},
     modifier: Modifier = Modifier,
     battleSetup: BattleSetupSnapshot? = null,
+    activeBattle: ActiveBattleSnapshot? = null,
 ) {
     val battleStart = state.battleStart
     if (battleStart != null) {
-        BattleStartContent(
-            transition = battleStart,
-            modifier = modifier,
-        )
+        if (activeBattle != null) {
+            ActiveBattleContent(
+                state = activeBattle,
+                onIntent = onActiveBattleIntent,
+                modifier = modifier,
+            )
+        } else {
+            BattleStartContent(
+                transition = battleStart,
+                modifier = modifier,
+            )
+        }
     } else {
         when (state.route) {
             CampaignRoute.CLEAN_LAUNCH -> CampaignRouteContent(
@@ -98,6 +115,91 @@ fun CampaignScreenContent(
             onCancel = { onIntent(CampaignIntent.CancelUnfinishedRun) },
             onContinue = { onIntent(CampaignIntent.ContinueUnfinishedRun) },
         )
+    }
+}
+
+@Composable
+fun ActiveBattleContent(
+    state: ActiveBattleSnapshot,
+    onIntent: (ActiveBattleIntent) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val spacing = LocalSpacing.current
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(spacing.l),
+        verticalArrangement = Arrangement.spacedBy(spacing.m, Alignment.CenterVertically),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = stringResource(R.string.active_battle_title),
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        Text(
+            text = stringResource(R.string.active_battle_stage, stageTitle(state.stageId)),
+            style = MaterialTheme.typography.bodyLarge,
+        )
+        Text(
+            text = stringResource(R.string.active_battle_wave, state.waveNumber, state.wavesTotal),
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.secondary,
+        )
+        if (state.baseVisible) {
+            Text(
+                text = stringResource(R.string.active_battle_base_visible),
+                style = MaterialTheme.typography.bodyLarge,
+            )
+        }
+        if (state.enemyEntitiesVisible) {
+            Text(
+                text = stringResource(
+                    R.string.active_battle_enemies_visible,
+                    state.enemyEntityIds.size,
+                ),
+                style = MaterialTheme.typography.bodyLarge,
+            )
+        }
+        if (state.speedAffordanceVisible) {
+            Button(onClick = { onIntent(ActiveBattleIntent.ChangeSpeed) }) {
+                Text(
+                    text = stringResource(
+                        R.string.active_battle_speed,
+                        speedIndicatorLabel(state.speedIndicator),
+                    ),
+                    style = MaterialTheme.typography.labelLarge,
+                )
+            }
+        }
+        if (state.pauseResumeAffordanceVisible) {
+            Button(onClick = { onIntent(ActiveBattleIntent.PauseOrResume) }) {
+                Text(
+                    text = stringResource(
+                        if (state.paused) {
+                            R.string.active_battle_resume_action
+                        } else {
+                            R.string.active_battle_pause_action
+                        },
+                    ),
+                    style = MaterialTheme.typography.labelLarge,
+                )
+            }
+        }
+        if (state.buildAffordanceVisible) {
+            Button(onClick = { onIntent(ActiveBattleIntent.SelectBuildAffordance) }) {
+                Text(
+                    text = stringResource(
+                        if (state.buildAffordanceSelected) {
+                            R.string.active_battle_build_selected
+                        } else {
+                            R.string.active_battle_build_action
+                        },
+                    ),
+                    style = MaterialTheme.typography.labelLarge,
+                )
+            }
+        }
     }
 }
 
@@ -334,4 +436,10 @@ private fun choiceLabel(choice: BattleSetupChoice): String = when (choice) {
     BattleSetupChoice.OPTION_A -> stringResource(R.string.battle_setup_choice_a)
     BattleSetupChoice.OPTION_B -> stringResource(R.string.battle_setup_choice_b)
     BattleSetupChoice.OPTION_C -> stringResource(R.string.battle_setup_choice_c)
+}
+
+@Composable
+private fun speedIndicatorLabel(indicator: ActiveBattleSpeedIndicator): String = when (indicator) {
+    ActiveBattleSpeedIndicator.DEFAULT -> stringResource(R.string.active_battle_speed_default)
+    ActiveBattleSpeedIndicator.ALTERNATE -> stringResource(R.string.active_battle_speed_alternate)
 }

@@ -1,5 +1,8 @@
 package dev.mysd.game.campaign
 
+import dev.mysd.game.battle.ActiveBattleIntent
+import dev.mysd.game.battle.ActiveBattleSession
+import dev.mysd.game.battle.ActiveBattleSnapshot
 import dev.mysd.game.persistence.RunSave
 
 @JvmInline
@@ -71,6 +74,7 @@ class CampaignSession(
     private val stages = acceptedStageIds.toList()
 
     private var battleSetupSession: BattleSetupSession? = null
+    private var activeBattleSession: ActiveBattleSession? = null
 
     private var state = CampaignSnapshot(
         route = CampaignRoute.CLEAN_LAUNCH,
@@ -92,6 +96,12 @@ class CampaignSession(
 
     /** Immutable setup snapshot for the selected stage, if level setup has been opened. */
     fun battleSetupSnapshot(): BattleSetupSnapshot? = battleSetupSession?.snapshot()
+
+    /** Immutable active-battle snapshot after the deterministic setup handoff, if started. */
+    fun activeBattleSnapshot(): ActiveBattleSnapshot? = activeBattleSession?.snapshot()
+
+    /** Routes touch-to-command input to the authoritative active-battle session. */
+    fun submit(intent: ActiveBattleIntent): ActiveBattleSnapshot? = activeBattleSession?.submit(intent)
 
     fun submit(intent: CampaignIntent): CampaignSnapshot {
         when (intent) {
@@ -140,6 +150,10 @@ class CampaignSession(
                 stageId = requireNotNull(state.selectedStageId),
                 selectedChoice = setup.selectedChoice,
             ),
+        )
+        activeBattleSession = ActiveBattleSession(
+            stageId = requireNotNull(state.selectedStageId),
+            selectedSetupChoice = setup.selectedChoice,
         )
     }
 

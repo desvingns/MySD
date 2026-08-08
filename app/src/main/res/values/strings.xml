@@ -26,4 +26,16 @@
     <string name="battle_start_action">Start battle</string>
     <string name="battle_started_title">Battle started</string>
     <string name="battle_started_body">The battle handoff is ready for the next contour.</string>
+    <string name="active_battle_title">Active battle</string>
+    <string name="active_battle_stage">Stage: %1$s</string>
+    <string name="active_battle_wave">Wave %1$d of %2$d</string>
+    <string name="active_battle_base_visible">Ember Core base visible</string>
+    <string name="active_battle_enemies_visible">Ash Runner enemies visible: %1$d</string>
+    <string name="active_battle_speed">Speed: %1$s</string>
+    <string name="active_battle_speed_default">default</string>
+    <string name="active_battle_speed_alternate">alternate</string>
+    <string name="active_battle_pause_action">Pause battle</string>
+    <string name="active_battle_resume_action">Resume battle</string>
+    <string name="active_battle_build_action">Select build</string>
+    <string name="active_battle_build_selected">Build selected</string>
 </resources>

@@ -10,6 +10,7 @@ import androidx.compose.runtime.setValue
 import dev.mysd.android.campaign.CampaignScreen
 import dev.mysd.android.persistence.AndroidRunSaveStorage
 import dev.mysd.android.ui.theme.MySDTheme
+import dev.mysd.game.battle.ActiveBattleIntent
 import dev.mysd.game.campaign.AcceptedCampaignFixture
 import dev.mysd.game.persistence.PersistenceException
 import dev.mysd.game.persistence.RunSaveCodec
@@ -28,15 +29,22 @@ class MainActivity : ComponentActivity() {
             val session = remember { AcceptedCampaignFixture.createSession(runSave = runSave) }
             var snapshot by remember { mutableStateOf(session.snapshot()) }
             var battleSetup by remember { mutableStateOf(session.battleSetupSnapshot()) }
+            var activeBattle by remember { mutableStateOf(session.activeBattleSnapshot()) }
 
             MySDTheme(dynamicColor = false) {
                 CampaignScreen(
                     state = snapshot,
                     battleSetup = battleSetup,
+                    activeBattle = activeBattle,
                     onIntent = { intent ->
                         session.submit(intent)
                         snapshot = session.snapshot()
                         battleSetup = session.battleSetupSnapshot()
+                        activeBattle = session.activeBattleSnapshot()
+                    },
+                    onActiveBattleIntent = { intent: ActiveBattleIntent ->
+                        session.submit(intent)
+                        activeBattle = session.activeBattleSnapshot()
                     },
                 )
             }

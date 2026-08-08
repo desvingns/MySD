@@ -1,6 +1,8 @@
 package dev.mysd.game.campaign
 
 import dev.mysd.game.simulation.ScenarioFixtureKind
+import dev.mysd.game.battle.ActiveBattleIntent
+import dev.mysd.game.battle.ActiveBattleSpeedIndicator
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -62,5 +64,26 @@ class CampaignSetupIntegrationTest {
         assertEquals(AcceptedCampaignFixture.STAGE_ID, started.battleStart?.stageId)
         assertEquals(BattleSetupChoice.OPTION_A, started.battleStart?.selectedChoice)
         assertEquals(ScenarioFixtureKind.ACTIVE_WAVE.stableId, started.battleStart?.nextFixtureId)
+    }
+
+    @Test
+    fun `start battle creates an active snapshot and routes active commands`() {
+        val session = AcceptedCampaignFixture.createSession(runSave = null)
+
+        session.submit(CampaignIntent.EnterCampaign)
+        session.submit(CampaignIntent.SelectLevel(AcceptedCampaignFixture.STAGE_ID))
+        session.submit(CampaignIntent.SelectInitialOption(BattleSetupChoice.OPTION_B))
+        session.submit(CampaignIntent.ContinueTutorialSetup)
+        session.submit(CampaignIntent.StartBattle)
+
+        val started = assertNotNull(session.activeBattleSnapshot())
+        assertEquals(AcceptedCampaignFixture.STAGE_ID, started.stageId)
+        assertEquals(BattleSetupChoice.OPTION_B, started.selectedSetupChoice)
+        assertEquals(1, started.waveNumber)
+        assertEquals(5, started.wavesTotal)
+
+        val changed = assertNotNull(session.submit(ActiveBattleIntent.ChangeSpeed))
+        assertEquals(ActiveBattleSpeedIndicator.ALTERNATE, changed.speedIndicator)
+        assertEquals(changed, session.activeBattleSnapshot())
     }
 }
