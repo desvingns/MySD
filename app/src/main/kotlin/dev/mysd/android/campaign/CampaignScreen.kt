@@ -141,11 +141,13 @@ fun ActiveBattleContent(
             text = stringResource(R.string.active_battle_stage, stageTitle(state.stageId)),
             style = MaterialTheme.typography.bodyLarge,
         )
-        Text(
-            text = stringResource(R.string.active_battle_wave, state.waveNumber, state.wavesTotal),
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.secondary,
-        )
+        if (state.waveActive) {
+            Text(
+                text = stringResource(R.string.active_battle_wave_activity),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.secondary,
+            )
+        }
         if (state.baseVisible) {
             Text(
                 text = stringResource(R.string.active_battle_base_visible),

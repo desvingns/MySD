@@ -13,8 +13,7 @@ data class ActiveBattleSnapshot(
     val stageId: CampaignStageId,
     val fixtureId: String,
     val selectedSetupChoice: BattleSetupChoice?,
-    val waveNumber: Int,
-    val wavesTotal: Int,
+    val waveActive: Boolean,
     val baseVisible: Boolean,
     val enemyEntitiesVisible: Boolean,
     val enemyEntityIds: List<String>,
@@ -29,8 +28,7 @@ data class ActiveBattleSnapshot(
         require(fixtureId == ScenarioFixtureKind.ACTIVE_WAVE.stableId) {
             "Active battle must use the accepted active-wave fixture."
         }
-        require(waveNumber > 0) { "Active battle wave number must be positive." }
-        require(wavesTotal >= waveNumber) { "Active battle wave must be within the visible wave contour." }
+        require(waveActive) { "Active battle must expose wave activity." }
         require(enemyEntityIds.isNotEmpty()) { "Active battle requires a visible enemy contour." }
     }
 }
@@ -58,8 +56,7 @@ class ActiveBattleSession(
         stageId = stageId,
         fixtureId = ScenarioFixtureKind.ACTIVE_WAVE.stableId,
         selectedSetupChoice = selectedSetupChoice,
-        waveNumber = 1,
-        wavesTotal = 5,
+        waveActive = true,
         baseVisible = true,
         enemyEntitiesVisible = true,
         enemyEntityIds = listOf("ash-runner"),

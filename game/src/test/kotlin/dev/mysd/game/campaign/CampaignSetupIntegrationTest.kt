@@ -79,8 +79,7 @@ class CampaignSetupIntegrationTest {
         val started = assertNotNull(session.activeBattleSnapshot())
         assertEquals(AcceptedCampaignFixture.STAGE_ID, started.stageId)
         assertEquals(BattleSetupChoice.OPTION_B, started.selectedSetupChoice)
-        assertEquals(1, started.waveNumber)
-        assertEquals(5, started.wavesTotal)
+        assertTrue(started.waveActive)
 
         val changed = assertNotNull(session.submit(ActiveBattleIntent.ChangeSpeed))
         assertEquals(ActiveBattleSpeedIndicator.ALTERNATE, changed.speedIndicator)

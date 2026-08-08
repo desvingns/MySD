@@ -17,8 +17,7 @@ class ActiveBattleSessionTest {
         ).snapshot()
 
         assertEquals("fixture_early_wave", snapshot.fixtureId)
-        assertEquals(1, snapshot.waveNumber)
-        assertEquals(5, snapshot.wavesTotal)
+        assertTrue(snapshot.waveActive)
         assertTrue(snapshot.baseVisible)
         assertTrue(snapshot.enemyEntitiesVisible)
         assertEquals(listOf("ash-runner"), snapshot.enemyEntityIds)
@@ -38,8 +37,7 @@ class ActiveBattleSessionTest {
         val alternate = session.submit(ActiveBattleIntent.ChangeSpeed)
 
         assertEquals(ActiveBattleSpeedIndicator.ALTERNATE, alternate.speedIndicator)
-        assertEquals(before.waveNumber, alternate.waveNumber)
-        assertEquals(before.wavesTotal, alternate.wavesTotal)
+        assertEquals(before.waveActive, alternate.waveActive)
         assertEquals(before.baseVisible, alternate.baseVisible)
         assertEquals(before.enemyEntityIds, alternate.enemyEntityIds)
         assertNotEquals(before.speedIndicator, alternate.speedIndicator)
@@ -55,8 +53,8 @@ class ActiveBattleSessionTest {
 
         assertTrue(paused.paused)
         assertFalse(resumed.paused)
-        assertEquals(before.waveNumber, paused.waveNumber)
-        assertEquals(before.waveNumber, resumed.waveNumber)
+        assertEquals(before.waveActive, paused.waveActive)
+        assertEquals(before.waveActive, resumed.waveActive)
         assertEquals(before.baseVisible, paused.baseVisible)
         assertEquals(before.enemyEntitiesVisible, paused.enemyEntitiesVisible)
     }
@@ -71,8 +69,7 @@ class ActiveBattleSessionTest {
         assertTrue(selected.buildAffordanceVisible)
         assertTrue(selected.buildAffordanceSelected)
         assertEquals(selected, repeated)
-        assertEquals(1, selected.waveNumber)
-        assertEquals(5, selected.wavesTotal)
+        assertTrue(selected.waveActive)
         assertTrue(selected.baseVisible)
         assertTrue(selected.enemyEntitiesVisible)
     }
