@@ -59,7 +59,10 @@ class EnhancementSession(
         stageId = stageId,
         fixtureId = ScenarioFixtureKind.ENHANCEMENT_CHOICE.stableId,
         selectedSetupChoice = selectedSetupChoice,
-        offers = listOf(EnhancementOffer(OriginalContentIds.FOUNDATION_ENHANCEMENT)),
+        offers = listOf(
+            EnhancementOffer(OriginalContentIds.FOUNDATION_ENHANCEMENT),
+            EnhancementOffer(OriginalContentIds.FOUNDATION_ENHANCEMENT_EMBER_WARD),
+        ),
         allFilterVisible = true,
         refreshAffordanceVisible = true,
         refreshRevision = 0,

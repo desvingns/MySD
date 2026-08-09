@@ -7,6 +7,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class CampaignEnhancementIntegrationTest {
@@ -26,20 +27,48 @@ class CampaignEnhancementIntegrationTest {
         assertTrue(enhancement.refreshAffordanceVisible)
         assertFalse(enhancement.returnToBattle)
 
+        val repeatedOpen = assertNotNull(session.submit(ActiveBattleIntent.OpenEnhancement))
+        assertEquals(open, repeatedOpen)
+        assertEquals(enhancement, session.enhancementSnapshot())
+
         val refreshed = assertNotNull(session.submit(EnhancementIntent.RefreshOffers))
         assertEquals(1, refreshed.refreshRevision)
+        val repeatedOpenAfterRefresh = assertNotNull(
+            session.submit(ActiveBattleIntent.OpenEnhancement),
+        )
+        assertEquals(refreshed, session.enhancementSnapshot())
+        assertEquals(refreshed.refreshRevision, session.enhancementSnapshot()?.refreshRevision)
+        assertEquals(refreshed.selectedOfferId, session.enhancementSnapshot()?.selectedOfferId)
+        assertEquals(open, repeatedOpenAfterRefresh)
+
         val selected = assertNotNull(
             session.submit(
-                EnhancementIntent.SelectOffer(OriginalContentIds.FOUNDATION_ENHANCEMENT),
+                EnhancementIntent.SelectOffer(
+                    OriginalContentIds.FOUNDATION_ENHANCEMENT_EMBER_WARD,
+                ),
             ),
         )
 
         assertTrue(selected.returnToBattle)
         assertEquals(
-            OriginalContentIds.FOUNDATION_ENHANCEMENT,
+            OriginalContentIds.FOUNDATION_ENHANCEMENT_EMBER_WARD,
             selected.selectedOfferId,
         )
         assertFalse(assertNotNull(session.activeBattleSnapshot()).enhancementChoiceVisible)
         assertEquals(selected, session.enhancementSnapshot())
+
+        val laterOpen = assertNotNull(session.submit(ActiveBattleIntent.OpenEnhancement))
+        assertTrue(laterOpen.enhancementChoiceVisible)
+        val freshEnhancement = assertNotNull(session.enhancementSnapshot())
+        assertEquals(0, freshEnhancement.refreshRevision)
+        assertEquals(
+            listOf(
+                OriginalContentIds.FOUNDATION_ENHANCEMENT,
+                OriginalContentIds.FOUNDATION_ENHANCEMENT_EMBER_WARD,
+            ),
+            freshEnhancement.offers.map { it.id },
+        )
+        assertFalse(freshEnhancement.returnToBattle)
+        assertNull(freshEnhancement.selectedOfferId)
     }
 }

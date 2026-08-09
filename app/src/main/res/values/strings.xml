@@ -46,4 +46,6 @@
     <string name="enhancement_offer_action">Select %1$s</string>
     <string name="enhancement_offer_selected">Selected %1$s</string>
     <string name="enhancement_offer_steady_pulse">Steady Pulse</string>
+    <string name="enhancement_offer_ember_ward">Ember Ward</string>
+    <string name="enhancement_offer_unknown">Available enhancement</string>
 </resources>

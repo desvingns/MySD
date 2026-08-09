@@ -109,8 +109,14 @@ class CampaignSession(
 
     /** Routes touch-to-command input to the authoritative active-battle session. */
     fun submit(intent: ActiveBattleIntent): ActiveBattleSnapshot? {
-        val activeBattle = activeBattleSession?.submit(intent) ?: return null
-        if (intent == ActiveBattleIntent.OpenEnhancement && activeBattle.enhancementChoiceVisible) {
+        val activeBattleSession = activeBattleSession ?: return null
+        val wasEnhancementChoiceVisible = activeBattleSession.snapshot().enhancementChoiceVisible
+        val activeBattle = activeBattleSession.submit(intent)
+        if (
+            intent == ActiveBattleIntent.OpenEnhancement &&
+            !wasEnhancementChoiceVisible &&
+            activeBattle.enhancementChoiceVisible
+        ) {
             enhancementSession = EnhancementSession(
                 stageId = activeBattle.stageId,
                 selectedSetupChoice = activeBattle.selectedSetupChoice,

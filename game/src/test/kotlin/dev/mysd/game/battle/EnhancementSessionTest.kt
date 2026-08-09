@@ -15,7 +15,13 @@ class EnhancementSessionTest {
         val snapshot = session().snapshot()
 
         assertEquals("fixture_enhancement_choice", snapshot.fixtureId)
-        assertEquals(listOf(OriginalContentIds.FOUNDATION_ENHANCEMENT), snapshot.offers.map { it.id })
+        assertEquals(
+            listOf(
+                OriginalContentIds.FOUNDATION_ENHANCEMENT,
+                OriginalContentIds.FOUNDATION_ENHANCEMENT_EMBER_WARD,
+            ),
+            snapshot.offers.map { it.id },
+        )
         assertTrue(snapshot.allFilterVisible)
         assertTrue(snapshot.refreshAffordanceVisible)
         assertEquals(0, snapshot.refreshRevision)
@@ -34,7 +40,10 @@ class EnhancementSessionTest {
         assertEquals(firstSnapshot, secondSnapshot)
         assertEquals(1, firstSnapshot.refreshRevision)
         assertEquals(
-            listOf(OriginalContentIds.FOUNDATION_ENHANCEMENT),
+            listOf(
+                OriginalContentIds.FOUNDATION_ENHANCEMENT,
+                OriginalContentIds.FOUNDATION_ENHANCEMENT_EMBER_WARD,
+            ),
             firstSnapshot.offers.map { it.id },
         )
         assertNull(firstSnapshot.selectedOfferId)

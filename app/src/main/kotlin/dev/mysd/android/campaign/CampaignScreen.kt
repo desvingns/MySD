@@ -30,6 +30,7 @@ import dev.mysd.game.campaign.BattleSetupChoice
 import dev.mysd.game.campaign.BattleSetupSnapshot
 import dev.mysd.game.campaign.BattleStartTransition
 import dev.mysd.game.campaign.LevelSetupOrigin
+import dev.mysd.game.content.OriginalContentIds
 
 @Composable
 fun CampaignScreen(
@@ -543,9 +544,13 @@ private fun speedIndicatorLabel(indicator: ActiveBattleSpeedIndicator): String =
 
 @Composable
 private fun enhancementLabel(offer: EnhancementOffer): String = when (offer.id) {
-    dev.mysd.game.content.OriginalContentIds.FOUNDATION_ENHANCEMENT -> {
+    OriginalContentIds.FOUNDATION_ENHANCEMENT -> {
         stringResource(R.string.enhancement_offer_steady_pulse)
     }
 
-    else -> offer.id.value
+    OriginalContentIds.FOUNDATION_ENHANCEMENT_EMBER_WARD -> {
+        stringResource(R.string.enhancement_offer_ember_ward)
+    }
+
+    else -> stringResource(R.string.enhancement_offer_unknown)
 }
