@@ -11,6 +11,7 @@ import dev.mysd.android.campaign.CampaignScreen
 import dev.mysd.android.persistence.AndroidRunSaveStorage
 import dev.mysd.android.ui.theme.MySDTheme
 import dev.mysd.game.battle.ActiveBattleIntent
+import dev.mysd.game.battle.EnhancementIntent
 import dev.mysd.game.campaign.AcceptedCampaignFixture
 import dev.mysd.game.persistence.PersistenceException
 import dev.mysd.game.persistence.RunSaveCodec
@@ -30,6 +31,7 @@ class MainActivity : ComponentActivity() {
             var snapshot by remember { mutableStateOf(session.snapshot()) }
             var battleSetup by remember { mutableStateOf(session.battleSetupSnapshot()) }
             var activeBattle by remember { mutableStateOf(session.activeBattleSnapshot()) }
+            var enhancement by remember { mutableStateOf(session.enhancementSnapshot()) }
 
             MySDTheme(dynamicColor = false) {
                 CampaignScreen(
@@ -41,11 +43,21 @@ class MainActivity : ComponentActivity() {
                         snapshot = session.snapshot()
                         battleSetup = session.battleSetupSnapshot()
                         activeBattle = session.activeBattleSnapshot()
+                        enhancement = session.enhancementSnapshot()
                     },
                     onActiveBattleIntent = { intent: ActiveBattleIntent ->
                         session.submit(intent)
+                        snapshot = session.snapshot()
                         activeBattle = session.activeBattleSnapshot()
+                        enhancement = session.enhancementSnapshot()
                     },
+                    onEnhancementIntent = { intent: EnhancementIntent ->
+                        session.submit(intent)
+                        snapshot = session.snapshot()
+                        activeBattle = session.activeBattleSnapshot()
+                        enhancement = session.enhancementSnapshot()
+                    },
+                    enhancement = enhancement,
                 )
             }
         }

@@ -3,6 +3,9 @@ package dev.mysd.game.campaign
 import dev.mysd.game.battle.ActiveBattleIntent
 import dev.mysd.game.battle.ActiveBattleSession
 import dev.mysd.game.battle.ActiveBattleSnapshot
+import dev.mysd.game.battle.EnhancementIntent
+import dev.mysd.game.battle.EnhancementSession
+import dev.mysd.game.battle.EnhancementSnapshot
 import dev.mysd.game.persistence.RunSave
 
 @JvmInline
@@ -75,6 +78,7 @@ class CampaignSession(
 
     private var battleSetupSession: BattleSetupSession? = null
     private var activeBattleSession: ActiveBattleSession? = null
+    private var enhancementSession: EnhancementSession? = null
 
     private var state = CampaignSnapshot(
         route = CampaignRoute.CLEAN_LAUNCH,
@@ -100,8 +104,30 @@ class CampaignSession(
     /** Immutable active-battle snapshot after the deterministic setup handoff, if started. */
     fun activeBattleSnapshot(): ActiveBattleSnapshot? = activeBattleSession?.snapshot()
 
+    /** Immutable enhancement snapshot after the enhancement-choice surface is opened, if any. */
+    fun enhancementSnapshot(): EnhancementSnapshot? = enhancementSession?.snapshot()
+
     /** Routes touch-to-command input to the authoritative active-battle session. */
-    fun submit(intent: ActiveBattleIntent): ActiveBattleSnapshot? = activeBattleSession?.submit(intent)
+    fun submit(intent: ActiveBattleIntent): ActiveBattleSnapshot? {
+        val activeBattle = activeBattleSession?.submit(intent) ?: return null
+        if (intent == ActiveBattleIntent.OpenEnhancement && activeBattle.enhancementChoiceVisible) {
+            enhancementSession = EnhancementSession(
+                stageId = activeBattle.stageId,
+                selectedSetupChoice = activeBattle.selectedSetupChoice,
+            )
+        }
+        return activeBattle
+    }
+
+    /** Routes enhancement input into :game and returns to active battle after selection. */
+    fun submit(intent: EnhancementIntent): EnhancementSnapshot? {
+        val enhancement = enhancementSession ?: return null
+        val snapshot = enhancement.submit(intent)
+        if (snapshot.returnToBattle) {
+            activeBattleSession?.returnToBattle()
+        }
+        return snapshot
+    }
 
     fun submit(intent: CampaignIntent): CampaignSnapshot {
         when (intent) {

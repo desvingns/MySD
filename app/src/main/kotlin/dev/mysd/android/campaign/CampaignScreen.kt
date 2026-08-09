@@ -19,6 +19,9 @@ import dev.mysd.android.ui.theme.LocalSpacing
 import dev.mysd.game.battle.ActiveBattleIntent
 import dev.mysd.game.battle.ActiveBattleSnapshot
 import dev.mysd.game.battle.ActiveBattleSpeedIndicator
+import dev.mysd.game.battle.EnhancementIntent
+import dev.mysd.game.battle.EnhancementOffer
+import dev.mysd.game.battle.EnhancementSnapshot
 import dev.mysd.game.campaign.CampaignIntent
 import dev.mysd.game.campaign.CampaignRoute
 import dev.mysd.game.campaign.CampaignSnapshot
@@ -33,17 +36,21 @@ fun CampaignScreen(
     state: CampaignSnapshot,
     onIntent: (CampaignIntent) -> Unit,
     onActiveBattleIntent: (ActiveBattleIntent) -> Unit = {},
+    onEnhancementIntent: (EnhancementIntent) -> Unit = {},
     modifier: Modifier = Modifier,
     battleSetup: BattleSetupSnapshot? = null,
     activeBattle: ActiveBattleSnapshot? = null,
+    enhancement: EnhancementSnapshot? = null,
 ) {
     CampaignScreenContent(
         state = state,
         onIntent = onIntent,
         onActiveBattleIntent = onActiveBattleIntent,
+        onEnhancementIntent = onEnhancementIntent,
         modifier = modifier,
         battleSetup = battleSetup,
         activeBattle = activeBattle,
+        enhancement = enhancement,
     )
 }
 
@@ -52,13 +59,21 @@ fun CampaignScreenContent(
     state: CampaignSnapshot,
     onIntent: (CampaignIntent) -> Unit,
     onActiveBattleIntent: (ActiveBattleIntent) -> Unit = {},
+    onEnhancementIntent: (EnhancementIntent) -> Unit = {},
     modifier: Modifier = Modifier,
     battleSetup: BattleSetupSnapshot? = null,
     activeBattle: ActiveBattleSnapshot? = null,
+    enhancement: EnhancementSnapshot? = null,
 ) {
     val battleStart = state.battleStart
     if (battleStart != null) {
-        if (activeBattle != null) {
+        if (enhancement != null && !enhancement.returnToBattle) {
+            EnhancementContent(
+                state = enhancement,
+                onIntent = onEnhancementIntent,
+                modifier = modifier,
+            )
+        } else if (activeBattle != null) {
             ActiveBattleContent(
                 state = activeBattle,
                 onIntent = onActiveBattleIntent,
@@ -202,6 +217,86 @@ fun ActiveBattleContent(
                 )
             }
         }
+        if (state.enhancementAffordanceVisible && !state.enhancementChoiceVisible) {
+            Button(onClick = { onIntent(ActiveBattleIntent.OpenEnhancement) }) {
+                Text(
+                    text = stringResource(R.string.active_battle_enhancement_action),
+                    style = MaterialTheme.typography.labelLarge,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun EnhancementContent(
+    state: EnhancementSnapshot,
+    onIntent: (EnhancementIntent) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val spacing = LocalSpacing.current
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(spacing.l),
+        verticalArrangement = Arrangement.spacedBy(spacing.m, Alignment.CenterVertically),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = stringResource(R.string.enhancement_title),
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        Text(
+            text = stringResource(R.string.enhancement_body),
+            style = MaterialTheme.typography.bodyLarge,
+        )
+        if (state.allFilterVisible) {
+            Text(
+                text = stringResource(R.string.enhancement_filter_all),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.secondary,
+            )
+        }
+        state.offers.forEach { offer ->
+            EnhancementOfferContent(
+                offer = offer,
+                selected = state.selectedOfferId == offer.id,
+                onSelect = { onIntent(EnhancementIntent.SelectOffer(offer.id)) },
+            )
+        }
+        if (state.refreshAffordanceVisible) {
+            Button(onClick = { onIntent(EnhancementIntent.RefreshOffers) }) {
+                Text(
+                    text = stringResource(
+                        R.string.enhancement_refresh_action,
+                        state.refreshRevision,
+                    ),
+                    style = MaterialTheme.typography.labelLarge,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun EnhancementOfferContent(
+    offer: EnhancementOffer,
+    selected: Boolean,
+    onSelect: () -> Unit,
+) {
+    Button(onClick = onSelect) {
+        Text(
+            text = stringResource(
+                if (selected) {
+                    R.string.enhancement_offer_selected
+                } else {
+                    R.string.enhancement_offer_action
+                },
+                enhancementLabel(offer),
+            ),
+            style = MaterialTheme.typography.labelLarge,
+        )
     }
 }
 
@@ -444,4 +539,13 @@ private fun choiceLabel(choice: BattleSetupChoice): String = when (choice) {
 private fun speedIndicatorLabel(indicator: ActiveBattleSpeedIndicator): String = when (indicator) {
     ActiveBattleSpeedIndicator.DEFAULT -> stringResource(R.string.active_battle_speed_default)
     ActiveBattleSpeedIndicator.ALTERNATE -> stringResource(R.string.active_battle_speed_alternate)
+}
+
+@Composable
+private fun enhancementLabel(offer: EnhancementOffer): String = when (offer.id) {
+    dev.mysd.game.content.OriginalContentIds.FOUNDATION_ENHANCEMENT -> {
+        stringResource(R.string.enhancement_offer_steady_pulse)
+    }
+
+    else -> offer.id.value
 }

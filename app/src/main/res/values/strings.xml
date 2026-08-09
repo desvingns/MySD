@@ -38,4 +38,12 @@
     <string name="active_battle_resume_action">Resume battle</string>
     <string name="active_battle_build_action">Select build</string>
     <string name="active_battle_build_selected">Build selected</string>
+    <string name="active_battle_enhancement_action">Open enhancements</string>
+    <string name="enhancement_title">Enhancements</string>
+    <string name="enhancement_body">Choose an available enhancement for this battle.</string>
+    <string name="enhancement_filter_all">Filter: All</string>
+    <string name="enhancement_refresh_action">Refresh offers (%1$d)</string>
+    <string name="enhancement_offer_action">Select %1$s</string>
+    <string name="enhancement_offer_selected">Selected %1$s</string>
+    <string name="enhancement_offer_steady_pulse">Steady Pulse</string>
 </resources>
