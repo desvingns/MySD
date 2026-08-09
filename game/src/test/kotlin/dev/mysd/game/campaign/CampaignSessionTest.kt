@@ -3,6 +3,9 @@ package dev.mysd.game.campaign
 import dev.mysd.game.persistence.PendingCommand
 import dev.mysd.game.persistence.RunSave
 import dev.mysd.game.persistence.RunTerminalResult
+import dev.mysd.game.meta.RosterIntent
+import dev.mysd.game.meta.RosterSettingId
+import dev.mysd.game.meta.RosterSurface
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -284,6 +287,84 @@ class CampaignSessionTest {
     }
 
     @Test
+    fun `roster opens only from campaign selection and blocks level selection`() {
+        val session = unfinishedRunSession()
+
+        assertEquals(session.snapshot(), session.submit(CampaignIntent.OpenRoster))
+        session.submit(CampaignIntent.EnterCampaign)
+        assertEquals(
+            session.snapshot(),
+            session.submit(CampaignIntent.OpenRoster),
+        )
+
+        session.submit(CampaignIntent.CancelUnfinishedRun)
+        val opened = session.submit(CampaignIntent.OpenRoster)
+
+        assertEquals(CampaignRoute.CAMPAIGN_SELECTION, opened.route)
+        assertTrue(opened.rosterOpen)
+        assertEquals(
+            RosterSurface.TROOPS,
+            session.rosterSnapshot()?.surface,
+        )
+        assertEquals(
+            opened,
+            session.submit(CampaignIntent.OpenRoster),
+        )
+        assertEquals(
+            opened,
+            session.submit(CampaignIntent.SelectLevel(acceptedStage)),
+        )
+        assertEquals(CampaignRoute.CAMPAIGN_SELECTION, session.snapshot().route)
+        assertTrue(session.snapshot().rosterOpen)
+    }
+
+    @Test
+    fun `campaign routes roster settings and clears the child session on close`() {
+        val session = CampaignSession(listOf(acceptedStage), unfinishedRun = null)
+        session.submit(CampaignIntent.EnterCampaign)
+        val opened = session.submit(CampaignIntent.OpenRoster)
+        val initialRoster = assertNotNull(session.rosterSnapshot())
+
+        val settings = session.submit(RosterIntent.OpenSettings)
+        assertEquals(RosterSurface.SETTINGS, settings?.surface)
+        assertEquals(initialRoster.troopSlots, settings?.troopSlots)
+        assertEquals(initialRoster.settings, settings?.settings)
+
+        val toggled = session.submit(RosterIntent.ToggleSetting(RosterSettingId.AUDIO))
+        assertEquals(settings, toggled)
+
+        val returnedToTroops = session.submit(RosterIntent.ConfirmSettings)
+        assertEquals(RosterSurface.TROOPS, returnedToTroops?.surface)
+        assertEquals(opened, session.snapshot())
+        assertEquals(returnedToTroops, session.rosterSnapshot())
+
+        val closed = session.submit(CampaignIntent.CloseRoster)
+        assertFalse(closed.rosterOpen)
+        assertNull(session.rosterSnapshot())
+        assertNull(session.submit(RosterIntent.OpenSettings))
+    }
+
+    @Test
+    fun `reopening roster creates a fresh child snapshot without changing campaign state`() {
+        val session = CampaignSession(listOf(acceptedStage), unfinishedRun = null)
+        session.submit(CampaignIntent.EnterCampaign)
+        session.submit(CampaignIntent.OpenRoster)
+        session.submit(RosterIntent.OpenSettings)
+        session.submit(CampaignIntent.CloseRoster)
+
+        val reopened = session.submit(CampaignIntent.OpenRoster)
+
+        assertTrue(reopened.rosterOpen)
+        assertEquals(RosterSurface.TROOPS, session.rosterSnapshot()?.surface)
+        assertEquals(
+            listOf(acceptedStage),
+            reopened.acceptedStageIds,
+        )
+        assertNull(reopened.selectedStageId)
+        assertNull(reopened.setupOrigin)
+    }
+
+    @Test
     fun `same intent sequence produces deterministic snapshots`() {
         val first = collectSnapshots(unfinishedRunSession())
         val second = collectSnapshots(unfinishedRunSession())
@@ -402,6 +483,12 @@ class CampaignSessionTest {
 
         if (snapshot.unfinishedRunPromptVisible) {
             assertEquals(CampaignRoute.CAMPAIGN_SELECTION, snapshot.route)
+        }
+
+        if (snapshot.rosterOpen) {
+            assertEquals(CampaignRoute.CAMPAIGN_SELECTION, snapshot.route)
+            assertNull(snapshot.selectedStageId)
+            assertNull(snapshot.setupOrigin)
         }
     }
 }
