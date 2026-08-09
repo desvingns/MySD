@@ -2,11 +2,14 @@ package dev.mysd.android.campaign
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -32,6 +35,12 @@ import dev.mysd.game.campaign.BattleSetupSnapshot
 import dev.mysd.game.campaign.BattleStartTransition
 import dev.mysd.game.campaign.LevelSetupOrigin
 import dev.mysd.game.content.OriginalContentIds
+import dev.mysd.game.meta.RosterIntent
+import dev.mysd.game.meta.RosterSettingId
+import dev.mysd.game.meta.RosterSettingOption
+import dev.mysd.game.meta.RosterSnapshot
+import dev.mysd.game.meta.RosterSurface
+import dev.mysd.game.meta.RosterTroopSlot
 
 @Composable
 fun CampaignScreen(
@@ -39,22 +48,26 @@ fun CampaignScreen(
     onIntent: (CampaignIntent) -> Unit,
     onActiveBattleIntent: (ActiveBattleIntent) -> Unit = {},
     onEnhancementIntent: (EnhancementIntent) -> Unit = {},
+    onRosterIntent: (RosterIntent) -> Unit = {},
     modifier: Modifier = Modifier,
     battleSetup: BattleSetupSnapshot? = null,
     activeBattle: ActiveBattleSnapshot? = null,
     enhancement: EnhancementSnapshot? = null,
     victory: VictorySnapshot? = null,
+    roster: RosterSnapshot? = null,
 ) {
     CampaignScreenContent(
         state = state,
         onIntent = onIntent,
         onActiveBattleIntent = onActiveBattleIntent,
         onEnhancementIntent = onEnhancementIntent,
+        onRosterIntent = onRosterIntent,
         modifier = modifier,
         battleSetup = battleSetup,
         activeBattle = activeBattle,
         enhancement = enhancement,
         victory = victory,
+        roster = roster,
     )
 }
 
@@ -64,11 +77,13 @@ fun CampaignScreenContent(
     onIntent: (CampaignIntent) -> Unit,
     onActiveBattleIntent: (ActiveBattleIntent) -> Unit = {},
     onEnhancementIntent: (EnhancementIntent) -> Unit = {},
+    onRosterIntent: (RosterIntent) -> Unit = {},
     modifier: Modifier = Modifier,
     battleSetup: BattleSetupSnapshot? = null,
     activeBattle: ActiveBattleSnapshot? = null,
     enhancement: EnhancementSnapshot? = null,
     victory: VictorySnapshot? = null,
+    roster: RosterSnapshot? = null,
 ) {
     val battleStart = state.battleStart
     if (battleStart != null) {
@@ -96,7 +111,14 @@ fun CampaignScreenContent(
             )
         }
     } else {
-        when (state.route) {
+        if (state.rosterOpen && roster != null) {
+            RosterContent(
+                state = roster,
+                onIntent = onRosterIntent,
+                onCloseRoster = { onIntent(CampaignIntent.CloseRoster) },
+                modifier = modifier,
+            )
+        } else when (state.route) {
             CampaignRoute.CLEAN_LAUNCH -> CampaignRouteContent(
                 title = stringResource(R.string.campaign_launch_title),
                 body = stringResource(R.string.campaign_launch_body),
@@ -109,6 +131,7 @@ fun CampaignScreenContent(
             CampaignRoute.CAMPAIGN_SELECTION -> CampaignSelectionContent(
                 stageIds = state.acceptedStageIds,
                 onSelectStage = { stageId -> onIntent(CampaignIntent.SelectLevel(stageId)) },
+                onOpenRoster = { onIntent(CampaignIntent.OpenRoster) },
                 modifier = modifier,
             )
 
@@ -464,6 +487,7 @@ private fun BattleStartContent(
 private fun CampaignSelectionContent(
     stageIds: List<CampaignStageId>,
     onSelectStage: (CampaignStageId) -> Unit,
+    onOpenRoster: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val spacing = LocalSpacing.current
@@ -479,6 +503,12 @@ private fun CampaignSelectionContent(
             style = MaterialTheme.typography.titleLarge,
             color = MaterialTheme.colorScheme.secondary,
         )
+        Button(onClick = onOpenRoster) {
+            Text(
+                text = stringResource(R.string.campaign_roster_action),
+                style = MaterialTheme.typography.labelLarge,
+            )
+        }
         stageIds.forEach { stageId ->
             Text(text = stageTitle(stageId), style = MaterialTheme.typography.titleLarge)
             Text(
@@ -491,6 +521,142 @@ private fun CampaignSelectionContent(
                     style = MaterialTheme.typography.labelLarge,
                 )
             }
+        }
+    }
+}
+
+@Composable
+fun RosterContent(
+    state: RosterSnapshot,
+    onIntent: (RosterIntent) -> Unit,
+    onCloseRoster: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val spacing = LocalSpacing.current
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(spacing.l),
+        verticalArrangement = Arrangement.spacedBy(spacing.m, Alignment.CenterVertically),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = stringResource(R.string.roster_title),
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        Text(
+            text = stringResource(R.string.roster_body),
+            style = MaterialTheme.typography.bodyLarge,
+        )
+        state.troopSlots.forEach { slot ->
+            RosterTroopContent(
+                slot = slot,
+                onUpgrade = { onIntent(RosterIntent.UpgradeTroop(slot.id)) },
+            )
+        }
+        if (state.surface == RosterSurface.TROOPS) {
+            Button(onClick = { onIntent(RosterIntent.OpenSettings) }) {
+                Text(
+                    text = stringResource(R.string.roster_settings_action),
+                    style = MaterialTheme.typography.labelLarge,
+                )
+            }
+        }
+        TextButton(onClick = onCloseRoster) {
+            Text(
+                text = stringResource(R.string.roster_close_action),
+                style = MaterialTheme.typography.labelLarge,
+            )
+        }
+    }
+
+    if (state.surface == RosterSurface.SETTINGS) {
+        AlertDialog(
+            onDismissRequest = { onIntent(RosterIntent.CloseSettings) },
+            title = {
+                Text(
+                    text = stringResource(R.string.settings_title),
+                    style = MaterialTheme.typography.titleLarge,
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(spacing.m)) {
+                    Text(
+                        text = stringResource(R.string.settings_body),
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                    state.settings.forEach { option ->
+                        RosterSettingContent(
+                            option = option,
+                            onToggle = { onIntent(RosterIntent.ToggleSetting(option.id)) },
+                        )
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { onIntent(RosterIntent.CloseSettings) }) {
+                    Text(
+                        text = stringResource(R.string.settings_close_action),
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = { onIntent(RosterIntent.ConfirmSettings) }) {
+                    Text(
+                        text = stringResource(R.string.settings_confirm_action),
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                }
+            },
+            properties = DialogProperties(
+                dismissOnBackPress = true,
+                dismissOnClickOutside = false,
+            ),
+            shape = MaterialTheme.shapes.medium,
+        )
+    }
+}
+
+@Composable
+private fun RosterTroopContent(
+    slot: RosterTroopSlot,
+    onUpgrade: () -> Unit,
+) {
+    Text(
+        text = troopLabel(slot.id),
+        style = MaterialTheme.typography.titleMedium,
+    )
+    if (slot.upgradeAffordanceVisible) {
+        Button(onClick = onUpgrade) {
+            Text(
+                text = stringResource(R.string.roster_upgrade_action),
+                style = MaterialTheme.typography.labelLarge,
+            )
+        }
+    }
+}
+
+@Composable
+private fun RosterSettingContent(
+    option: RosterSettingOption,
+    onToggle: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = settingLabel(option.id),
+            style = MaterialTheme.typography.bodyLarge,
+        )
+        if (option.toggleAffordanceVisible) {
+            Switch(
+                checked = false,
+                onCheckedChange = { onToggle() },
+            )
         }
     }
 }
@@ -606,4 +772,16 @@ private fun enhancementLabel(offer: EnhancementOffer): String = when (offer.id) 
     }
 
     else -> stringResource(R.string.enhancement_offer_unknown)
+}
+
+@Composable
+private fun troopLabel(id: dev.mysd.game.content.ContentId): String = when (id) {
+    OriginalContentIds.FOUNDATION_UNIT -> stringResource(R.string.roster_troop_bright_mote)
+    else -> stringResource(R.string.roster_troop_unknown)
+}
+
+@Composable
+private fun settingLabel(id: RosterSettingId): String = when (id) {
+    RosterSettingId.AUDIO -> stringResource(R.string.settings_audio_option)
+    RosterSettingId.HAPTICS -> stringResource(R.string.settings_haptics_option)
 }

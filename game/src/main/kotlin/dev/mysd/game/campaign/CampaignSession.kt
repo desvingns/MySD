@@ -9,6 +9,9 @@ import dev.mysd.game.battle.EnhancementSnapshot
 import dev.mysd.game.battle.VictorySession
 import dev.mysd.game.battle.VictorySnapshot
 import dev.mysd.game.content.ContentId
+import dev.mysd.game.meta.RosterIntent
+import dev.mysd.game.meta.RosterSession
+import dev.mysd.game.meta.RosterSnapshot
 import dev.mysd.game.persistence.RunSave
 
 @JvmInline
@@ -45,6 +48,7 @@ data class CampaignSnapshot(
     val setupOrigin: LevelSetupOrigin?,
     val unfinishedRunPromptVisible: Boolean,
     val battleStart: BattleStartTransition? = null,
+    val rosterOpen: Boolean = false,
 )
 
 sealed interface CampaignIntent {
@@ -65,6 +69,10 @@ sealed interface CampaignIntent {
     data object ContinueTutorialSetup : CampaignIntent
 
     data object StartBattle : CampaignIntent
+
+    data object OpenRoster : CampaignIntent
+
+    data object CloseRoster : CampaignIntent
 }
 
 /**
@@ -83,6 +91,7 @@ class CampaignSession(
     private var activeBattleSession: ActiveBattleSession? = null
     private var enhancementSession: EnhancementSession? = null
     private var victorySession: VictorySession? = null
+    private var rosterSession: RosterSession? = null
     private var selectedEnhancementId: ContentId? = null
 
     private var state = CampaignSnapshot(
@@ -114,6 +123,9 @@ class CampaignSession(
 
     /** Immutable victory/reward-panel snapshot after the deterministic local handoff, if resolved. */
     fun victorySnapshot(): VictorySnapshot? = victorySession?.snapshot()
+
+    /** Immutable roster/settings snapshot after the accepted troops route is opened, if any. */
+    fun rosterSnapshot(): RosterSnapshot? = rosterSession?.snapshot()
 
     /** Routes touch-to-command input to the authoritative active-battle session. */
     fun submit(intent: ActiveBattleIntent): ActiveBattleSnapshot? {
@@ -158,6 +170,12 @@ class CampaignSession(
         return snapshot
     }
 
+    /** Routes roster and local-settings input into the Android-free roster session. */
+    fun submit(intent: RosterIntent): RosterSnapshot? {
+        if (!state.rosterOpen) return rosterSession?.snapshot()
+        return rosterSession?.submit(intent)
+    }
+
     fun submit(intent: CampaignIntent): CampaignSnapshot {
         when (intent) {
             is CampaignIntent.SelectInitialOption -> {
@@ -184,6 +202,11 @@ class CampaignSession(
                     battleSetupSession = BattleSetupSession(requireNotNull(state.selectedStageId))
                 } else if (state.route != CampaignRoute.LEVEL_SETUP) {
                     battleSetupSession = null
+                }
+                if (state.rosterOpen && !previous.rosterOpen) {
+                    rosterSession = RosterSession()
+                } else if (!state.rosterOpen) {
+                    rosterSession = null
                 }
             }
         }
@@ -228,6 +251,7 @@ class CampaignSession(
             if (
                 current.route != CampaignRoute.CAMPAIGN_SELECTION ||
                 current.unfinishedRunPromptVisible ||
+                current.rosterOpen ||
                 intent.stageId !in stages
             ) {
                 current
@@ -247,6 +271,22 @@ class CampaignSession(
             if (!current.unfinishedRunPromptVisible || run == null) current else {
                 current.toLevelSetup(run.stageId, LevelSetupOrigin.UNFINISHED_RUN)
             }
+        }
+
+        CampaignIntent.OpenRoster -> if (
+            current.route == CampaignRoute.CAMPAIGN_SELECTION &&
+                !current.unfinishedRunPromptVisible &&
+                !current.rosterOpen
+        ) {
+            current.copy(rosterOpen = true)
+        } else {
+            current
+        }
+
+        CampaignIntent.CloseRoster -> if (current.rosterOpen) {
+            current.copy(rosterOpen = false)
+        } else {
+            current
         }
 
         is CampaignIntent.SelectInitialOption,

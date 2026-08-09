@@ -13,6 +13,7 @@ import dev.mysd.android.ui.theme.MySDTheme
 import dev.mysd.game.battle.ActiveBattleIntent
 import dev.mysd.game.battle.EnhancementIntent
 import dev.mysd.game.campaign.AcceptedCampaignFixture
+import dev.mysd.game.meta.RosterIntent
 import dev.mysd.game.persistence.PersistenceException
 import dev.mysd.game.persistence.RunSaveCodec
 
@@ -33,6 +34,7 @@ class MainActivity : ComponentActivity() {
             var activeBattle by remember { mutableStateOf(session.activeBattleSnapshot()) }
             var enhancement by remember { mutableStateOf(session.enhancementSnapshot()) }
             var victory by remember { mutableStateOf(session.victorySnapshot()) }
+            var roster by remember { mutableStateOf(session.rosterSnapshot()) }
 
             MySDTheme(dynamicColor = false) {
                 CampaignScreen(
@@ -46,6 +48,7 @@ class MainActivity : ComponentActivity() {
                         activeBattle = session.activeBattleSnapshot()
                         enhancement = session.enhancementSnapshot()
                         victory = session.victorySnapshot()
+                        roster = session.rosterSnapshot()
                     },
                     onActiveBattleIntent = { intent: ActiveBattleIntent ->
                         session.submit(intent)
@@ -61,8 +64,13 @@ class MainActivity : ComponentActivity() {
                         enhancement = session.enhancementSnapshot()
                         victory = session.victorySnapshot()
                     },
+                    onRosterIntent = { intent: RosterIntent ->
+                        session.submit(intent)
+                        roster = session.rosterSnapshot()
+                    },
                     enhancement = enhancement,
                     victory = victory,
+                    roster = roster,
                 )
             }
         }

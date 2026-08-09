@@ -5,6 +5,7 @@
     <string name="campaign_launch_body">An offline campaign is ready.</string>
     <string name="campaign_enter_action">Enter campaign</string>
     <string name="campaign_selection_title">Campaign</string>
+    <string name="campaign_roster_action">Open troops</string>
     <string name="campaign_level_ember_path">Ember Path</string>
     <string name="campaign_level_body">Accepted local level</string>
     <string name="campaign_level_setup_action">Set up level</string>
@@ -52,4 +53,17 @@
     <string name="enhancement_offer_steady_pulse">Steady Pulse</string>
     <string name="enhancement_offer_ember_ward">Ember Ward</string>
     <string name="enhancement_offer_unknown">Available enhancement</string>
+    <string name="roster_title">Troops</string>
+    <string name="roster_body">Accepted local troops and deferred upgrade affordances.</string>
+    <string name="roster_troop_bright_mote">Bright Mote</string>
+    <string name="roster_troop_unknown">Accepted troop</string>
+    <string name="roster_upgrade_action">Upgrade (deferred)</string>
+    <string name="roster_settings_action">Open settings</string>
+    <string name="roster_close_action">Close troops</string>
+    <string name="settings_title">Settings</string>
+    <string name="settings_body">Local settings are visible; toggle effects remain deferred.</string>
+    <string name="settings_audio_option">Audio</string>
+    <string name="settings_haptics_option">Haptics</string>
+    <string name="settings_close_action">Close</string>
+    <string name="settings_confirm_action">Confirm</string>
 </resources>
