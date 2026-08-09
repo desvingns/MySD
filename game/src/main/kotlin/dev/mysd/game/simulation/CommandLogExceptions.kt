@@ -4,4 +4,3 @@ package dev.mysd.game.simulation
 class DuplicateCommandIdException(id: Long) : IllegalArgumentException(
     "Duplicate command id: $id",
 )
-
