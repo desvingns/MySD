@@ -6,6 +6,9 @@ import dev.mysd.game.battle.ActiveBattleSnapshot
 import dev.mysd.game.battle.EnhancementIntent
 import dev.mysd.game.battle.EnhancementSession
 import dev.mysd.game.battle.EnhancementSnapshot
+import dev.mysd.game.battle.VictorySession
+import dev.mysd.game.battle.VictorySnapshot
+import dev.mysd.game.content.ContentId
 import dev.mysd.game.persistence.RunSave
 
 @JvmInline
@@ -79,6 +82,8 @@ class CampaignSession(
     private var battleSetupSession: BattleSetupSession? = null
     private var activeBattleSession: ActiveBattleSession? = null
     private var enhancementSession: EnhancementSession? = null
+    private var victorySession: VictorySession? = null
+    private var selectedEnhancementId: ContentId? = null
 
     private var state = CampaignSnapshot(
         route = CampaignRoute.CLEAN_LAUNCH,
@@ -107,9 +112,13 @@ class CampaignSession(
     /** Immutable enhancement snapshot after the enhancement-choice surface is opened, if any. */
     fun enhancementSnapshot(): EnhancementSnapshot? = enhancementSession?.snapshot()
 
+    /** Immutable victory/reward-panel snapshot after the deterministic local handoff, if resolved. */
+    fun victorySnapshot(): VictorySnapshot? = victorySession?.snapshot()
+
     /** Routes touch-to-command input to the authoritative active-battle session. */
     fun submit(intent: ActiveBattleIntent): ActiveBattleSnapshot? {
         val activeBattleSession = activeBattleSession ?: return null
+        if (victorySession != null) return activeBattleSession.snapshot()
         val wasEnhancementChoiceVisible = activeBattleSession.snapshot().enhancementChoiceVisible
         val activeBattle = activeBattleSession.submit(intent)
         if (
@@ -122,6 +131,19 @@ class CampaignSession(
                 selectedSetupChoice = activeBattle.selectedSetupChoice,
             )
         }
+        if (
+            intent == ActiveBattleIntent.ResolveVictory &&
+            activeBattleSession.victoryResolutionReady()
+        ) {
+            val enhancementId = selectedEnhancementId
+            if (enhancementId != null) {
+                victorySession = VictorySession(
+                    stageId = activeBattle.stageId,
+                    selectedSetupChoice = activeBattle.selectedSetupChoice,
+                    selectedEnhancementId = enhancementId,
+                )
+            }
+        }
         return activeBattle
     }
 
@@ -130,6 +152,7 @@ class CampaignSession(
         val enhancement = enhancementSession ?: return null
         val snapshot = enhancement.submit(intent)
         if (snapshot.returnToBattle) {
+            selectedEnhancementId = snapshot.selectedOfferId
             activeBattleSession?.returnToBattle()
         }
         return snapshot

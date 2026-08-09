@@ -22,6 +22,7 @@ import dev.mysd.game.battle.ActiveBattleSpeedIndicator
 import dev.mysd.game.battle.EnhancementIntent
 import dev.mysd.game.battle.EnhancementOffer
 import dev.mysd.game.battle.EnhancementSnapshot
+import dev.mysd.game.battle.VictorySnapshot
 import dev.mysd.game.campaign.CampaignIntent
 import dev.mysd.game.campaign.CampaignRoute
 import dev.mysd.game.campaign.CampaignSnapshot
@@ -42,6 +43,7 @@ fun CampaignScreen(
     battleSetup: BattleSetupSnapshot? = null,
     activeBattle: ActiveBattleSnapshot? = null,
     enhancement: EnhancementSnapshot? = null,
+    victory: VictorySnapshot? = null,
 ) {
     CampaignScreenContent(
         state = state,
@@ -52,6 +54,7 @@ fun CampaignScreen(
         battleSetup = battleSetup,
         activeBattle = activeBattle,
         enhancement = enhancement,
+        victory = victory,
     )
 }
 
@@ -65,10 +68,16 @@ fun CampaignScreenContent(
     battleSetup: BattleSetupSnapshot? = null,
     activeBattle: ActiveBattleSnapshot? = null,
     enhancement: EnhancementSnapshot? = null,
+    victory: VictorySnapshot? = null,
 ) {
     val battleStart = state.battleStart
     if (battleStart != null) {
-        if (enhancement != null && !enhancement.returnToBattle) {
+        if (victory != null) {
+            VictoryContent(
+                state = victory,
+                modifier = modifier,
+            )
+        } else if (enhancement != null && !enhancement.returnToBattle) {
             EnhancementContent(
                 state = enhancement,
                 onIntent = onEnhancementIntent,
@@ -225,6 +234,50 @@ fun ActiveBattleContent(
                     style = MaterialTheme.typography.labelLarge,
                 )
             }
+        }
+        if (state.victoryResolutionAffordanceVisible && !state.enhancementChoiceVisible) {
+            Button(onClick = { onIntent(ActiveBattleIntent.ResolveVictory) }) {
+                Text(
+                    text = stringResource(R.string.active_battle_victory_action),
+                    style = MaterialTheme.typography.labelLarge,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun VictoryContent(
+    state: VictorySnapshot,
+    modifier: Modifier = Modifier,
+) {
+    val spacing = LocalSpacing.current
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(spacing.l),
+        verticalArrangement = Arrangement.spacedBy(spacing.m, Alignment.CenterVertically),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = stringResource(R.string.victory_title),
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        Text(
+            text = stringResource(R.string.active_battle_stage, stageTitle(state.stageId)),
+            style = MaterialTheme.typography.bodyLarge,
+        )
+        if (state.rewardPanelVisible) {
+            Text(
+                text = stringResource(R.string.victory_reward_panel_title),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.secondary,
+            )
+            Text(
+                text = stringResource(R.string.victory_reward_panel_body),
+                style = MaterialTheme.typography.bodyLarge,
+            )
         }
     }
 }

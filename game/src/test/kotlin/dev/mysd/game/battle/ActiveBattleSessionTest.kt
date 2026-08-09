@@ -27,6 +27,7 @@ class ActiveBattleSessionTest {
         assertFalse(snapshot.paused)
         assertTrue(snapshot.buildAffordanceVisible)
         assertFalse(snapshot.buildAffordanceSelected)
+        assertFalse(snapshot.victoryResolutionAffordanceVisible)
     }
 
     @Test
@@ -90,6 +91,21 @@ class ActiveBattleSessionTest {
 
         assertEquals(firstSnapshots, secondSnapshots)
         assertEquals(firstSnapshots.last(), first.snapshot())
+    }
+
+    @Test
+    fun `returning from enhancement exposes only the deterministic victory handoff`() {
+        val session = session()
+
+        val enhancement = session.submit(ActiveBattleIntent.OpenEnhancement)
+        assertTrue(enhancement.enhancementChoiceVisible)
+        assertFalse(enhancement.victoryResolutionAffordanceVisible)
+
+        val returned = session.returnToBattle()
+
+        assertFalse(returned.enhancementChoiceVisible)
+        assertTrue(returned.victoryResolutionAffordanceVisible)
+        assertTrue(session.victoryResolutionReady())
     }
 
     private fun session(): ActiveBattleSession = ActiveBattleSession(

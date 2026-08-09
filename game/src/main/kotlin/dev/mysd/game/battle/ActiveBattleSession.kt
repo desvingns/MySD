@@ -25,6 +25,7 @@ data class ActiveBattleSnapshot(
     val buildAffordanceSelected: Boolean,
     val enhancementAffordanceVisible: Boolean,
     val enhancementChoiceVisible: Boolean,
+    val victoryResolutionAffordanceVisible: Boolean,
 ) {
     init {
         require(fixtureId == ScenarioFixtureKind.ACTIVE_WAVE.stableId) {
@@ -43,6 +44,8 @@ sealed interface ActiveBattleIntent {
     data object SelectBuildAffordance : ActiveBattleIntent
 
     data object OpenEnhancement : ActiveBattleIntent
+
+    data object ResolveVictory : ActiveBattleIntent
 }
 
 /**
@@ -72,6 +75,7 @@ class ActiveBattleSession(
         buildAffordanceSelected = false,
         enhancementAffordanceVisible = true,
         enhancementChoiceVisible = false,
+        victoryResolutionAffordanceVisible = false,
     )
 
     fun snapshot(): ActiveBattleSnapshot = state.copy(
@@ -104,16 +108,27 @@ class ActiveBattleSession(
             }
 
             ActiveBattleIntent.OpenEnhancement -> if (state.enhancementAffordanceVisible) {
-                state.copy(enhancementChoiceVisible = true)
+                state.copy(
+                    enhancementChoiceVisible = true,
+                    victoryResolutionAffordanceVisible = false,
+                )
             } else {
                 state
             }
+
+            ActiveBattleIntent.ResolveVictory -> state
         }
         return snapshot()
     }
 
     fun returnToBattle(): ActiveBattleSnapshot {
-        state = state.copy(enhancementChoiceVisible = false)
+        state = state.copy(
+            enhancementChoiceVisible = false,
+            victoryResolutionAffordanceVisible = true,
+        )
         return snapshot()
     }
+
+    fun victoryResolutionReady(): Boolean =
+        state.victoryResolutionAffordanceVisible && !state.enhancementChoiceVisible
 }

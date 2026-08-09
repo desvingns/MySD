@@ -39,6 +39,10 @@
     <string name="active_battle_build_action">Select build</string>
     <string name="active_battle_build_selected">Build selected</string>
     <string name="active_battle_enhancement_action">Open enhancements</string>
+    <string name="active_battle_victory_action">Resolve victory</string>
+    <string name="victory_title">Victory</string>
+    <string name="victory_reward_panel_title">Reward panel</string>
+    <string name="victory_reward_panel_body">Reward details remain deferred to a later local boundary.</string>
     <string name="enhancement_title">Enhancements</string>
     <string name="enhancement_body">Choose an available enhancement for this battle.</string>
     <string name="enhancement_filter_all">Filter: All</string>

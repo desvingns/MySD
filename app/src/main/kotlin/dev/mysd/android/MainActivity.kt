@@ -32,6 +32,7 @@ class MainActivity : ComponentActivity() {
             var battleSetup by remember { mutableStateOf(session.battleSetupSnapshot()) }
             var activeBattle by remember { mutableStateOf(session.activeBattleSnapshot()) }
             var enhancement by remember { mutableStateOf(session.enhancementSnapshot()) }
+            var victory by remember { mutableStateOf(session.victorySnapshot()) }
 
             MySDTheme(dynamicColor = false) {
                 CampaignScreen(
@@ -44,20 +45,24 @@ class MainActivity : ComponentActivity() {
                         battleSetup = session.battleSetupSnapshot()
                         activeBattle = session.activeBattleSnapshot()
                         enhancement = session.enhancementSnapshot()
+                        victory = session.victorySnapshot()
                     },
                     onActiveBattleIntent = { intent: ActiveBattleIntent ->
                         session.submit(intent)
                         snapshot = session.snapshot()
                         activeBattle = session.activeBattleSnapshot()
                         enhancement = session.enhancementSnapshot()
+                        victory = session.victorySnapshot()
                     },
                     onEnhancementIntent = { intent: EnhancementIntent ->
                         session.submit(intent)
                         snapshot = session.snapshot()
                         activeBattle = session.activeBattleSnapshot()
                         enhancement = session.enhancementSnapshot()
+                        victory = session.victorySnapshot()
                     },
                     enhancement = enhancement,
+                    victory = victory,
                 )
             }
         }

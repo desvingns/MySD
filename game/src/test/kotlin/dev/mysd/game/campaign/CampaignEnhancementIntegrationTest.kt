@@ -3,6 +3,9 @@ package dev.mysd.game.campaign
 import dev.mysd.game.battle.ActiveBattleIntent
 import dev.mysd.game.battle.EnhancementIntent
 import dev.mysd.game.content.OriginalContentIds
+import dev.mysd.game.simulation.ScenarioFixtureKind
+import dev.mysd.game.simulation.ScenarioPlayability
+import dev.mysd.game.simulation.ScenarioTerminalClassification
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -12,7 +15,7 @@ import kotlin.test.assertTrue
 
 class CampaignEnhancementIntegrationTest {
     @Test
-    fun `active battle opens enhancement and selection returns to active contour`() {
+    fun `active battle opens enhancement and selection resolves the safe victory contour`() {
         val session = AcceptedCampaignFixture.createSession(runSave = null)
         session.submit(CampaignIntent.EnterCampaign)
         session.submit(CampaignIntent.SelectLevel(AcceptedCampaignFixture.STAGE_ID))
@@ -59,6 +62,7 @@ class CampaignEnhancementIntegrationTest {
         )
         val returnedBattle = assertNotNull(session.activeBattleSnapshot())
         assertFalse(returnedBattle.enhancementChoiceVisible)
+        assertTrue(returnedBattle.victoryResolutionAffordanceVisible)
         assertEquals(selected, session.enhancementSnapshot())
 
         val laterOpen = assertNotNull(session.submit(ActiveBattleIntent.OpenEnhancement))
@@ -74,5 +78,36 @@ class CampaignEnhancementIntegrationTest {
         )
         assertFalse(freshEnhancement.returnToBattle)
         assertNull(freshEnhancement.selectedOfferId)
+
+        val selectedForVictory = assertNotNull(
+            session.submit(
+                EnhancementIntent.SelectOffer(OriginalContentIds.FOUNDATION_ENHANCEMENT),
+            ),
+        )
+        assertTrue(selectedForVictory.returnToBattle)
+        assertTrue(session.activeBattleSnapshot()?.victoryResolutionAffordanceVisible == true)
+
+        session.submit(ActiveBattleIntent.ResolveVictory)
+
+        val victory = assertNotNull(session.victorySnapshot())
+        assertEquals(ScenarioFixtureKind.VICTORY.stableId, victory.fixtureId)
+        assertEquals(
+            OriginalContentIds.FOUNDATION_ENHANCEMENT,
+            victory.selectedEnhancementId,
+        )
+        assertTrue(victory.rewardPanelVisible)
+        assertEquals(
+            ScenarioTerminalClassification.VICTORY,
+            ScenarioFixtureKind.VICTORY.terminalClassification,
+        )
+        assertEquals(
+            ScenarioTerminalClassification.STRUCTURED_BLOCKER,
+            ScenarioFixtureKind.STRUCTURED_DEFEAT_BLOCKER.terminalClassification,
+        )
+        assertEquals(
+            ScenarioPlayability.BLOCKED,
+            ScenarioFixtureKind.STRUCTURED_DEFEAT_BLOCKER.playability,
+        )
+        assertFalse(ScenarioFixtureKind.STRUCTURED_DEFEAT_BLOCKER.terminalClassification.isTerminal)
     }
 }
