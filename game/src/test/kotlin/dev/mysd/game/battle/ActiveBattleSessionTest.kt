@@ -108,6 +108,18 @@ class ActiveBattleSessionTest {
         assertTrue(session.victoryResolutionReady())
     }
 
+    @Test
+    fun `resolve victory is a safe no-op before the return-to-battle handoff`() {
+        val session = session()
+        val before = session.snapshot()
+
+        val attempted = session.submit(ActiveBattleIntent.ResolveVictory)
+
+        assertEquals(before, attempted)
+        assertEquals(before, session.snapshot())
+        assertFalse(session.victoryResolutionReady())
+    }
+
     private fun session(): ActiveBattleSession = ActiveBattleSession(
         stageId = AcceptedCampaignFixture.STAGE_ID,
         selectedSetupChoice = BattleSetupChoice.OPTION_A,

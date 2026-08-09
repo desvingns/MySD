@@ -15,6 +15,24 @@ import kotlin.test.assertTrue
 
 class CampaignEnhancementIntegrationTest {
     @Test
+    fun `resolve victory before enhancement handoff is a safe no-op`() {
+        val session = AcceptedCampaignFixture.createSession(runSave = null)
+        session.submit(CampaignIntent.EnterCampaign)
+        session.submit(CampaignIntent.SelectLevel(AcceptedCampaignFixture.STAGE_ID))
+        session.submit(CampaignIntent.SelectInitialOption(BattleSetupChoice.OPTION_A))
+        session.submit(CampaignIntent.ContinueTutorialSetup)
+        session.submit(CampaignIntent.StartBattle)
+
+        val active = assertNotNull(session.activeBattleSnapshot())
+        val attempted = assertNotNull(session.submit(ActiveBattleIntent.ResolveVictory))
+
+        assertEquals(active, attempted)
+        assertEquals(active, session.activeBattleSnapshot())
+        assertNull(session.victorySnapshot())
+        assertFalse(attempted.victoryResolutionAffordanceVisible)
+    }
+
+    @Test
     fun `active battle opens enhancement and selection resolves the safe victory contour`() {
         val session = AcceptedCampaignFixture.createSession(runSave = null)
         session.submit(CampaignIntent.EnterCampaign)
@@ -91,6 +109,8 @@ class CampaignEnhancementIntegrationTest {
 
         val victory = assertNotNull(session.victorySnapshot())
         assertEquals(ScenarioFixtureKind.VICTORY.stableId, victory.fixtureId)
+        assertEquals(AcceptedCampaignFixture.STAGE_ID, victory.stageId)
+        assertEquals(BattleSetupChoice.OPTION_B, victory.selectedSetupChoice)
         assertEquals(
             OriginalContentIds.FOUNDATION_ENHANCEMENT,
             victory.selectedEnhancementId,
@@ -109,5 +129,8 @@ class CampaignEnhancementIntegrationTest {
             ScenarioFixtureKind.STRUCTURED_DEFEAT_BLOCKER.playability,
         )
         assertFalse(ScenarioFixtureKind.STRUCTURED_DEFEAT_BLOCKER.terminalClassification.isTerminal)
+
+        session.submit(ActiveBattleIntent.ResolveVictory)
+        assertEquals(victory, session.victorySnapshot())
     }
 }
