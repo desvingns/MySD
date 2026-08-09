@@ -23,6 +23,8 @@ class CampaignEnhancementIntegrationTest {
         val open = assertNotNull(session.submit(ActiveBattleIntent.OpenEnhancement))
         assertTrue(open.enhancementChoiceVisible)
         val enhancement = assertNotNull(session.enhancementSnapshot())
+        assertEquals(2, enhancement.offers.size)
+        assertEquals(enhancement.offers.size, enhancement.offers.distinct().size)
         assertTrue(enhancement.allFilterVisible)
         assertTrue(enhancement.refreshAffordanceVisible)
         assertFalse(enhancement.returnToBattle)
@@ -40,6 +42,7 @@ class CampaignEnhancementIntegrationTest {
         assertEquals(refreshed.refreshRevision, session.enhancementSnapshot()?.refreshRevision)
         assertEquals(refreshed.selectedOfferId, session.enhancementSnapshot()?.selectedOfferId)
         assertEquals(open, repeatedOpenAfterRefresh)
+        assertEquals(1, session.enhancementSnapshot()?.refreshRevision)
 
         val selected = assertNotNull(
             session.submit(
@@ -54,7 +57,8 @@ class CampaignEnhancementIntegrationTest {
             OriginalContentIds.FOUNDATION_ENHANCEMENT_EMBER_WARD,
             selected.selectedOfferId,
         )
-        assertFalse(assertNotNull(session.activeBattleSnapshot()).enhancementChoiceVisible)
+        val returnedBattle = assertNotNull(session.activeBattleSnapshot())
+        assertFalse(returnedBattle.enhancementChoiceVisible)
         assertEquals(selected, session.enhancementSnapshot())
 
         val laterOpen = assertNotNull(session.submit(ActiveBattleIntent.OpenEnhancement))

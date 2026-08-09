@@ -22,6 +22,8 @@ class EnhancementSessionTest {
             ),
             snapshot.offers.map { it.id },
         )
+        assertEquals(2, snapshot.offers.size)
+        assertEquals(snapshot.offers.size, snapshot.offers.distinct().size)
         assertTrue(snapshot.allFilterVisible)
         assertTrue(snapshot.refreshAffordanceVisible)
         assertEquals(0, snapshot.refreshRevision)
@@ -33,21 +35,23 @@ class EnhancementSessionTest {
     fun `refresh is deterministic and does not invent reroll or cost semantics`() {
         val first = session()
         val second = session()
+        val beforeRefresh = first.snapshot()
 
         val firstSnapshot = first.submit(EnhancementIntent.RefreshOffers)
         val secondSnapshot = second.submit(EnhancementIntent.RefreshOffers)
 
         assertEquals(firstSnapshot, secondSnapshot)
+        assertEquals(beforeRefresh.copy(refreshRevision = 1), firstSnapshot)
         assertEquals(1, firstSnapshot.refreshRevision)
-        assertEquals(
-            listOf(
-                OriginalContentIds.FOUNDATION_ENHANCEMENT,
-                OriginalContentIds.FOUNDATION_ENHANCEMENT_EMBER_WARD,
-            ),
-            firstSnapshot.offers.map { it.id },
-        )
-        assertNull(firstSnapshot.selectedOfferId)
-        assertFalse(firstSnapshot.returnToBattle)
+
+        val repeatedRefresh = first.submit(EnhancementIntent.RefreshOffers)
+
+        assertEquals(firstSnapshot.copy(refreshRevision = 2), repeatedRefresh)
+        assertEquals(firstSnapshot.offers, repeatedRefresh.offers)
+        assertTrue(repeatedRefresh.allFilterVisible)
+        assertTrue(repeatedRefresh.refreshAffordanceVisible)
+        assertNull(repeatedRefresh.selectedOfferId)
+        assertFalse(repeatedRefresh.returnToBattle)
     }
 
     @Test
@@ -66,6 +70,7 @@ class EnhancementSessionTest {
     @Test
     fun `unknown offer is ignored`() {
         val session = session()
+        val before = session.snapshot()
 
         val unchanged = session.submit(
             EnhancementIntent.SelectOffer(
@@ -73,8 +78,8 @@ class EnhancementSessionTest {
             ),
         )
 
-        assertNull(unchanged.selectedOfferId)
-        assertFalse(unchanged.returnToBattle)
+        assertEquals(before, unchanged)
+        assertEquals(before, session.snapshot())
     }
 
     private fun session(): EnhancementSession = EnhancementSession(
