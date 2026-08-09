@@ -108,6 +108,17 @@
   remain explicit exceptions because the current `:app` module lacks those dependencies/seams.
 - Scoped fit for `ST-0004/BATTLE-ENHANCEMENT` was skipped: reference `EV-0041` is preserved_unusable
   with an invalid PNG, so no visual score or divergence was invented.
+- PHASE_03 TASK-03.6 is complete: the accepted playable contour now reaches a deterministic local
+  Victory surface with an immutable reward-panel snapshot after enhancement return-to-battle;
+  ED-0025 remains a structured non-terminal defeat blocker and no defeat mechanic was added.
+- Delivery commits are `c04b175` (`feat: add safe victory reward panel`) and `c6aa856`
+  (`test: strengthen victory contour coverage`). Fresh installed APK manual smoke reached
+  campaign -> setup -> active battle -> enhancement -> return -> Resolve victory -> Victory/reward
+  panel. Reward claim, doubling, transaction, economy, and service semantics remain deferred.
+- Verification: MP runner `91 passed / 0 failed / 0 skipped`, lint ok; public-safety pass;
+  `test :app:assembleDebug` successful; full reviewer, semantic review, independent critic, and
+  verifier passed. Compose/navigation smoke remains an explicit dependency exception. Scoped fit
+  skipped because `ST-0005` reference evidence is preserved_unusable.
 
 ## BLOCKERS
 
@@ -115,6 +126,8 @@
 - Shop, Tech, reward transaction semantics, Arena network, and unobserved mechanics are deferred and cannot create requirements.
 - Legacy invalid PNGs, incomplete visual signatures, and Canvas child bounds are non-blocking for Gate 1 and remain work for per-surface Visual Fit Gates.
 - Gate 2 is accepted in relaxed semantic scope; implementation and Visual Fit remain phase-gated.
+- Push of `c04b175` and `c6aa856` to `origin` was attempted after explicit approval but failed with
+  GitHub `Invalid username or token`; commits remain local and no further credential retry was made.
 
 ## VERIFICATION
 
