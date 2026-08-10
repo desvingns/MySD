@@ -1,5 +1,8 @@
 package dev.mysd.game.service
 
+import java.util.ArrayList
+import java.util.Collections
+
 /** Stable identifier for a service-shaped command or local catalog entry. */
 @JvmInline
 value class ServiceRequestId private constructor(val value: String) {
@@ -71,9 +74,9 @@ class OfflineServiceConfiguration(
     purchaseProductIds: List<ServiceRequestId> = listOf(OfflineServiceIds.PURCHASE_STARTER),
     arenaRequestIds: List<ServiceRequestId> = listOf(OfflineServiceIds.ARENA_ROUTE),
 ) {
-    val rewardedOpportunityIds: List<ServiceRequestId> = rewardedOpportunityIds.toList()
-    val purchaseProductIds: List<ServiceRequestId> = purchaseProductIds.toList()
-    val arenaRequestIds: List<ServiceRequestId> = arenaRequestIds.toList()
+    val rewardedOpportunityIds: List<ServiceRequestId> = runtimeUnmodifiableCopy(rewardedOpportunityIds)
+    val purchaseProductIds: List<ServiceRequestId> = runtimeUnmodifiableCopy(purchaseProductIds)
+    val arenaRequestIds: List<ServiceRequestId> = runtimeUnmodifiableCopy(arenaRequestIds)
 
     init {
         requireUniqueNonEmpty(this.rewardedOpportunityIds, "rewarded opportunities")
@@ -242,7 +245,7 @@ class DeterministicLocalPurchaseCatalogService(
                 requestId = request.catalogId,
                 accepted = accepted,
             ),
-            products = products.toList(),
+            products = runtimeUnmodifiableCopy(products),
         )
     }
 
@@ -299,3 +302,6 @@ private fun trace(
     productionIntegrationAttempted = false,
     networkRequestMade = false,
 )
+
+private fun <T> runtimeUnmodifiableCopy(values: List<T>): List<T> =
+    Collections.unmodifiableList(ArrayList(values))

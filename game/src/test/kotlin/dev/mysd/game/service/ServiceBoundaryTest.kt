@@ -2,6 +2,7 @@ package dev.mysd.game.service
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNotSame
 import kotlin.test.assertTrue
@@ -98,5 +99,53 @@ class ServiceBoundaryTest {
         assertEquals(LocalServiceAvailability.BLOCKED, arena.trace.availability)
         assertEquals(ArenaLocalState.NETWORK_MATCH_BLOCKED, arena.localState)
         assertFalse(arena.trace.networkRequestMade)
+    }
+
+    @Test
+    fun `configuration and snapshot collections reject mutation without changing results`() {
+        val premiumProduct = ServiceRequestId.of("purchase-premium")
+        val configuration = OfflineServiceConfiguration(
+            purchaseProductIds = listOf(OfflineServiceIds.PURCHASE_STARTER, premiumProduct),
+        )
+        val services = OfflineServiceAdapters.foundation(configuration)
+
+        val rewardBefore = services.rewardedOpportunityService.request(
+            RewardedOpportunityRequest(OfflineServiceIds.REWARDED_CLAIM),
+        )
+        val purchaseBefore = services.purchaseCatalogService.requestPurchase(
+            PurchaseRequest(OfflineServiceIds.PURCHASE_STARTER),
+        )
+        val arenaBefore = services.arenaService.request(ArenaRequest())
+
+        assertFailsWith<UnsupportedOperationException> {
+            (configuration.rewardedOpportunityIds as MutableList<ServiceRequestId>).clear()
+        }
+        assertFailsWith<UnsupportedOperationException> {
+            (configuration.purchaseProductIds as MutableList<ServiceRequestId>).clear()
+        }
+        assertFailsWith<UnsupportedOperationException> {
+            (configuration.arenaRequestIds as MutableList<ServiceRequestId>).clear()
+        }
+
+        assertEquals(
+            rewardBefore,
+            services.rewardedOpportunityService.request(
+                RewardedOpportunityRequest(OfflineServiceIds.REWARDED_CLAIM),
+            ),
+        )
+        assertEquals(
+            purchaseBefore,
+            services.purchaseCatalogService.requestPurchase(
+                PurchaseRequest(OfflineServiceIds.PURCHASE_STARTER),
+            ),
+        )
+        assertEquals(arenaBefore, services.arenaService.request(ArenaRequest()))
+
+        val catalogBefore = services.purchaseCatalogService.catalog()
+        assertEquals(2, catalogBefore.products.size)
+        assertFailsWith<UnsupportedOperationException> {
+            (catalogBefore.products as MutableList<PurchaseProductSnapshot>).clear()
+        }
+        assertEquals(catalogBefore, services.purchaseCatalogService.catalog())
     }
 }
