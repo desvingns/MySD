@@ -153,3 +153,11 @@
 - All 34 recovery screenshots are indexed with paired UI evidence mappings and SHA-256 values. Legacy 95 screenshots remain untouched. Technical valid PNG total is 42; eight nodes have valid anchors, seven currently support visual claims, and complete before/after visual pairs remain deferred.
 - A test-ad surface appeared during a probe and was closed immediately. No rewarded-ad completion, purchase, credential entry, Arena request, or unsafe defeat forcing was performed.
 - The recovery crawl itself ended blocked; the relaxed policy was accepted for Gate 1 and Gate 2. Production implementation, backlog bridge, and Visual Fit remain phase-gated.
+
+## IMPLEMENTATION UPDATE — 2026-08-10
+
+- PHASE_03 TASK-03.7 is complete: roster and local-settings open/close contours are wired through the Android-free `RosterSession` and `CampaignSession`; upgrade and toggle intents remain visible-affordance no-ops, and immutable snapshot boundaries are covered.
+- Delivery commit: `d86a819` (`test: cover roster and settings contours`); the production contour was already present in `230aad4`.
+- Verification: deterministic reviewer, semantic review, independent critic, full verifier, and MP runner passed; runner reported `104 passed / 0 failed / 0 skipped`, lint `ok`. `test :app:assembleDebug` and `scripts/public-safety.ps1` passed with 110 tracked files and 886 history paths checked.
+- Scoped fit for `ST-0007/ROUTE-TROOPS` and `ST-0008/OVERLAY-SETTINGS` returned overall score `50` (screen scores `34` and `66`) with major structure/geometry divergences. Proposed fit SPECs were not written; creative, copy, and accessibility deviations remain acknowledged.
+- Push of `d86a819` was attempted after explicit approval but failed with GitHub `Invalid username or token`; no further credential retry was made.
