@@ -125,7 +125,7 @@ data class PurchaseProductSnapshot(
     val transactionDeferred: Boolean,
 )
 
-data class PurchaseCatalogSnapshot private constructor(
+class PurchaseCatalogSnapshot private constructor(
     val trace: LocalServiceTrace,
     val products: List<PurchaseProductSnapshot>,
 ) {
@@ -137,6 +137,12 @@ data class PurchaseCatalogSnapshot private constructor(
             "Purchase transactions are deferred from the local catalog boundary."
         }
     }
+
+    override fun equals(other: Any?): Boolean =
+        this === other || other is PurchaseCatalogSnapshot &&
+            trace == other.trace && products == other.products
+
+    override fun hashCode(): Int = 31 * trace.hashCode() + products.hashCode()
 
     companion object {
         operator fun invoke(

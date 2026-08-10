@@ -150,7 +150,7 @@ class ServiceBoundaryTest {
     }
 
     @Test
-    fun `purchase catalog snapshot copies caller supplied products deterministically`() {
+    fun `purchase catalog snapshot has no mutation bypass and stable value equality`() {
         val trace = OfflineServiceAdapters.foundation().purchaseCatalogService.catalog().trace
         val starter = PurchaseProductSnapshot(
             productId = OfflineServiceIds.PURCHASE_STARTER,
@@ -168,6 +168,8 @@ class ServiceBoundaryTest {
         )
 
         assertEquals(expected, snapshot)
+        assertEquals(expected.hashCode(), snapshot.hashCode())
+        assertFalse(PurchaseCatalogSnapshot::class.java.methods.any { it.name == "copy" })
         assertEquals(1, snapshot.products.size)
         assertFailsWith<UnsupportedOperationException> {
             (snapshot.products as MutableList<PurchaseProductSnapshot>).clear()
