@@ -60,3 +60,5 @@ powershell.exe -File scripts/public-safety.ps1
 ## Notes for next session
 
 Human-owned; no planner-generated notes.
+
+- TASK-03.8 implementation commit: `57f3f25`; reward outcome and Arena adapter semantics remain scoped to TASK-03.9 and TASK-03.10.

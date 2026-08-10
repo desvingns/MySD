@@ -18,6 +18,9 @@ value class ServiceRequestId private constructor(val value: String) {
 
 /** Original MySD identifiers used by the first-release local service fixtures. */
 object OfflineServiceIds {
+    val REWARDED_SERVICE = ServiceRequestId.of("rewarded-opportunity-service")
+    val PURCHASE_SERVICE = ServiceRequestId.of("purchase-catalog-service")
+    val ARENA_SERVICE = ServiceRequestId.of("arena-service")
     val REWARDED_CLAIM = ServiceRequestId.of("rewarded-claim")
     val REWARDED_MULTIPLIER = ServiceRequestId.of("rewarded-multiplier")
     val PURCHASE_CATALOG = ServiceRequestId.of("purchase-catalog")
@@ -203,7 +206,7 @@ class DeterministicLocalRewardedOpportunityService(
         val accepted = request.opportunityId in configuration.rewardedOpportunityIds
         return RewardedOpportunitySnapshot(
             trace = trace(
-                serviceId = ServiceRequestId.of("rewarded-opportunity-service"),
+                serviceId = OfflineServiceIds.REWARDED_SERVICE,
                 requestId = request.opportunityId,
                 accepted = accepted,
             ),
@@ -235,7 +238,7 @@ class DeterministicLocalPurchaseCatalogService(
         }
         return PurchaseCatalogSnapshot(
             trace = trace(
-                serviceId = ServiceRequestId.of("purchase-catalog-service"),
+                serviceId = OfflineServiceIds.PURCHASE_SERVICE,
                 requestId = request.catalogId,
                 accepted = accepted,
             ),
@@ -247,7 +250,7 @@ class DeterministicLocalPurchaseCatalogService(
         val accepted = request.productId in configuration.purchaseProductIds
         return PurchaseResult(
             trace = trace(
-                serviceId = ServiceRequestId.of("purchase-catalog-service"),
+                serviceId = OfflineServiceIds.PURCHASE_SERVICE,
                 requestId = request.productId,
                 accepted = accepted,
             ),
@@ -264,7 +267,7 @@ class DeterministicLocalArenaService(
         val accepted = request.routeId in configuration.arenaRequestIds
         return ArenaSnapshot(
             trace = trace(
-                serviceId = ServiceRequestId.of("arena-service"),
+                serviceId = OfflineServiceIds.ARENA_SERVICE,
                 requestId = request.routeId,
                 accepted = accepted,
             ),

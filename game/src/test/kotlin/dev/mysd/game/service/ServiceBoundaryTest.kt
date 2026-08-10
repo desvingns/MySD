@@ -19,6 +19,7 @@ class ServiceBoundaryTest {
             RewardedOpportunityRequest(OfflineServiceIds.REWARDED_CLAIM),
         )
         assertEquals(firstReward, secondReward)
+        assertEquals(OfflineServiceIds.REWARDED_SERVICE, firstReward.trace.serviceId)
         assertEquals(LocalServiceAvailability.LOCAL_ONLY, firstReward.trace.availability)
         assertTrue(firstReward.trace.affordancePreserved)
         assertFalse(firstReward.trace.authoritativeStateChanged)
@@ -31,6 +32,7 @@ class ServiceBoundaryTest {
         val secondCatalog = second.purchaseCatalogService.catalog()
         assertEquals(firstCatalog, secondCatalog)
         assertEquals(LocalServiceAvailability.LOCAL_ONLY, firstCatalog.trace.availability)
+        assertEquals(OfflineServiceIds.PURCHASE_SERVICE, firstCatalog.trace.serviceId)
         assertTrue(firstCatalog.products.single().purchaseAffordanceVisible)
         assertTrue(firstCatalog.products.single().transactionDeferred)
         assertNotSame(firstCatalog.products, secondCatalog.products)
@@ -45,6 +47,7 @@ class ServiceBoundaryTest {
         val arena = first.arenaService.request(ArenaRequest())
         assertEquals(LocalServiceAvailability.LOCAL_ONLY, arena.trace.availability)
         assertEquals(ArenaLocalState.LOCAL_SERVICE_SHAPED, arena.localState)
+        assertEquals(OfflineServiceIds.ARENA_SERVICE, arena.trace.serviceId)
         assertFalse(arena.matchRequestEnabled)
         assertFalse(arena.accountRequired)
         assertFalse(arena.trace.networkRequestMade)
