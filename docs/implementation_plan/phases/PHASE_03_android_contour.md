@@ -34,7 +34,7 @@ Implement the accepted campaign, battle, enhancement, victory, roster, settings,
 - [x] TASK-03.5 **Enhancement surface** — implement offers, filter visibility, refresh, selection, and return-to-battle contour (FR-103, US-102, AC-102).
 - [x] TASK-03.6 **Victory surface** — implement safe local victory resolution and reward panel while retaining ED-0025 as the defeat blocker (FR-104, US-102, AC-102).
 - [x] TASK-03.7 **Roster/settings** — implement roster and settings open/close contours with upgrade and toggle effects deferred (FR-105, US-103, AC-103).
-- [ ] TASK-03.8 **Offline service boundary** — implement deterministic local-adapter handling for accepted service-shaped requests without production SDKs or backends (FR-003, US-003, AC-003).
+- [x] TASK-03.8 **Offline service boundary** — implement deterministic local-adapter handling for accepted service-shaped requests without production SDKs or backends (FR-003, US-003, AC-003).
 - [ ] TASK-03.9 **Reward adapter** — implement deterministic local normal-reward and multiplier-shaped outcomes (FR-106, US-104, AC-104).
 - [ ] TASK-03.10 **Arena adapter** — implement offline service-shaped Arena state without network, account, or match behavior (FR-107, US-104, AC-104).
 - [ ] TASK-03.11 **Visual QA** — render ST-0001/ROUTE-LAUNCH, ST-0002/BATTLE-SETUP, and ST-0003/BATTLE-ACTIVE against registry evidence and file divergences.
