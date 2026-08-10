@@ -125,7 +125,7 @@ data class PurchaseProductSnapshot(
     val transactionDeferred: Boolean,
 )
 
-data class PurchaseCatalogSnapshot(
+data class PurchaseCatalogSnapshot private constructor(
     val trace: LocalServiceTrace,
     val products: List<PurchaseProductSnapshot>,
 ) {
@@ -136,6 +136,16 @@ data class PurchaseCatalogSnapshot(
         require(products.all { it.transactionDeferred }) {
             "Purchase transactions are deferred from the local catalog boundary."
         }
+    }
+
+    companion object {
+        operator fun invoke(
+            trace: LocalServiceTrace,
+            products: List<PurchaseProductSnapshot>,
+        ): PurchaseCatalogSnapshot = PurchaseCatalogSnapshot(
+            trace = trace,
+            products = runtimeUnmodifiableCopy(products),
+        )
     }
 }
 

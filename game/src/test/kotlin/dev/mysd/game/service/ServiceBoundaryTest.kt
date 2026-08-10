@@ -148,4 +148,29 @@ class ServiceBoundaryTest {
         }
         assertEquals(catalogBefore, services.purchaseCatalogService.catalog())
     }
+
+    @Test
+    fun `purchase catalog snapshot copies caller supplied products deterministically`() {
+        val trace = OfflineServiceAdapters.foundation().purchaseCatalogService.catalog().trace
+        val starter = PurchaseProductSnapshot(
+            productId = OfflineServiceIds.PURCHASE_STARTER,
+            purchaseAffordanceVisible = true,
+            transactionDeferred = true,
+        )
+        val suppliedProducts = mutableListOf(starter)
+        val snapshot = PurchaseCatalogSnapshot(trace, suppliedProducts)
+        val expected = PurchaseCatalogSnapshot(trace, listOf(starter))
+
+        suppliedProducts += PurchaseProductSnapshot(
+            productId = ServiceRequestId.of("purchase-premium"),
+            purchaseAffordanceVisible = true,
+            transactionDeferred = true,
+        )
+
+        assertEquals(expected, snapshot)
+        assertEquals(1, snapshot.products.size)
+        assertFailsWith<UnsupportedOperationException> {
+            (snapshot.products as MutableList<PurchaseProductSnapshot>).clear()
+        }
+    }
 }
