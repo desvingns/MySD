@@ -45,6 +45,7 @@ class RosterSessionTest {
         val first = session.snapshot()
         val second = session.snapshot()
 
+        assertNotSame(first, second)
         assertEquals(listOf(OriginalContentIds.FOUNDATION_UNIT), first.troopSlots.map { it.id })
         assertEquals(
             listOf(RosterSettingId.AUDIO, RosterSettingId.HAPTICS),
@@ -79,6 +80,7 @@ class RosterSessionTest {
 
             assertEquals(RosterSurface.SETTINGS, settings.surface)
             assertEquals(initial, closed)
+            assertEquals(initial, session.submit(closeIntent))
         }
     }
 

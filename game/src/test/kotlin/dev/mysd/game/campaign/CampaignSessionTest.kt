@@ -1,5 +1,6 @@
 package dev.mysd.game.campaign
 
+import dev.mysd.game.content.OriginalContentIds
 import dev.mysd.game.persistence.PendingCommand
 import dev.mysd.game.persistence.RunSave
 import dev.mysd.game.persistence.RunTerminalResult
@@ -11,6 +12,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
+import kotlin.test.assertNotSame
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -342,6 +344,40 @@ class CampaignSessionTest {
         assertFalse(closed.rosterOpen)
         assertNull(session.rosterSnapshot())
         assertNull(session.submit(RosterIntent.OpenSettings))
+    }
+
+    @Test
+    fun `closing roster is idempotent and rejects every child command afterwards`() {
+        val session = CampaignSession(listOf(acceptedStage), unfinishedRun = null)
+        session.submit(CampaignIntent.EnterCampaign)
+        session.submit(CampaignIntent.OpenRoster)
+
+        val closed = session.submit(CampaignIntent.CloseRoster)
+
+        assertFalse(closed.rosterOpen)
+        assertNull(session.rosterSnapshot())
+        assertEquals(closed, session.submit(CampaignIntent.CloseRoster))
+        assertNull(session.submit(RosterIntent.OpenSettings))
+        assertNull(session.submit(RosterIntent.CloseSettings))
+        assertNull(session.submit(RosterIntent.ConfirmSettings))
+        assertNull(session.submit(RosterIntent.UpgradeTroop(OriginalContentIds.FOUNDATION_UNIT)))
+        assertNull(session.submit(RosterIntent.ToggleSetting(RosterSettingId.AUDIO)))
+    }
+
+    @Test
+    fun `campaign roster snapshots are immutable copies independent of campaign snapshots`() {
+        val session = CampaignSession(listOf(acceptedStage), unfinishedRun = null)
+        session.submit(CampaignIntent.EnterCampaign)
+        val campaignBeforeRoster = session.snapshot()
+        session.submit(CampaignIntent.OpenRoster)
+
+        val first = assertNotNull(session.rosterSnapshot())
+        val second = assertNotNull(session.rosterSnapshot())
+
+        assertNotSame(first, second)
+        assertNotSame(first.troopSlots, second.troopSlots)
+        assertNotSame(first.settings, second.settings)
+        assertEquals(campaignBeforeRoster, session.snapshot().copy(rosterOpen = false))
     }
 
     @Test
