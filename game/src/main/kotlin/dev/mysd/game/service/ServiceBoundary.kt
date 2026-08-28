@@ -31,10 +31,16 @@ object OfflineServiceIds {
     val ARENA_ROUTE = ServiceRequestId.of("arena-route")
 }
 
-/** The only externally visible outcomes supported by the first-release boundary. */
+/** The only availability states supported by the first-release boundary. */
 enum class LocalServiceAvailability {
     LOCAL_ONLY,
     BLOCKED,
+}
+
+/** Stable reward-result shapes exposed by the first-release local boundary. */
+enum class RewardedOpportunityOutcome {
+    NORMAL_REWARD,
+    MULTIPLIER_SHAPED,
 }
 
 /** Immutable evidence that a request stayed inside the deterministic local boundary. */
@@ -101,6 +107,13 @@ data class RewardedOpportunitySnapshot(
     val claimApplied: Boolean,
     val multiplierApplied: Boolean,
 ) {
+    val outcome: RewardedOpportunityOutcome
+        get() = if (multiplierShaped) {
+            RewardedOpportunityOutcome.MULTIPLIER_SHAPED
+        } else {
+            RewardedOpportunityOutcome.NORMAL_REWARD
+        }
+
     init {
         require(!completionRequired) {
             "Real ad completion is deferred from the local service boundary."
@@ -229,7 +242,7 @@ class DeterministicLocalRewardedOpportunityService(
                 requestId = request.opportunityId,
                 accepted = accepted,
             ),
-            multiplierShaped = accepted && request.opportunityId == OfflineServiceIds.REWARDED_MULTIPLIER,
+            multiplierShaped = request.opportunityId == OfflineServiceIds.REWARDED_MULTIPLIER,
             completionRequired = false,
             claimApplied = false,
             multiplierApplied = false,

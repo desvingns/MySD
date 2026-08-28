@@ -23,6 +23,7 @@ class ServiceBoundaryTest {
         assertEquals(OfflineServiceIds.REWARDED_SERVICE, firstReward.trace.serviceId)
         assertEquals(LocalServiceAvailability.LOCAL_ONLY, firstReward.trace.availability)
         assertTrue(firstReward.trace.affordancePreserved)
+        assertEquals(RewardedOpportunityOutcome.NORMAL_REWARD, firstReward.outcome)
         assertFalse(firstReward.trace.authoritativeStateChanged)
         assertFalse(firstReward.trace.productionIntegrationAttempted)
         assertFalse(firstReward.trace.networkRequestMade)
@@ -61,6 +62,7 @@ class ServiceBoundaryTest {
         val multiplier = services.rewardedOpportunityService.request(
             RewardedOpportunityRequest(OfflineServiceIds.REWARDED_MULTIPLIER),
         )
+        assertEquals(RewardedOpportunityOutcome.MULTIPLIER_SHAPED, multiplier.outcome)
         assertTrue(multiplier.multiplierShaped)
         assertTrue(multiplier.trace.affordancePreserved)
         assertFalse(multiplier.completionRequired)
@@ -83,6 +85,7 @@ class ServiceBoundaryTest {
             RewardedOpportunityRequest(unknown),
         )
         assertEquals(LocalServiceAvailability.BLOCKED, reward.trace.availability)
+        assertEquals(RewardedOpportunityOutcome.NORMAL_REWARD, reward.outcome)
         assertFalse(reward.trace.affordancePreserved)
         assertFalse(reward.trace.productionIntegrationAttempted)
         assertFalse(reward.trace.networkRequestMade)
@@ -99,6 +102,46 @@ class ServiceBoundaryTest {
         assertEquals(LocalServiceAvailability.BLOCKED, arena.trace.availability)
         assertEquals(ArenaLocalState.NETWORK_MATCH_BLOCKED, arena.localState)
         assertFalse(arena.trace.networkRequestMade)
+    }
+
+    @Test
+    fun `reward adapter covers every outcome and availability combination`() {
+        val localServices = OfflineServiceAdapters.foundation()
+        val normalBlockedServices = OfflineServiceAdapters.foundation(
+            OfflineServiceConfiguration(
+                rewardedOpportunityIds = listOf(OfflineServiceIds.REWARDED_MULTIPLIER),
+            ),
+        )
+        val multiplierBlockedServices = OfflineServiceAdapters.foundation(
+            OfflineServiceConfiguration(
+                rewardedOpportunityIds = listOf(OfflineServiceIds.REWARDED_CLAIM),
+            ),
+        )
+
+        assertRewardCase(
+            service = localServices.rewardedOpportunityService,
+            opportunityId = OfflineServiceIds.REWARDED_CLAIM,
+            expectedOutcome = RewardedOpportunityOutcome.NORMAL_REWARD,
+            expectedAvailability = LocalServiceAvailability.LOCAL_ONLY,
+        )
+        assertRewardCase(
+            service = normalBlockedServices.rewardedOpportunityService,
+            opportunityId = OfflineServiceIds.REWARDED_CLAIM,
+            expectedOutcome = RewardedOpportunityOutcome.NORMAL_REWARD,
+            expectedAvailability = LocalServiceAvailability.BLOCKED,
+        )
+        assertRewardCase(
+            service = localServices.rewardedOpportunityService,
+            opportunityId = OfflineServiceIds.REWARDED_MULTIPLIER,
+            expectedOutcome = RewardedOpportunityOutcome.MULTIPLIER_SHAPED,
+            expectedAvailability = LocalServiceAvailability.LOCAL_ONLY,
+        )
+        assertRewardCase(
+            service = multiplierBlockedServices.rewardedOpportunityService,
+            opportunityId = OfflineServiceIds.REWARDED_MULTIPLIER,
+            expectedOutcome = RewardedOpportunityOutcome.MULTIPLIER_SHAPED,
+            expectedAvailability = LocalServiceAvailability.BLOCKED,
+        )
     }
 
     @Test
@@ -174,5 +217,27 @@ class ServiceBoundaryTest {
         assertFailsWith<UnsupportedOperationException> {
             (snapshot.products as MutableList<PurchaseProductSnapshot>).clear()
         }
+    }
+
+    private fun assertRewardCase(
+        service: RewardedOpportunityService,
+        opportunityId: ServiceRequestId,
+        expectedOutcome: RewardedOpportunityOutcome,
+        expectedAvailability: LocalServiceAvailability,
+    ) {
+        val request = RewardedOpportunityRequest(opportunityId)
+        val result = service.request(request)
+
+        assertEquals(expectedOutcome, result.outcome)
+        assertEquals(expectedOutcome == RewardedOpportunityOutcome.MULTIPLIER_SHAPED, result.multiplierShaped)
+        assertEquals(expectedAvailability, result.trace.availability)
+        assertEquals(expectedAvailability == LocalServiceAvailability.LOCAL_ONLY, result.trace.affordancePreserved)
+        assertFalse(result.completionRequired)
+        assertFalse(result.claimApplied)
+        assertFalse(result.multiplierApplied)
+        assertFalse(result.trace.authoritativeStateChanged)
+        assertFalse(result.trace.productionIntegrationAttempted)
+        assertFalse(result.trace.networkRequestMade)
+        assertEquals(result, service.request(request))
     }
 }
