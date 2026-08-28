@@ -1,5 +1,7 @@
 package dev.mysd.game.service
 
+import java.lang.reflect.Modifier
+import java.nio.file.Paths
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -107,7 +109,13 @@ class ServiceBoundaryTest {
     @Test
     fun `reward adapter covers every outcome and availability combination`() {
         val localServices = OfflineServiceAdapters.foundation()
+        val localPeerServices = OfflineServiceAdapters.foundation()
         val normalBlockedServices = OfflineServiceAdapters.foundation(
+            OfflineServiceConfiguration(
+                rewardedOpportunityIds = listOf(OfflineServiceIds.REWARDED_MULTIPLIER),
+            ),
+        )
+        val normalBlockedPeerServices = OfflineServiceAdapters.foundation(
             OfflineServiceConfiguration(
                 rewardedOpportunityIds = listOf(OfflineServiceIds.REWARDED_MULTIPLIER),
             ),
@@ -117,27 +125,36 @@ class ServiceBoundaryTest {
                 rewardedOpportunityIds = listOf(OfflineServiceIds.REWARDED_CLAIM),
             ),
         )
+        val multiplierBlockedPeerServices = OfflineServiceAdapters.foundation(
+            OfflineServiceConfiguration(
+                rewardedOpportunityIds = listOf(OfflineServiceIds.REWARDED_CLAIM),
+            ),
+        )
 
         assertRewardCase(
             service = localServices.rewardedOpportunityService,
+            deterministicPeer = localPeerServices.rewardedOpportunityService,
             opportunityId = OfflineServiceIds.REWARDED_CLAIM,
             expectedOutcome = RewardedOpportunityOutcome.NORMAL_REWARD,
             expectedAvailability = LocalServiceAvailability.LOCAL_ONLY,
         )
         assertRewardCase(
             service = normalBlockedServices.rewardedOpportunityService,
+            deterministicPeer = normalBlockedPeerServices.rewardedOpportunityService,
             opportunityId = OfflineServiceIds.REWARDED_CLAIM,
             expectedOutcome = RewardedOpportunityOutcome.NORMAL_REWARD,
             expectedAvailability = LocalServiceAvailability.BLOCKED,
         )
         assertRewardCase(
             service = localServices.rewardedOpportunityService,
+            deterministicPeer = localPeerServices.rewardedOpportunityService,
             opportunityId = OfflineServiceIds.REWARDED_MULTIPLIER,
             expectedOutcome = RewardedOpportunityOutcome.MULTIPLIER_SHAPED,
             expectedAvailability = LocalServiceAvailability.LOCAL_ONLY,
         )
         assertRewardCase(
             service = multiplierBlockedServices.rewardedOpportunityService,
+            deterministicPeer = multiplierBlockedPeerServices.rewardedOpportunityService,
             opportunityId = OfflineServiceIds.REWARDED_MULTIPLIER,
             expectedOutcome = RewardedOpportunityOutcome.MULTIPLIER_SHAPED,
             expectedAvailability = LocalServiceAvailability.BLOCKED,
@@ -219,8 +236,58 @@ class ServiceBoundaryTest {
         }
     }
 
+    @Test
+    fun `reward snapshots expose immutable final state`() {
+        val snapshot = OfflineServiceAdapters.foundation().rewardedOpportunityService.request(
+            RewardedOpportunityRequest(OfflineServiceIds.REWARDED_MULTIPLIER),
+        )
+        val snapshotFields = RewardedOpportunitySnapshot::class.java.declaredFields
+            .filterNot { it.isSynthetic }
+        val traceFields = LocalServiceTrace::class.java.declaredFields
+            .filterNot { it.isSynthetic }
+
+        assertTrue(snapshotFields.isNotEmpty())
+        assertTrue(snapshotFields.all { Modifier.isFinal(it.modifiers) })
+        assertTrue(traceFields.isNotEmpty())
+        assertTrue(traceFields.all { Modifier.isFinal(it.modifiers) })
+        assertFalse(RewardedOpportunitySnapshot::class.java.methods.any { it.name.startsWith("set") })
+        assertEquals(
+            snapshot,
+            OfflineServiceAdapters.foundation().rewardedOpportunityService.request(
+                RewardedOpportunityRequest(OfflineServiceIds.REWARDED_MULTIPLIER),
+            ),
+        )
+    }
+
+    @Test
+    fun `service boundary remains Android-free and excludes production integrations`() {
+        val source = sequenceOf(
+            Paths.get("src/main/kotlin/dev/mysd/game/service/ServiceBoundary.kt"),
+            Paths.get("game/src/main/kotlin/dev/mysd/game/service/ServiceBoundary.kt"),
+        ).first { it.toFile().exists() }.toFile().readText()
+
+        assertFalse(
+            Regex(
+                "(?m)^import\\s+(android(?:x)?|com\\.google\\.android\\.gms|" +
+                    "com\\.android\\.billingclient|java\\.net|javax\\.net|" +
+                    "okhttp3|retrofit2|io\\.ktor\\.client)\\.",
+            ).containsMatchIn(source),
+        )
+        listOf(
+            "MobileAds",
+            "BillingClient",
+            "RewardedAd",
+            "OkHttpClient",
+            "Retrofit.Builder",
+            "HttpURLConnection",
+        ).forEach { forbiddenToken ->
+            assertFalse(source.contains(forbiddenToken), "Found forbidden integration token: $forbiddenToken")
+        }
+    }
+
     private fun assertRewardCase(
         service: RewardedOpportunityService,
+        deterministicPeer: RewardedOpportunityService,
         opportunityId: ServiceRequestId,
         expectedOutcome: RewardedOpportunityOutcome,
         expectedAvailability: LocalServiceAvailability,
@@ -239,5 +306,6 @@ class ServiceBoundaryTest {
         assertFalse(result.trace.productionIntegrationAttempted)
         assertFalse(result.trace.networkRequestMade)
         assertEquals(result, service.request(request))
+        assertEquals(result, deterministicPeer.request(request))
     }
 }
