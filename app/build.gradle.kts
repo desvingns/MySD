@@ -38,4 +38,10 @@ dependencies {
     implementation(composeBom)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.material3)
+
+    val testComposeBom = platform(libs.androidx.compose.bom)
+    androidTestImplementation(testComposeBom)
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
 }
