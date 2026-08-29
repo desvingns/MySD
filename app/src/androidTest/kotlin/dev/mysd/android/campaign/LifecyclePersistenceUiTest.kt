@@ -33,9 +33,7 @@ class LifecyclePersistenceUiTest {
         try {
             scenario.moveToState(Lifecycle.State.CREATED)
 
-            val saved = requireStoredRunSave()
-            assertTrue(saved.active)
-            assertNull(saved.terminalResult)
+            assertActiveContourSave(requireStoredRunSave())
         } finally {
             scenario.close()
         }
@@ -47,9 +45,7 @@ class LifecyclePersistenceUiTest {
         try {
             scenario.moveToState(Lifecycle.State.CREATED)
 
-            val saved = requireStoredRunSave()
-            assertTrue(!saved.active)
-            assertEquals(RunTerminalResult.VICTORY, saved.terminalResult)
+            assertVictoryContourSave(requireStoredRunSave())
         } finally {
             scenario.close()
         }
@@ -60,8 +56,8 @@ class LifecyclePersistenceUiTest {
         val scenario = launchActiveContour()
         try {
             scenario.recreate()
-            waitForText(R.string.active_battle_title)
-            assertTrue(requireStoredRunSave().active)
+            assertActiveContourVisible()
+            assertActiveContourSave(requireStoredRunSave())
         } finally {
             scenario.close()
         }
@@ -72,8 +68,8 @@ class LifecyclePersistenceUiTest {
         val scenario = launchVictoryContour()
         try {
             scenario.recreate()
-            waitForText(R.string.victory_title)
-            assertEquals(RunTerminalResult.VICTORY, requireStoredRunSave().terminalResult)
+            assertVictoryContourVisible()
+            assertVictoryContourSave(requireStoredRunSave())
         } finally {
             scenario.close()
         }
@@ -81,31 +77,39 @@ class LifecyclePersistenceUiTest {
 
     @Test
     fun processDeathRestoresActiveContour() = withCleanRunSave {
-        val scenario = launchActiveContour()
-        scenario.moveToState(Lifecycle.State.CREATED)
-        scenario.close()
-
-        val relaunched = ActivityScenario.launch(MainActivity::class.java)
+        var scenario: ActivityScenario<MainActivity>? = launchActiveContour()
+        var relaunched: ActivityScenario<MainActivity>? = null
         try {
-            waitForText(R.string.active_battle_title)
-            assertTrue(requireStoredRunSave().active)
+            checkNotNull(scenario).moveToState(Lifecycle.State.CREATED)
+            assertActiveContourSave(requireStoredRunSave())
+            checkNotNull(scenario).close()
+            scenario = null
+
+            relaunched = ActivityScenario.launch(MainActivity::class.java)
+            assertActiveContourVisible()
+            assertActiveContourSave(requireStoredRunSave())
         } finally {
-            relaunched.close()
+            scenario?.close()
+            relaunched?.close()
         }
     }
 
     @Test
     fun processDeathRestoresVictoryContour() = withCleanRunSave {
-        val scenario = launchVictoryContour()
-        scenario.moveToState(Lifecycle.State.CREATED)
-        scenario.close()
-
-        val relaunched = ActivityScenario.launch(MainActivity::class.java)
+        var scenario: ActivityScenario<MainActivity>? = launchVictoryContour()
+        var relaunched: ActivityScenario<MainActivity>? = null
         try {
-            waitForText(R.string.victory_title)
-            assertEquals(RunTerminalResult.VICTORY, requireStoredRunSave().terminalResult)
+            checkNotNull(scenario).moveToState(Lifecycle.State.CREATED)
+            assertVictoryContourSave(requireStoredRunSave())
+            checkNotNull(scenario).close()
+            scenario = null
+
+            relaunched = ActivityScenario.launch(MainActivity::class.java)
+            assertVictoryContourVisible()
+            assertVictoryContourSave(requireStoredRunSave())
         } finally {
-            relaunched.close()
+            scenario?.close()
+            relaunched?.close()
         }
     }
 
@@ -117,7 +121,13 @@ class LifecyclePersistenceUiTest {
         click(R.string.battle_setup_choice_b)
         click(R.string.battle_setup_continue_action)
         click(R.string.battle_start_action)
-        waitForText(R.string.active_battle_title)
+        click(
+            R.string.active_battle_speed,
+            context.getString(R.string.active_battle_speed_default),
+        )
+        click(R.string.active_battle_pause_action)
+        click(R.string.active_battle_build_action)
+        assertActiveContourVisible()
         return scenario
     }
 
@@ -131,6 +141,55 @@ class LifecyclePersistenceUiTest {
         click(R.string.active_battle_victory_action)
         waitForText(R.string.victory_title)
         return scenario
+    }
+
+    private fun assertActiveContourVisible() {
+        waitForText(R.string.active_battle_title)
+        waitForText(
+            context.getString(
+                R.string.active_battle_speed,
+                context.getString(R.string.active_battle_speed_alternate),
+            ),
+        )
+        waitForText(R.string.active_battle_resume_action)
+        waitForText(R.string.active_battle_build_selected)
+    }
+
+    private fun assertVictoryContourVisible() {
+        waitForText(R.string.victory_title)
+        waitForText(R.string.victory_reward_panel_title)
+        waitForText(R.string.victory_reward_panel_body)
+    }
+
+    private fun assertActiveContourSave(saved: RunSave) {
+        assertTrue(saved.active)
+        assertNull(saved.terminalResult)
+        assertEquals(
+            listOf(
+                "mysd.campaign.contour.v1.phase=active",
+                "mysd.campaign.contour.v1.origin=NEW_RUN",
+                "mysd.campaign.contour.v1.setup=setup-option-b",
+                "mysd.campaign.contour.v1.speed=ALTERNATE",
+                "mysd.campaign.contour.v1.paused=1",
+                "mysd.campaign.contour.v1.build=1",
+                "mysd.campaign.contour.v1.refresh=0",
+                "mysd.campaign.contour.v1.enhancement=none",
+            ),
+            saved.modifiers,
+        )
+    }
+
+    private fun assertVictoryContourSave(saved: RunSave) {
+        assertTrue(!saved.active)
+        assertEquals(RunTerminalResult.VICTORY, saved.terminalResult)
+        assertEquals(
+            "mysd.campaign.contour.v1.phase=victory",
+            saved.modifiers.first(),
+        )
+        assertEquals(
+            "mysd.campaign.contour.v1.enhancement=enhancement-steady-pulse",
+            saved.modifiers.last(),
+        )
     }
 
     private fun click(stringRes: Int, vararg formatArgs: Any) {
