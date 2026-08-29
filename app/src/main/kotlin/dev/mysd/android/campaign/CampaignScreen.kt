@@ -29,6 +29,8 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -37,6 +39,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -883,6 +887,8 @@ private fun CampaignSelectionContent(
     modifier: Modifier = Modifier,
 ) {
     val spacing = LocalSpacing.current
+    val routeBarHeightPx = remember { mutableIntStateOf(0) }
+    val routeBarHeight = with(LocalDensity.current) { routeBarHeightPx.intValue.toDp() }
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -899,7 +905,7 @@ private fun CampaignSelectionContent(
                     .weight(1f)
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = CampaignMetrics.contentInset)
-                    .padding(bottom = spacing.m),
+                    .padding(bottom = routeBarHeight + spacing.m),
                 verticalArrangement = Arrangement.spacedBy(CampaignMetrics.sectionGap),
             ) {
                 Text(
@@ -921,11 +927,14 @@ private fun CampaignSelectionContent(
                     )
                 }
             }
-            CampaignRouteBar(
-                onOpenRoster = onOpenRoster,
-                onOpenArena = onOpenArena,
-            )
         }
+        CampaignRouteBar(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .onSizeChanged { routeBarHeightPx.intValue = it.height },
+            onOpenRoster = onOpenRoster,
+            onOpenArena = onOpenArena,
+        )
     }
 }
 
@@ -1048,9 +1057,10 @@ private fun CampaignLevelCard(
 private fun CampaignRouteBar(
     onOpenRoster: () -> Unit,
     onOpenArena: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Surface(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .navigationBarsPadding(),
         color = CampaignSurface,
@@ -1076,7 +1086,9 @@ private fun CampaignRouteBar(
                     shape = MaterialTheme.shapes.medium,
                 ) {
                     Box(
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = CampaignMetrics.minTouchTarget),
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
