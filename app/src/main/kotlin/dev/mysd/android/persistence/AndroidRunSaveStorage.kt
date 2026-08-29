@@ -14,6 +14,17 @@ internal class AndroidRunSaveStorage(
         null
     }
 
+    /** Commits the complete encoded document before Android tears down the activity process. */
+    fun saveEncodedSave(encodedSave: String?): Boolean {
+        val editor = preferences.edit()
+        if (encodedSave == null) {
+            editor.remove(ENCODED_SAVE_KEY)
+        } else {
+            editor.putString(ENCODED_SAVE_KEY, encodedSave)
+        }
+        return editor.commit()
+    }
+
     internal companion object {
         const val PREFERENCES_NAME = "dev.mysd.android.run-save"
         const val ENCODED_SAVE_KEY = "encoded-versioned-save"

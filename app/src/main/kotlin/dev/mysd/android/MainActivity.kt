@@ -18,17 +18,22 @@ import dev.mysd.game.persistence.PersistenceException
 import dev.mysd.game.persistence.RunSaveCodec
 
 class MainActivity : ComponentActivity() {
+    private lateinit var runSaveStorage: AndroidRunSaveStorage
+    private lateinit var campaignSession: dev.mysd.game.campaign.CampaignSession
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val runSave = AndroidRunSaveStorage(this).loadEncodedSave()?.let { encodedSave ->
+        runSaveStorage = AndroidRunSaveStorage(this)
+        val runSave = runSaveStorage.loadEncodedSave()?.let { encodedSave ->
             try {
                 RunSaveCodec.decode(encodedSave)
             } catch (_: PersistenceException) {
                 null
             }
         }
+        campaignSession = AcceptedCampaignFixture.createSession(runSave = runSave)
         setContent {
-            val session = remember { AcceptedCampaignFixture.createSession(runSave = runSave) }
+            val session = campaignSession
             var snapshot by remember { mutableStateOf(session.snapshot()) }
             var battleSetup by remember { mutableStateOf(session.battleSetupSnapshot()) }
             var activeBattle by remember { mutableStateOf(session.activeBattleSnapshot()) }
@@ -77,5 +82,20 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        persistRunSave()
+        super.onSaveInstanceState(outState)
+    }
+
+    override fun onStop() {
+        persistRunSave()
+        super.onStop()
+    }
+
+    private fun persistRunSave() {
+        if (!::runSaveStorage.isInitialized || !::campaignSession.isInitialized) return
+        runSaveStorage.saveEncodedSave(campaignSession.runSave()?.let(RunSaveCodec::encode))
     }
 }

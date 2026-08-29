@@ -3,16 +3,20 @@ package dev.mysd.game.campaign
 import dev.mysd.game.battle.ActiveBattleIntent
 import dev.mysd.game.battle.ActiveBattleSession
 import dev.mysd.game.battle.ActiveBattleSnapshot
+import dev.mysd.game.battle.ActiveBattleSpeedIndicator
 import dev.mysd.game.battle.EnhancementIntent
 import dev.mysd.game.battle.EnhancementSession
 import dev.mysd.game.battle.EnhancementSnapshot
 import dev.mysd.game.battle.VictorySession
 import dev.mysd.game.battle.VictorySnapshot
 import dev.mysd.game.content.ContentId
+import dev.mysd.game.content.OriginalContentIds
 import dev.mysd.game.meta.RosterIntent
 import dev.mysd.game.meta.RosterSession
 import dev.mysd.game.meta.RosterSnapshot
+import dev.mysd.game.persistence.PendingCommand
 import dev.mysd.game.persistence.RunSave
+import dev.mysd.game.persistence.RunTerminalResult
 import dev.mysd.game.service.ArenaRequest
 import dev.mysd.game.service.ArenaService
 import dev.mysd.game.service.ArenaSnapshot
@@ -94,8 +98,10 @@ class CampaignSession(
     acceptedStageIds: List<CampaignStageId>,
     private val unfinishedRun: UnfinishedCampaignRun?,
     private val arenaService: ArenaService = OfflineServiceAdapters.foundation().arenaService,
+    restoredRunSave: RunSave? = null,
 ) {
     private val stages = acceptedStageIds.toList()
+    private var lifecycleRunSave: RunSave? = restoredRunSave
 
     private var battleSetupSession: BattleSetupSession? = null
     private var activeBattleSession: ActiveBattleSession? = null
@@ -119,6 +125,7 @@ class CampaignSession(
         require(unfinishedRun == null || unfinishedRun.stageId in stages) {
             "An unfinished run must reference an accepted campaign stage."
         }
+        restoreSavedContour(restoredRunSave)
     }
 
     fun snapshot(): CampaignSnapshot = state
@@ -140,6 +147,48 @@ class CampaignSession(
 
     /** Immutable Arena service-shaped snapshot after the accepted local route is opened, if any. */
     fun arenaSnapshot(): ArenaSnapshot? = arenaState
+
+    /**
+     * Returns the supported canonical run save for the current campaign contour.
+     *
+     * The contour markers use the existing RunSave modifiers list as namespaced, presentation
+     * restoration metadata. They do not add mechanics or alter the deterministic simulation.
+     */
+    fun runSave(): RunSave? {
+        val activeBattle = activeBattleSession
+        if (activeBattle == null) {
+            return lifecycleRunSave?.takeIf {
+                it.active && it.terminalResult == null
+            }
+        }
+
+        val activeSnapshot = activeBattle.snapshot()
+        val phase = when {
+            victorySession != null -> PersistedContourPhase.VICTORY
+            enhancementSession?.snapshot()?.returnToBattle == false -> PersistedContourPhase.ENHANCEMENT
+            else -> PersistedContourPhase.ACTIVE
+        }
+        val base = lifecycleRunSave ?: newRunSave(activeSnapshot.stageId)
+        val terminalResult = if (phase == PersistedContourPhase.VICTORY) {
+            RunTerminalResult.VICTORY
+        } else {
+            null
+        }
+        return base.copy(
+            stageId = activeSnapshot.stageId.value,
+            active = terminalResult == null,
+            pendingCommands = base.pendingCommands.toList(),
+            modifiers = contourModifiers(
+                baseModifiers = base.modifiers,
+                phase = phase,
+                active = activeSnapshot,
+                enhancement = enhancementSession?.snapshot(),
+                selectedEnhancementId = selectedEnhancementId,
+                setupOrigin = state.setupOrigin ?: LevelSetupOrigin.UNFINISHED_RUN,
+            ),
+            terminalResult = terminalResult,
+        )
+    }
 
     /** Routes touch-to-command input to the authoritative active-battle session. */
     fun submit(intent: ActiveBattleIntent): ActiveBattleSnapshot? {
@@ -209,6 +258,11 @@ class CampaignSession(
             else -> {
                 val previous = state
                 state = reduce(state, intent)
+                if (intent == CampaignIntent.CancelUnfinishedRun) {
+                    lifecycleRunSave = null
+                } else if (intent is CampaignIntent.SelectLevel) {
+                    lifecycleRunSave = null
+                }
                 if (
                     state.route == CampaignRoute.LEVEL_SETUP &&
                     state.selectedStageId != previous.selectedStageId
@@ -252,6 +306,67 @@ class CampaignSession(
             stageId = requireNotNull(state.selectedStageId),
             selectedSetupChoice = setup.selectedChoice,
         )
+    }
+
+    private fun restoreSavedContour(runSave: RunSave?) {
+        val restored = runSave?.takeIf { it.stageId in stages.map(CampaignStageId::value) }
+            ?.let(::parseContour)
+            ?: return
+
+        val stageId = CampaignStageId.of(requireNotNull(runSave).stageId)
+        state = state.copy(
+            route = CampaignRoute.LEVEL_SETUP,
+            selectedStageId = stageId,
+            setupOrigin = restored.setupOrigin,
+            battleStart = BattleStartTransition(
+                stageId = stageId,
+                selectedChoice = restored.selectedSetupChoice,
+            ),
+        )
+        activeBattleSession = ActiveBattleSession(
+            stageId = stageId,
+            selectedSetupChoice = restored.selectedSetupChoice,
+        )
+        if (restored.speedIndicator == ActiveBattleSpeedIndicator.ALTERNATE) {
+            activeBattleSession?.submit(ActiveBattleIntent.ChangeSpeed)
+        }
+        if (restored.paused) {
+            activeBattleSession?.submit(ActiveBattleIntent.PauseOrResume)
+        }
+        if (restored.buildSelected) {
+            activeBattleSession?.submit(ActiveBattleIntent.SelectBuildAffordance)
+        }
+
+        when (restored.phase) {
+            PersistedContourPhase.ACTIVE -> {
+                restored.selectedEnhancementId?.let {
+                    selectedEnhancementId = it
+                    activeBattleSession?.returnToBattle()
+                }
+            }
+
+            PersistedContourPhase.ENHANCEMENT -> {
+                activeBattleSession?.submit(ActiveBattleIntent.OpenEnhancement)
+                enhancementSession = EnhancementSession(
+                    stageId = stageId,
+                    selectedSetupChoice = restored.selectedSetupChoice,
+                )
+                repeat(restored.refreshRevision) {
+                    enhancementSession?.submit(EnhancementIntent.RefreshOffers)
+                }
+            }
+
+            PersistedContourPhase.VICTORY -> {
+                selectedEnhancementId = restored.selectedEnhancementId
+                    ?: OriginalContentIds.FOUNDATION_ENHANCEMENT
+                activeBattleSession?.returnToBattle()
+                victorySession = VictorySession(
+                    stageId = stageId,
+                    selectedSetupChoice = restored.selectedSetupChoice,
+                    selectedEnhancementId = requireNotNull(selectedEnhancementId),
+                )
+            }
+        }
     }
 
     private fun reduce(
@@ -362,5 +477,121 @@ object AcceptedCampaignFixture {
             }
             ?.let { UnfinishedCampaignRun(stageId = STAGE_ID) },
         arenaService = arenaService,
+        restoredRunSave = runSave?.takeIf { it.stageId == STAGE_ID.value },
     )
 }
+
+private enum class PersistedContourPhase {
+    ACTIVE,
+    ENHANCEMENT,
+    VICTORY,
+}
+
+private data class RestoredContour(
+    val phase: PersistedContourPhase,
+    val setupOrigin: LevelSetupOrigin,
+    val selectedSetupChoice: BattleSetupChoice?,
+    val selectedEnhancementId: ContentId?,
+    val speedIndicator: ActiveBattleSpeedIndicator,
+    val paused: Boolean,
+    val buildSelected: Boolean,
+    val refreshRevision: Int,
+)
+
+private const val CONTOUR_MARKER_PREFIX = "mysd.campaign.contour.v1."
+private const val NO_VALUE = "none"
+private const val MAX_RESTORED_REFRESHES = 100
+
+private fun marker(key: String, value: String): String = "$CONTOUR_MARKER_PREFIX$key=$value"
+
+private fun markerValue(modifiers: List<String>, key: String): String? = modifiers
+    .firstOrNull { it.startsWith("$CONTOUR_MARKER_PREFIX$key=") }
+    ?.substringAfter('=', missingDelimiterValue = "")
+    ?.takeIf(String::isNotEmpty)
+
+private fun parseContour(runSave: RunSave): RestoredContour? {
+    val phase = when (markerValue(runSave.modifiers, "phase")) {
+        "active" -> PersistedContourPhase.ACTIVE
+        "enhancement" -> PersistedContourPhase.ENHANCEMENT
+        "victory" -> PersistedContourPhase.VICTORY
+        else -> return null
+    }
+    if (
+        (phase == PersistedContourPhase.VICTORY &&
+            (runSave.active || runSave.terminalResult != RunTerminalResult.VICTORY)) ||
+        (phase != PersistedContourPhase.VICTORY &&
+            (!runSave.active || runSave.terminalResult != null))
+    ) {
+        return null
+    }
+    val selectedSetupChoice = markerValue(runSave.modifiers, "setup")
+        ?.takeUnless { it == NO_VALUE }
+        ?.let { raw -> BattleSetupChoice.entries.firstOrNull { it.stableId == raw } }
+    val selectedEnhancementId = markerValue(runSave.modifiers, "enhancement")
+        ?.takeUnless { it == NO_VALUE }
+        ?.let { raw ->
+            when (raw) {
+                OriginalContentIds.FOUNDATION_ENHANCEMENT.value -> OriginalContentIds.FOUNDATION_ENHANCEMENT
+                OriginalContentIds.FOUNDATION_ENHANCEMENT_EMBER_WARD.value -> OriginalContentIds.FOUNDATION_ENHANCEMENT_EMBER_WARD
+                else -> null
+            }
+        }
+    val speedIndicator = when (markerValue(runSave.modifiers, "speed")) {
+        ActiveBattleSpeedIndicator.ALTERNATE.name -> ActiveBattleSpeedIndicator.ALTERNATE
+        else -> ActiveBattleSpeedIndicator.DEFAULT
+    }
+    val paused = markerValue(runSave.modifiers, "paused") == "1"
+    val buildSelected = markerValue(runSave.modifiers, "build") == "1"
+    val refreshRevision = markerValue(runSave.modifiers, "refresh")
+        ?.toIntOrNull()
+        ?.takeIf { it in 0..MAX_RESTORED_REFRESHES }
+        ?: 0
+    return RestoredContour(
+        phase = phase,
+        setupOrigin = when (markerValue(runSave.modifiers, "origin")) {
+            LevelSetupOrigin.NEW_RUN.name -> LevelSetupOrigin.NEW_RUN
+            else -> LevelSetupOrigin.UNFINISHED_RUN
+        },
+        selectedSetupChoice = selectedSetupChoice,
+        selectedEnhancementId = selectedEnhancementId,
+        speedIndicator = speedIndicator,
+        paused = paused,
+        buildSelected = buildSelected,
+        refreshRevision = refreshRevision,
+    )
+}
+
+private fun contourModifiers(
+    baseModifiers: List<String>,
+    phase: PersistedContourPhase,
+    active: ActiveBattleSnapshot,
+    enhancement: EnhancementSnapshot?,
+    selectedEnhancementId: ContentId?,
+    setupOrigin: LevelSetupOrigin,
+): List<String> {
+    val preserved = baseModifiers.filterNot { it.startsWith(CONTOUR_MARKER_PREFIX) }
+    return preserved + buildList {
+        add(marker("phase", phase.name.lowercase()))
+        add(marker("origin", setupOrigin.name))
+        add(marker("setup", active.selectedSetupChoice?.stableId ?: NO_VALUE))
+        add(marker("speed", active.speedIndicator.name))
+        add(marker("paused", if (active.paused) "1" else "0"))
+        add(marker("build", if (active.buildAffordanceSelected) "1" else "0"))
+        add(marker("refresh", enhancement?.refreshRevision?.toString() ?: "0"))
+        add(marker("enhancement", selectedEnhancementId?.value ?: NO_VALUE))
+    }
+}
+
+private fun newRunSave(stageId: CampaignStageId): RunSave = RunSave(
+    runId = "campaign-${stageId.value}",
+    stageId = stageId.value,
+    contentVersion = 1,
+    simulationVersion = 1,
+    seed = 0L,
+    rngState = 0L,
+    tick = 0L,
+    active = true,
+    pendingCommands = emptyList<PendingCommand>(),
+    modifiers = emptyList(),
+    terminalResult = null,
+)
