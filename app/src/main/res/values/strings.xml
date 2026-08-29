@@ -73,6 +73,9 @@
     <string name="enhancement_offer_unknown">Available enhancement</string>
     <string name="roster_title">Troops</string>
     <string name="roster_body">Accepted local troops and deferred upgrade affordances.</string>
+    <string name="roster_header_kicker">MYSD / ROSTER SIGNAL</string>
+    <string name="roster_illustration_description">Illustrated roster backdrop</string>
+    <string name="roster_troop_illustration_description">%1$s troop illustration</string>
     <string name="roster_troop_bright_mote">Bright Mote</string>
     <string name="roster_troop_unknown">Accepted troop</string>
     <string name="roster_upgrade_action">Upgrade (deferred)</string>

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredWidthIn
@@ -41,6 +42,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
@@ -72,6 +74,16 @@ import dev.mysd.android.ui.theme.LaunchOnBackground
 import dev.mysd.android.ui.theme.LaunchOnPanel
 import dev.mysd.android.ui.theme.LaunchPanel
 import dev.mysd.android.ui.theme.LocalSpacing
+import dev.mysd.android.ui.theme.RosterAccent
+import dev.mysd.android.ui.theme.RosterBackground
+import dev.mysd.android.ui.theme.RosterCard
+import dev.mysd.android.ui.theme.RosterDisabled
+import dev.mysd.android.ui.theme.RosterMetrics
+import dev.mysd.android.ui.theme.RosterOnBackground
+import dev.mysd.android.ui.theme.RosterOnSurface
+import dev.mysd.android.ui.theme.RosterRouteInactive
+import dev.mysd.android.ui.theme.RosterSupport
+import dev.mysd.android.ui.theme.RosterSurface as RosterSurfaceColor
 import dev.mysd.game.battle.ActiveBattleIntent
 import dev.mysd.game.battle.ActiveBattleSnapshot
 import dev.mysd.game.battle.ActiveBattleSpeedIndicator
@@ -1127,89 +1139,113 @@ fun RosterContent(
     modifier: Modifier = Modifier,
 ) {
     val spacing = LocalSpacing.current
-    Column(
+    Box(
         modifier = modifier
             .fillMaxSize()
-            .padding(spacing.l),
-        verticalArrangement = Arrangement.spacedBy(spacing.m, Alignment.CenterVertically),
-        horizontalAlignment = Alignment.CenterHorizontally,
+            .background(RosterBackground),
     ) {
-        Text(
-            text = stringResource(R.string.roster_title),
-            style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.primary,
-        )
-        Text(
-            text = stringResource(R.string.roster_body),
-            style = MaterialTheme.typography.bodyLarge,
-        )
-        state.troopSlots.forEach { slot ->
-            RosterTroopContent(
-                slot = slot,
-                onUpgrade = { onIntent(RosterIntent.UpgradeTroop(slot.id)) },
-            )
-        }
-        if (state.surface == RosterSurface.TROOPS) {
-            Button(onClick = { onIntent(RosterIntent.OpenSettings) }) {
+        RosterBackdrop(modifier = Modifier.matchParentSize())
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .systemBarsPadding(),
+        ) {
+            RosterHeader(onCloseRoster = onCloseRoster)
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = RosterMetrics.contentInset, vertical = spacing.m),
+                verticalArrangement = Arrangement.spacedBy(RosterMetrics.cardGap),
+            ) {
                 Text(
-                    text = stringResource(R.string.roster_settings_action),
-                    style = MaterialTheme.typography.labelLarge,
+                    text = stringResource(R.string.roster_body),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = RosterOnBackground.copy(alpha = 0.82f),
                 )
-            }
-        }
-        TextButton(onClick = onCloseRoster) {
-            Text(
-                text = stringResource(R.string.roster_close_action),
-                style = MaterialTheme.typography.labelLarge,
-            )
-        }
-    }
-
-    if (state.surface == RosterSurface.SETTINGS) {
-        AlertDialog(
-            onDismissRequest = { onIntent(RosterIntent.CloseSettings) },
-            title = {
-                Text(
-                    text = stringResource(R.string.settings_title),
-                    style = MaterialTheme.typography.titleLarge,
-                )
-            },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(spacing.m)) {
-                    Text(
-                        text = stringResource(R.string.settings_body),
-                        style = MaterialTheme.typography.bodyLarge,
+                state.troopSlots.forEach { slot ->
+                    RosterTroopContent(
+                        slot = slot,
+                        onUpgrade = { onIntent(RosterIntent.UpgradeTroop(slot.id)) },
                     )
-                    state.settings.forEach { option ->
-                        RosterSettingContent(
-                            option = option,
-                            onToggle = { onIntent(RosterIntent.ToggleSetting(option.id)) },
+                }
+                if (state.surface == RosterSurface.TROOPS) {
+                    Button(
+                        onClick = { onIntent(RosterIntent.OpenSettings) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = RosterMetrics.minTouchTarget),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = RosterSupport.copy(alpha = 0.18f),
+                            contentColor = RosterOnSurface,
+                        ),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.roster_settings_action),
+                            style = MaterialTheme.typography.labelLarge,
                         )
                     }
                 }
-            },
-            dismissButton = {
-                TextButton(onClick = { onIntent(RosterIntent.CloseSettings) }) {
+            }
+            RosterRouteBar(onCloseRoster = onCloseRoster)
+        }
+
+        if (state.surface == RosterSurface.SETTINGS) {
+            AlertDialog(
+                onDismissRequest = { onIntent(RosterIntent.CloseSettings) },
+                title = {
                     Text(
-                        text = stringResource(R.string.settings_close_action),
-                        style = MaterialTheme.typography.labelLarge,
+                        text = stringResource(R.string.settings_title),
+                        style = MaterialTheme.typography.titleLarge,
                     )
-                }
-            },
-            confirmButton = {
-                Button(onClick = { onIntent(RosterIntent.ConfirmSettings) }) {
-                    Text(
-                        text = stringResource(R.string.settings_confirm_action),
-                        style = MaterialTheme.typography.labelLarge,
-                    )
-                }
-            },
-            properties = DialogProperties(
-                dismissOnBackPress = true,
-                dismissOnClickOutside = false,
-            ),
-            shape = MaterialTheme.shapes.medium,
-        )
+                },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(spacing.m)) {
+                        Text(
+                            text = stringResource(R.string.settings_body),
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                        state.settings.forEach { option ->
+                            RosterSettingContent(
+                                option = option,
+                                onToggle = { onIntent(RosterIntent.ToggleSetting(option.id)) },
+                            )
+                        }
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = { onIntent(RosterIntent.CloseSettings) },
+                        modifier = Modifier
+                            .heightIn(min = RosterMetrics.minTouchTarget)
+                            .widthIn(min = RosterMetrics.minTouchTarget),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.settings_close_action),
+                            style = MaterialTheme.typography.labelLarge,
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = { onIntent(RosterIntent.ConfirmSettings) },
+                        modifier = Modifier
+                            .heightIn(min = RosterMetrics.minTouchTarget)
+                            .widthIn(min = RosterMetrics.minTouchTarget),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.settings_confirm_action),
+                            style = MaterialTheme.typography.labelLarge,
+                        )
+                    }
+                },
+                properties = DialogProperties(
+                    dismissOnBackPress = true,
+                    dismissOnClickOutside = false,
+                ),
+                shape = MaterialTheme.shapes.medium,
+            )
+        }
     }
 }
 
@@ -1218,16 +1254,52 @@ private fun RosterTroopContent(
     slot: RosterTroopSlot,
     onUpgrade: () -> Unit,
 ) {
-    Text(
-        text = troopLabel(slot.id),
-        style = MaterialTheme.typography.titleMedium,
-    )
-    if (slot.upgradeAffordanceVisible) {
-        Button(onClick = onUpgrade) {
-            Text(
-                text = stringResource(R.string.roster_upgrade_action),
-                style = MaterialTheme.typography.labelLarge,
+    val label = troopLabel(slot.id)
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        color = RosterCard,
+        contentColor = RosterOnSurface,
+        border = BorderStroke(1.dp, RosterSupport.copy(alpha = 0.32f)),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(RosterMetrics.cardPadding),
+            horizontalArrangement = Arrangement.spacedBy(RosterMetrics.cardGap),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            RosterTroopEmblem(
+                label = label,
+                modifier = Modifier.size(72.dp),
             )
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(LocalSpacing.current.s),
+            ) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.titleLarge,
+                    color = RosterOnSurface,
+                )
+                if (slot.upgradeAffordanceVisible) {
+                    Button(
+                        onClick = onUpgrade,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = RosterMetrics.minTouchTarget),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = RosterAccent,
+                            contentColor = RosterBackground,
+                        ),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.roster_upgrade_action),
+                            style = MaterialTheme.typography.labelLarge,
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -1238,7 +1310,9 @@ private fun RosterSettingContent(
     onToggle: () -> Unit,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = RosterMetrics.minTouchTarget),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -1248,8 +1322,260 @@ private fun RosterSettingContent(
         )
         if (option.toggleAffordanceVisible) {
             Switch(
+                modifier = Modifier.size(RosterMetrics.minTouchTarget),
                 checked = false,
                 onCheckedChange = { onToggle() },
+            )
+        }
+    }
+}
+
+@Composable
+private fun RosterHeader(
+    onCloseRoster: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = RosterSurfaceColor,
+        contentColor = RosterOnSurface,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    horizontal = RosterMetrics.contentInset,
+                    vertical = RosterMetrics.cardPadding,
+                ),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(LocalSpacing.current.m),
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.roster_header_kicker),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = RosterSupport,
+                )
+                Text(
+                    text = stringResource(R.string.roster_title),
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = RosterOnSurface,
+                )
+            }
+            TextButton(
+                onClick = onCloseRoster,
+                modifier = Modifier
+                    .heightIn(min = RosterMetrics.minTouchTarget)
+                    .widthIn(min = RosterMetrics.minTouchTarget),
+                colors = ButtonDefaults.textButtonColors(contentColor = RosterAccent),
+            ) {
+                Text(
+                    text = stringResource(R.string.roster_close_action),
+                    style = MaterialTheme.typography.labelLarge,
+                    textAlign = TextAlign.Center,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun RosterRouteBar(
+    onCloseRoster: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .navigationBarsPadding(),
+        color = RosterSurfaceColor,
+        contentColor = RosterOnSurface,
+    ) {
+        Row(
+            modifier = Modifier
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = LocalSpacing.current.s, vertical = LocalSpacing.current.xs),
+            horizontalArrangement = Arrangement.spacedBy(LocalSpacing.current.xs),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            RosterRouteButton(
+                label = stringResource(R.string.campaign_route_campaign),
+                onClick = onCloseRoster,
+            )
+            RosterRouteButton(
+                label = stringResource(R.string.campaign_route_troops),
+                enabled = false,
+                selected = true,
+            )
+            RosterRouteButton(
+                label = stringResource(R.string.campaign_route_arena),
+                enabled = false,
+            )
+            RosterRouteButton(
+                label = stringResource(R.string.campaign_shop_action),
+                enabled = false,
+            )
+            RosterRouteButton(
+                label = stringResource(R.string.campaign_tech_action),
+                enabled = false,
+            )
+        }
+    }
+}
+
+@Composable
+private fun RosterRouteButton(
+    label: String,
+    enabled: Boolean = true,
+    selected: Boolean = false,
+    onClick: () -> Unit = {},
+) {
+    Button(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = Modifier
+            .testTag("roster-route-${label.lowercase().replace(' ', '-')}")
+            .requiredWidthIn(min = RosterMetrics.routeItemMinWidth)
+            .heightIn(min = RosterMetrics.routeHeight),
+        contentPadding = PaddingValues(
+            horizontal = LocalSpacing.current.xs,
+            vertical = LocalSpacing.current.s,
+        ),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = if (selected) {
+                RosterAccent.copy(alpha = 0.2f)
+            } else {
+                RosterSupport.copy(alpha = 0.14f)
+            },
+            contentColor = RosterOnSurface,
+            disabledContainerColor = if (selected) {
+                RosterAccent.copy(alpha = 0.2f)
+            } else {
+                RosterRouteInactive.copy(alpha = 0.42f)
+            },
+            disabledContentColor = if (selected) RosterAccent else RosterDisabled,
+        ),
+        shape = MaterialTheme.shapes.medium,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelLarge,
+            textAlign = TextAlign.Center,
+        )
+    }
+}
+
+@Composable
+private fun RosterTroopEmblem(
+    label: String,
+    modifier: Modifier = Modifier,
+) {
+    val description = stringResource(
+        R.string.roster_troop_illustration_description,
+        label,
+    )
+    Canvas(
+        modifier = modifier.semantics {
+            contentDescription = description
+        },
+    ) {
+        val center = Offset(size.width * 0.5f, size.height * 0.46f)
+        val radius = size.minDimension * 0.24f
+        drawCircle(
+            color = RosterSupport.copy(alpha = 0.18f),
+            radius = radius * 1.85f,
+            center = center,
+        )
+        drawCircle(
+            color = RosterAccent,
+            radius = radius,
+            center = center,
+        )
+        drawCircle(
+            color = RosterBackground.copy(alpha = 0.78f),
+            radius = radius * 0.42f,
+            center = center,
+        )
+        drawLine(
+            color = RosterOnBackground.copy(alpha = 0.8f),
+            start = Offset(size.width * 0.2f, size.height * 0.78f),
+            end = Offset(size.width * 0.8f, size.height * 0.78f),
+            strokeWidth = 2.dp.toPx(),
+            cap = StrokeCap.Round,
+        )
+    }
+}
+
+@Composable
+private fun RosterBackdrop(
+    modifier: Modifier = Modifier,
+) {
+    val description = stringResource(R.string.roster_illustration_description)
+    Canvas(
+        modifier = modifier.semantics {
+            contentDescription = description
+        },
+    ) {
+        drawRect(
+            brush = Brush.verticalGradient(
+                colors = listOf(
+                    RosterBackground,
+                    RosterBackground.copy(alpha = 0.72f),
+                    RosterSurfaceColor,
+                ),
+            ),
+            size = size,
+        )
+        val beacon = Offset(size.width * 0.82f, size.height * 0.18f)
+        val beaconRadius = size.minDimension * 0.16f
+        drawCircle(
+            color = RosterSupport.copy(alpha = 0.08f),
+            radius = beaconRadius * 1.9f,
+            center = beacon,
+        )
+        drawCircle(
+            color = RosterSupport.copy(alpha = 0.16f),
+            radius = beaconRadius,
+            center = beacon,
+        )
+        drawCircle(
+            color = RosterAccent.copy(alpha = 0.9f),
+            radius = beaconRadius * 0.22f,
+            center = beacon,
+        )
+        val ridge = Path().apply {
+            moveTo(0f, size.height * 0.62f)
+            cubicTo(
+                size.width * 0.22f,
+                size.height * 0.5f,
+                size.width * 0.42f,
+                size.height * 0.68f,
+                size.width * 0.62f,
+                size.height * 0.56f,
+            )
+            cubicTo(
+                size.width * 0.78f,
+                size.height * 0.47f,
+                size.width * 0.9f,
+                size.height * 0.58f,
+                size.width,
+                size.height * 0.5f,
+            )
+            lineTo(size.width, size.height)
+            lineTo(0f, size.height)
+            close()
+        }
+        drawPath(
+            path = ridge,
+            color = RosterCard.copy(alpha = 0.35f),
+        )
+        for (index in 0..5) {
+            val x = size.width * (0.08f + index * 0.17f)
+            val top = size.height * (0.68f - (index % 3) * 0.035f)
+            drawLine(
+                color = RosterSupport.copy(alpha = 0.12f),
+                start = Offset(x, top),
+                end = Offset(x + size.width * 0.08f, top - size.height * 0.05f),
+                strokeWidth = 1.dp.toPx(),
+                cap = StrokeCap.Round,
             )
         }
     }
