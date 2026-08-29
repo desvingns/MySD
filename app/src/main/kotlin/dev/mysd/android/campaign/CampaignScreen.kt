@@ -12,10 +12,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.requiredWidthIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.widthIn
@@ -1058,47 +1056,63 @@ private fun CampaignRouteBar(
         color = CampaignSurface,
         contentColor = CampaignOnSurface,
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = LocalSpacing.current.s, vertical = LocalSpacing.current.xs),
-            horizontalArrangement = Arrangement.spacedBy(LocalSpacing.current.xs),
-            verticalAlignment = Alignment.CenterVertically,
+            verticalArrangement = Arrangement.spacedBy(LocalSpacing.current.xs),
         ) {
-            Surface(
-                modifier = Modifier
-                    .weight(1f)
-                    .heightIn(min = CampaignMetrics.bottomRouteHeight),
-                color = CampaignAccent.copy(alpha = 0.18f),
-                contentColor = CampaignAccent,
-                shape = MaterialTheme.shapes.medium,
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(LocalSpacing.current.xs),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    text = stringResource(R.string.campaign_route_campaign),
-                    style = MaterialTheme.typography.labelLarge,
-                    modifier = Modifier.padding(horizontal = LocalSpacing.current.xs),
+                Surface(
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = CampaignMetrics.minTouchTarget),
+                    color = CampaignAccent.copy(alpha = 0.18f),
+                    contentColor = CampaignAccent,
+                    shape = MaterialTheme.shapes.medium,
+                ) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = stringResource(R.string.campaign_route_campaign),
+                            style = MaterialTheme.typography.labelLarge,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                }
+                CampaignRouteButton(
+                    label = stringResource(R.string.campaign_route_troops),
+                    onClick = onOpenRoster,
+                    modifier = Modifier.weight(1f),
+                )
+                CampaignRouteButton(
+                    label = stringResource(R.string.campaign_route_arena),
+                    onClick = onOpenArena,
+                    modifier = Modifier.weight(1f),
                 )
             }
-            CampaignRouteButton(
-                label = stringResource(R.string.campaign_route_troops),
-                onClick = onOpenRoster,
-                modifier = Modifier.weight(1f),
-            )
-            CampaignRouteButton(
-                label = stringResource(R.string.campaign_route_arena),
-                onClick = onOpenArena,
-                modifier = Modifier.weight(1f),
-            )
-            CampaignRouteButton(
-                label = stringResource(R.string.campaign_shop_action),
-                enabled = false,
-                modifier = Modifier.weight(1f),
-            )
-            CampaignRouteButton(
-                label = stringResource(R.string.campaign_tech_action),
-                enabled = false,
-                modifier = Modifier.weight(1f),
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(LocalSpacing.current.xs),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                CampaignRouteButton(
+                    label = stringResource(R.string.campaign_shop_action),
+                    enabled = false,
+                    modifier = Modifier.weight(1f),
+                )
+                CampaignRouteButton(
+                    label = stringResource(R.string.campaign_tech_action),
+                    enabled = false,
+                    modifier = Modifier.weight(1f),
+                )
+            }
         }
     }
 }
@@ -1114,7 +1128,6 @@ private fun CampaignRouteButton(
         onClick = onClick,
         enabled = enabled,
         modifier = modifier
-            .requiredWidthIn(min = CampaignMetrics.minTouchTarget)
             .heightIn(min = CampaignMetrics.minTouchTarget),
         contentPadding = PaddingValues(horizontal = LocalSpacing.current.xs, vertical = LocalSpacing.current.s),
         colors = ButtonDefaults.buttonColors(
@@ -1389,34 +1402,50 @@ private fun RosterRouteBar(
         color = RosterSurfaceColor,
         contentColor = RosterOnSurface,
     ) {
-        Row(
+        Column(
             modifier = Modifier
-                .horizontalScroll(rememberScrollState())
+                .fillMaxWidth()
                 .padding(horizontal = LocalSpacing.current.s, vertical = LocalSpacing.current.xs),
-            horizontalArrangement = Arrangement.spacedBy(LocalSpacing.current.xs),
-            verticalAlignment = Alignment.CenterVertically,
+            verticalArrangement = Arrangement.spacedBy(LocalSpacing.current.xs),
         ) {
-            RosterRouteButton(
-                label = stringResource(R.string.campaign_route_campaign),
-                onClick = onCloseRoster,
-            )
-            RosterRouteButton(
-                label = stringResource(R.string.campaign_route_troops),
-                enabled = false,
-                selected = true,
-            )
-            RosterRouteButton(
-                label = stringResource(R.string.campaign_route_arena),
-                enabled = false,
-            )
-            RosterRouteButton(
-                label = stringResource(R.string.campaign_shop_action),
-                enabled = false,
-            )
-            RosterRouteButton(
-                label = stringResource(R.string.campaign_tech_action),
-                enabled = false,
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(LocalSpacing.current.xs),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                RosterRouteButton(
+                    label = stringResource(R.string.campaign_route_campaign),
+                    onClick = onCloseRoster,
+                    modifier = Modifier.weight(1f),
+                )
+                RosterRouteButton(
+                    label = stringResource(R.string.campaign_route_troops),
+                    enabled = false,
+                    selected = true,
+                    modifier = Modifier.weight(1f),
+                )
+                RosterRouteButton(
+                    label = stringResource(R.string.campaign_route_arena),
+                    enabled = false,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(LocalSpacing.current.xs),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                RosterRouteButton(
+                    label = stringResource(R.string.campaign_shop_action),
+                    enabled = false,
+                    modifier = Modifier.weight(1f),
+                )
+                RosterRouteButton(
+                    label = stringResource(R.string.campaign_tech_action),
+                    enabled = false,
+                    modifier = Modifier.weight(1f),
+                )
+            }
         }
     }
 }
@@ -1426,14 +1455,15 @@ private fun RosterRouteButton(
     label: String,
     enabled: Boolean = true,
     selected: Boolean = false,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit = {},
 ) {
     Button(
         onClick = onClick,
         enabled = enabled,
-        modifier = Modifier
+        modifier = modifier
             .testTag("roster-route-${label.lowercase().replace(' ', '-')}")
-            .requiredWidthIn(min = RosterMetrics.routeItemMinWidth)
+            .widthIn(min = RosterMetrics.routeItemMinWidth)
             .heightIn(min = RosterMetrics.routeHeight),
         contentPadding = PaddingValues(
             horizontal = LocalSpacing.current.xs,
