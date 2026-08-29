@@ -17,3 +17,10 @@ data class Spacing(
 )
 
 val LocalSpacing = staticCompositionLocalOf { Spacing() }
+
+object BattleMetrics {
+    val minTouchTarget: Dp = 48.dp
+    val edgeControlSize: Dp = 56.dp
+    val hudInset: Dp = 16.dp
+    val controlGap: Dp = 8.dp
+}

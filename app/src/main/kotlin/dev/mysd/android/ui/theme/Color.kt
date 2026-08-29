@@ -23,6 +23,18 @@ val LaunchGlow = Color(0xFF6DE3D7)
 val LaunchOnBackground = Color(0xFFF4F8FF)
 val LaunchOnPanel = Color(0xFFF6F8FF)
 
+// Semantic aliases for the original active-battle composition. Keeping these separate from
+// launch call sites lets the battlefield evolve without changing the approved launch tokens.
+val BattleBackground = LaunchBackground
+val BattleFieldMid = LaunchBackgroundMid
+val BattleHorizon = LaunchHorizon
+val BattleHud = LaunchPanel
+val BattleAction = LaunchAccent
+val BattleBase = LaunchGlow
+val BattleEnemy = IndigoPink40
+val BattleOnBackground = LaunchOnBackground
+val BattleOnHud = LaunchOnPanel
+
 val LightColorScheme = lightColorScheme(
     primary = Indigo40,
     secondary = IndigoGrey40,
