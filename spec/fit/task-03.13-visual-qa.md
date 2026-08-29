@@ -10,8 +10,8 @@ Registry source: `spec/fit/registry.csv`.
   physical size 1080x2340, density 440 dpi.
 - Reference profile: Pixel 9, 1080x2424, density 420 dpi. The profile mismatch is recorded;
   pixel similarity is not treated as comparable evidence.
-- APK: `app/build/outputs/apk/debug/app-debug.apk`, versionCode 13 / versionName 0.1.12,
-  SHA-256 `e26d170aba3404d3f653a97b92cd6ed2d6ab18b3276a8096713c01f1a1b3bb19`.
+- APK: `app/build/outputs/apk/debug/app-debug.apk`, versionCode 15 / versionName 0.1.14,
+  SHA-256 `c9af1a6ca2df38f5274396ebf728cbdd687b048c84e71a8ad04eb19df07a0e92`.
 - The shipped UI was driven through the authoritative campaign entry, roster, settings, and
   local Arena actions. No debug-only navigation, production service, account, network match,
   external exit, or deferred mechanic was used.
@@ -22,11 +22,16 @@ Registry source: `spec/fit/registry.csv`.
   - `ST-0007.xml` `178e21c8e7cebc5a25807adae9b127edd412e5b4c0d737e0422a5832a0d01eef`
   - `ST-0008.png` `92133d1acba3b0b31fcced1f27515f80070da151b553e2f9a669538477cc8a78`
   - `ST-0008.xml` `b9189fdbb4732fe8f93c34d9ddd4e5f989a913566708af67658ccba21364a302`
-  - `ST-0011.png` `4f19fb02853438aec5872ccc9d2de5d121522bdb9ca1abb66ebabe3ef4649396`
-  - `ST-0011.xml` `7ded5dfbc1d58553271127371a2e2902bed383f79f75d573f0fd12bdcc6c7212`
-- `ST-0012` built screenshot/UI dump is not present. The existing shipped Activity reads an
-  encoded run save but exposes no user path that creates one in this contour. No substitute
-  image, UI dump, raw reference asset, or fabricated score was created.
+- `ST-0011.png` `4f19fb02853438aec5872ccc9d2de5d121522bdb9ca1abb66ebabe3ef4649396`
+- `ST-0011.xml` `7ded5dfbc1d58553271127371a2e2902bed383f79f75d573f0fd12bdcc6c7212`
+- `ST-0012.png` `790b1aee173eab54ff652a3330cb085215aea54d5183b1f523afdadf699abb29`
+- `ST-0012.xml` `11c2f8c81218231c0a2ee00ff9d34748ebb19df84d18aceb50e31538a12d5d18`
+- ST-0012 was captured by the instrumented-only
+  `ResumeContentUiTest.st0012_loadsSeededRunThroughActivity_andCapturesEvidence`: it writes a
+  valid active `RunSave` through the canonical storage keys, launches `MainActivity`, enters the
+  campaign through the shipped action, verifies both resume actions, and captures the pair. The
+  fixture is test-only and clears its storage in `finally`; no substitute image, raw reference
+  asset, or fabricated score was created.
 - The deterministic ImageMagick pixel tool is unavailable (`convert` is the Windows system
   utility, not ImageMagick). Pixel scores are therefore unavailable for all five states.
 
@@ -34,21 +39,20 @@ Registry source: `spec/fit/registry.csv`.
 
 | State | Structural result | Visual result | Evidence-backed divergence / blocker |
 |---|---|---|---|
-| `ST-0006/ROUTE-CAMPAIGN` | Pass for the shipped campaign contour. The dump exposes campaign title, roster and Arena navigation, the accepted local level, and level-setup action. | Blocked/uncheckable. Reference PNGs `EV-0196` and `EV-0200` are preserved evidence, but no objective pixel score is available and profiles differ. | MySD exposes the accepted implemented local route rather than the reference's broader root-tab/canvas composition; Shop/Tech affordances are not present in this shipped contour. Record `FIT-03.13-001`; no new mechanics or routes added. |
-| `ST-0007/ROUTE-TROOPS` | Pass. The dump exposes the roster surface, one visible troop slot, deferred upgrade affordance, settings entry, and close action. | Blocked/uncheckable for objective pixels for the same tool/profile reasons. | MySD is an original text/Material surface rather than the reference illustrated roster composition. Deferred upgrade behavior remains unchanged. Record `FIT-03.13-002`. |
-| `ST-0008/OVERLAY-SETTINGS` | Pass. The dump exposes the settings overlay, two local toggle controls, close, and confirm actions. | Blocked/uncheckable for objective pixels for the same tool/profile reasons. | MySD preserves the local settings overlay contour while toggle effects remain deferred; creative/layout divergence is recorded as `FIT-03.13-003`. |
-| `ST-0011/ROUTE-ARENA-LOCAL` | Pass. The dump exposes the local Arena service-shaped state and close action. Network/account/match semantics were not run. | Blocked/uncheckable: registry reference state is `preserved_unusable` with no valid visual evidence. | Local offline/service-shaped Arena is intentionally distinct from any network Arena behavior; `DEV-008` remains in force. Record `FIT-03.13-004`. |
-| `ST-0012/OVERLAY-RESUME` | Blocked. No built capture pair is present, so the structural acceptance row cannot be evidenced on device in this pass. | Blocked/uncheckable: no built image and no objective pixel tool; reference `EV-0189` is not compared without a built pair. | The existing Android route/session code and JVM evidence cover the resume prompt contour, but this device capture remains an explicit evidence blocker `FIT-03.13-005`. No persistence or UI behavior was invented. |
+| `ST-0006/ROUTE-CAMPAIGN` | Pass for the shipped campaign contour. The dump exposes campaign title, roster and Arena navigation, the accepted local level, and level-setup action. | Deferred/uncheckable — not a pass: reference PNGs `EV-0196` and `EV-0200` use the Pixel 9 1080x2424@420 profile, while the built pair uses emulator-5554 1080x2340@440; the objective ImageMagick pixel tool is unavailable, so no score is claimed. | MySD exposes the accepted implemented local route rather than the reference's broader root-tab/canvas composition; Shop/Tech affordances are not present in this shipped contour. Record `FIT-03.13-001`; no new mechanics or routes added. |
+| `ST-0007/ROUTE-TROOPS` | Pass. The dump exposes the roster surface, one visible troop slot, deferred upgrade affordance, settings entry, and close action. | Deferred/uncheckable — not a pass: device/reference profiles differ and the objective ImageMagick pixel tool is unavailable; no visual score is claimed. | MySD is an original text/Material surface rather than the reference illustrated roster composition. Deferred upgrade behavior remains unchanged. Record `FIT-03.13-002`. |
+| `ST-0008/OVERLAY-SETTINGS` | Pass. The dump exposes the settings overlay, two local toggle controls, close, and confirm actions. | Deferred/uncheckable — not a pass: device/reference profiles differ and the objective ImageMagick pixel tool is unavailable; no visual score is claimed. | MySD preserves the local settings overlay contour while toggle effects remain deferred; creative/layout divergence is recorded as `FIT-03.13-003`. |
+| `ST-0011/ROUTE-ARENA-LOCAL` | Pass. The dump exposes the local Arena service-shaped state and close action. Network/account/match semantics were not run. | Deferred/uncheckable — not a pass: registry reference state is `preserved_unusable`, and the objective ImageMagick pixel tool/profile comparison is unavailable; no visual score is claimed. | Local offline/service-shaped Arena is intentionally distinct from any network Arena behavior; `DEV-008` remains in force. Record `FIT-03.13-004`. |
+| `ST-0012/OVERLAY-RESUME` | Pass. The built pair exposes the shipped campaign-entry resume overlay, its local-run body, and both cancel/continue actions after the fixture-backed Activity/storage path. | Deferred/uncheckable — not a pass: the built pair is now present, but device/reference profiles differ and the objective ImageMagick pixel tool is unavailable; no visual score is claimed. | The instrumented fixture provides evidence for the existing Android route/session contour without adding persistence or UI behavior. Record `FIT-03.13-005`; no new mechanics were added. |
 
 ## Scope outcome
 
-- Four of five requested states have fresh device screenshot/UI-dump pairs with exact APK and
-  file hashes. Their structural results are recorded from the captured element trees.
-- `ST-0012` is explicitly blocked because its required built pair is absent; this record does
-  not claim capture, structural pass, visual pass, or a pixel score for it.
-- Visual comparison is blocked/uncheckable for every scoped state: three reference states lack
-  objective pixel tooling/profile comparability, Arena has `preserved_unusable` reference
-  evidence, and resume lacks a built pair.
+- All five requested states have fresh device screenshot/UI-dump pairs captured with the exact
+  version 15/0.1.14 APK and recorded file hashes. Their structural results are recorded from
+  the captured element trees.
+- Visual comparison remains deferred/uncheckable for every scoped state, explicitly not passed:
+  the device/reference profiles are incompatible, the objective pixel tool is unavailable, and
+  Arena's reference evidence is `preserved_unusable`; no pixel score is invented.
 - No production code, gameplay/service semantics, external exit, reference asset, or reference
   UI copy was added. Deferred roster upgrades, settings effects, Arena network/account/match
   semantics, and external exit remain out of scope.
