@@ -3,6 +3,8 @@
     <string name="app_name">MySD</string>
     <string name="campaign_launch_title">MySD</string>
     <string name="campaign_launch_body">An offline campaign is ready.</string>
+    <string name="campaign_launch_kicker">Campaign signal / ready</string>
+    <string name="campaign_launch_action_hint">Offline route ready</string>
     <string name="campaign_enter_action">Enter campaign</string>
     <string name="campaign_selection_title">Campaign</string>
     <string name="campaign_roster_action">Open troops</string>

@@ -1,23 +1,50 @@
 package dev.mysd.android.campaign
 
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import dev.mysd.android.R
+import dev.mysd.android.ui.theme.LaunchAccent
+import dev.mysd.android.ui.theme.LaunchBackground
+import dev.mysd.android.ui.theme.LaunchBackgroundMid
+import dev.mysd.android.ui.theme.LaunchGlow
+import dev.mysd.android.ui.theme.LaunchHorizon
+import dev.mysd.android.ui.theme.LaunchOnBackground
+import dev.mysd.android.ui.theme.LaunchOnPanel
+import dev.mysd.android.ui.theme.LaunchPanel
 import dev.mysd.android.ui.theme.LocalSpacing
 import dev.mysd.game.battle.ActiveBattleIntent
 import dev.mysd.game.battle.ActiveBattleSnapshot
@@ -130,11 +157,11 @@ fun CampaignScreenContent(
                 modifier = modifier,
             )
         } else when (state.route) {
-            CampaignRoute.CLEAN_LAUNCH -> CampaignRouteContent(
+            CampaignRoute.CLEAN_LAUNCH -> CampaignLaunchContent(
                 title = stringResource(R.string.campaign_launch_title),
                 body = stringResource(R.string.campaign_launch_body),
                 actionLabel = stringResource(R.string.campaign_enter_action),
-                titleColor = MaterialTheme.colorScheme.primary,
+                actionHint = stringResource(R.string.campaign_launch_action_hint),
                 onAction = { onIntent(CampaignIntent.EnterCampaign) },
                 modifier = modifier,
             )
@@ -718,6 +745,205 @@ private fun RosterSettingContent(
             Switch(
                 checked = false,
                 onCheckedChange = { onToggle() },
+            )
+        }
+    }
+}
+
+@Composable
+private fun CampaignLaunchContent(
+    title: String,
+    body: String,
+    actionLabel: String,
+    actionHint: String,
+    onAction: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val spacing = LocalSpacing.current
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(
+                brush = Brush.verticalGradient(
+                    colors = listOf(LaunchBackground, LaunchBackgroundMid, LaunchHorizon),
+                ),
+            ),
+    ) {
+        LaunchBackdrop(modifier = Modifier.matchParentSize())
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .systemBarsPadding()
+                .padding(horizontal = spacing.l, vertical = spacing.m),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(12.dp)
+                        .background(LaunchAccent, CircleShape),
+                )
+                Spacer(modifier = Modifier.size(spacing.s))
+                Text(
+                    text = stringResource(R.string.campaign_launch_kicker),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = LaunchOnBackground.copy(alpha = 0.82f),
+                )
+            }
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .widthIn(max = 560.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.displaySmall,
+                    color = LaunchAccent,
+                    textAlign = TextAlign.Center,
+                )
+                Spacer(modifier = Modifier.size(spacing.s))
+                Text(
+                    text = body,
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = LaunchOnBackground,
+                    textAlign = TextAlign.Center,
+                )
+            }
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .widthIn(max = 560.dp),
+                shape = MaterialTheme.shapes.large,
+                color = LaunchPanel,
+                tonalElevation = 8.dp,
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = spacing.m, vertical = spacing.s),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(
+                        text = actionHint,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = LaunchOnPanel.copy(alpha = 0.78f),
+                        textAlign = TextAlign.Center,
+                    )
+                    Spacer(modifier = Modifier.size(spacing.xs))
+                    Button(
+                        onClick = onAction,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 56.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = LaunchAccent,
+                            contentColor = LaunchBackground,
+                        ),
+                        shape = MaterialTheme.shapes.medium,
+                    ) {
+                        Text(
+                            text = actionLabel,
+                            style = MaterialTheme.typography.labelLarge,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LaunchBackdrop(modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier) {
+        val orbitCenter = Offset(size.width * 0.5f, size.height * 0.39f)
+        val horizonTop = size.height * 0.72f
+        val orbitRadius = size.minDimension * 0.23f
+
+        drawCircle(
+            color = LaunchGlow.copy(alpha = 0.08f),
+            radius = orbitRadius * 1.35f,
+            center = orbitCenter,
+        )
+        drawCircle(
+            color = LaunchGlow.copy(alpha = 0.13f),
+            radius = orbitRadius,
+            center = orbitCenter,
+        )
+        drawCircle(
+            color = LaunchAccent.copy(alpha = 0.92f),
+            radius = orbitRadius * 0.36f,
+            center = orbitCenter,
+        )
+        drawCircle(
+            color = LaunchOnBackground.copy(alpha = 0.72f),
+            radius = orbitRadius * 0.36f,
+            center = orbitCenter,
+            style = Stroke(width = 2.dp.toPx()),
+        )
+
+        val orbitPath = Path().apply {
+            moveTo(size.width * 0.08f, size.height * 0.47f)
+            cubicTo(
+                size.width * 0.28f,
+                size.height * 0.29f,
+                size.width * 0.72f,
+                size.height * 0.50f,
+                size.width * 0.94f,
+                size.height * 0.31f,
+            )
+        }
+        drawPath(
+            path = orbitPath,
+            color = LaunchGlow.copy(alpha = 0.52f),
+            style = Stroke(width = 1.5.dp.toPx(), cap = StrokeCap.Round),
+        )
+
+        drawRect(
+            brush = Brush.verticalGradient(
+                colors = listOf(
+                    LaunchHorizon.copy(alpha = 0.04f),
+                    LaunchHorizon.copy(alpha = 0.78f),
+                ),
+                startY = horizonTop,
+                endY = size.height,
+            ),
+            topLeft = Offset(0f, horizonTop),
+            size = Size(size.width, size.height - horizonTop),
+        )
+        for (index in 0..6) {
+            val x = size.width * (0.08f + index * 0.15f)
+            val height = size.height * (0.035f + (index % 3) * 0.018f)
+            drawRoundRect(
+                color = LaunchGlow.copy(alpha = 0.11f),
+                topLeft = Offset(x, horizonTop - height),
+                size = Size(size.width * 0.07f, height),
+            )
+        }
+
+        val stars = listOf(
+            0.12f to 0.16f,
+            0.24f to 0.27f,
+            0.78f to 0.17f,
+            0.88f to 0.27f,
+            0.69f to 0.34f,
+            0.08f to 0.58f,
+            0.92f to 0.56f,
+        )
+        stars.forEachIndexed { index, (x, y) ->
+            drawCircle(
+                color = if (index % 2 == 0) LaunchAccent else LaunchOnBackground,
+                radius = (1.5f + index % 3) * density,
+                center = Offset(size.width * x, size.height * y),
             )
         }
     }
