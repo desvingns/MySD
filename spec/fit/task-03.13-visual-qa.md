@@ -10,27 +10,28 @@ Registry source: `spec/fit/registry.csv`.
   physical size 1080x2340, density 440 dpi.
 - Reference profile: Pixel 9, 1080x2424, density 420 dpi. The profile mismatch is recorded;
   pixel similarity is not treated as comparable evidence.
-- APK: `app/build/outputs/apk/debug/app-debug.apk`, versionCode 15 / versionName 0.1.14,
-  SHA-256 `c9af1a6ca2df38f5274396ebf728cbdd687b048c84e71a8ad04eb19df07a0e92`.
+- APK: `app/build/outputs/apk/debug/app-debug.apk`, versionCode 16 / versionName 0.1.15,
+  SHA-256 `4b80f687c0e4427ff68db7e8f3661ee7e6a159c0be184a855f859725adc68803`.
 - The shipped UI was driven through the authoritative campaign entry, roster, settings, and
   local Arena actions. No debug-only navigation, production service, account, network match,
   external exit, or deferred mechanic was used.
 - Retained device screenshot/UI-dump pairs under `build/fit/built/`:
   - `ST-0006.png` `86e991327d65ca35b63c89c0bb773b436bb37c4709c761adef80eee8bbbef03d`
   - `ST-0006.xml` `23ec4219ea16a86799e74b4d54245bf91351aafc59555df7c28f8a90f1f0ea77`
-  - `ST-0007.png` `0f4dad3fb78d767fdf5ffa7d2af6595fc166b250ecf2f642bdf33cdbb18680452`
+  - `ST-0007.png` `0f4dad3fb78d767fdf5ffa7d2af6595fc166b250ec2f642bdf33cdbb18680452`
   - `ST-0007.xml` `178e21c8e7cebc5a25807adae9b127edd412e5b4c0d737e0422a5832a0d01eef`
-  - `ST-0008.png` `92133d1acba3b0b31fcced1f27515f80070da151b553e2f9a669538477cc8a78`
+  - `ST-0008.png` `3ce3652058dd2825e654fc09f044b937e6df19e26d9c04ade6b6bd9870f2def5`
   - `ST-0008.xml` `b9189fdbb4732fe8f93c34d9ddd4e5f989a913566708af67658ccba21364a302`
 - `ST-0011.png` `4f19fb02853438aec5872ccc9d2de5d121522bdb9ca1abb66ebabe3ef4649396`
 - `ST-0011.xml` `7ded5dfbc1d58553271127371a2e2902bed383f79f75d573f0fd12bdcc6c7212`
 - `ST-0012.png` `790b1aee173eab54ff652a3330cb085215aea54d5183b1f523afdadf699abb29`
-- `ST-0012.xml` `11c2f8c81218231c0a2ee00ff9d34748ebb19df84d18aceb50e31538a12d5d18`
+- `ST-0012.xml` `2aee6cb31b5fc7e6b352b159f9b3396d8c77a9377eb59a7494e38675d035cfc1`
 - ST-0012 was captured by the instrumented-only
   `ResumeContentUiTest.st0012_loadsSeededRunThroughActivity_andCapturesEvidence`: it writes a
   valid active `RunSave` through the canonical storage keys, launches `MainActivity`, enters the
   campaign through the shipped action, verifies both resume actions, and captures the pair. The
-  fixture is test-only and clears its storage in `finally`; no substitute image, raw reference
+  fixture is test-only and restores the prior encoded-save value (or removes only the fixture key)
+  in `finally`; no substitute image, raw reference
   asset, or fabricated score was created.
 - The deterministic ImageMagick pixel tool is unavailable (`convert` is the Windows system
   utility, not ImageMagick). Pixel scores are therefore unavailable for all five states.
@@ -48,7 +49,7 @@ Registry source: `spec/fit/registry.csv`.
 ## Scope outcome
 
 - All five requested states have fresh device screenshot/UI-dump pairs captured with the exact
-  version 15/0.1.14 APK and recorded file hashes. Their structural results are recorded from
+  version 16/0.1.15 APK and recorded file hashes. Their structural results are recorded from
   the captured element trees.
 - Visual comparison remains deferred/uncheckable for every scoped state, explicitly not passed:
   the device/reference profiles are incompatible, the objective pixel tool is unavailable, and

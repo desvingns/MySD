@@ -26,12 +26,22 @@ class ResumeContentUiTest {
     fun st0012_loadsSeededRunThroughActivity_andCapturesEvidence() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val context = instrumentation.targetContext
-        seedRunSave(context)
-        val scenario = ActivityScenario.launch(MainActivity::class.java)
+        val preferences = context.getSharedPreferences(
+            AndroidRunSaveStorage.PREFERENCES_NAME,
+            Context.MODE_PRIVATE,
+        )
+        val hadPreviousSave = preferences.contains(AndroidRunSaveStorage.ENCODED_SAVE_KEY)
+        val previousEncodedSave = preferences.getString(
+            AndroidRunSaveStorage.ENCODED_SAVE_KEY,
+            null,
+        )
+        var scenario: ActivityScenario<MainActivity>? = null
         val device = UiDevice.getInstance(instrumentation)
-        val outputDirectory = requireNotNull(context.getExternalFilesDir("fit"))
 
         try {
+            seedRunSave(context)
+            scenario = ActivityScenario.launch(MainActivity::class.java)
+            val outputDirectory = requireNotNull(context.getExternalFilesDir("fit"))
             assertTrue(
                 device.wait(
                     Until.hasObject(By.text(context.getString(R.string.campaign_enter_action))),
@@ -63,11 +73,17 @@ class ResumeContentUiTest {
             val uiDump = File(outputDirectory, "ST-0012.xml")
             assertTrue(device.takeScreenshot(screenshot))
             device.dumpWindowHierarchy(uiDump)
+            assertTrue(screenshot.isFile)
+            assertTrue(screenshot.length() > 0L)
+            assertTrue(uiDump.isFile)
+            assertTrue(uiDump.length() > 0L)
             device.executeShellCommand("cp ${screenshot.absolutePath} /sdcard/Download/ST-0012.png")
             device.executeShellCommand("cp ${uiDump.absolutePath} /sdcard/Download/ST-0012.xml")
+            assertRemoteCaptureIsValid(device, "/sdcard/Download/ST-0012.png")
+            assertRemoteCaptureIsValid(device, "/sdcard/Download/ST-0012.xml")
         } finally {
-            scenario.close()
-            clearRunSave(context)
+            scenario?.close()
+            restoreRunSave(context, hadPreviousSave, previousEncodedSave)
         }
     }
 
@@ -85,13 +101,30 @@ class ResumeContentUiTest {
         )
     }
 
-    private fun clearRunSave(context: Context) {
+    private fun restoreRunSave(
+        context: Context,
+        hadPreviousSave: Boolean,
+        previousEncodedSave: String?,
+    ) {
+        val editor = context.getSharedPreferences(
+            AndroidRunSaveStorage.PREFERENCES_NAME,
+            Context.MODE_PRIVATE,
+        ).edit()
+        if (hadPreviousSave) {
+            editor.putString(AndroidRunSaveStorage.ENCODED_SAVE_KEY, previousEncodedSave)
+        } else {
+            editor.remove(AndroidRunSaveStorage.ENCODED_SAVE_KEY)
+        }
         check(
-            context.getSharedPreferences(
-                AndroidRunSaveStorage.PREFERENCES_NAME,
-                Context.MODE_PRIVATE,
-            ).edit().clear().commit(),
+            editor.commit(),
         )
+    }
+
+    private fun assertRemoteCaptureIsValid(device: UiDevice, remotePath: String) {
+        val result = device.executeShellCommand(
+            "if [ -s \"$remotePath\" ]; then echo VALID; else echo INVALID; fi",
+        ).trim()
+        assertTrue("Expected a non-empty remote capture at $remotePath", result == "VALID")
     }
 
     private fun unfinishedRun(): RunSave = RunSave(
