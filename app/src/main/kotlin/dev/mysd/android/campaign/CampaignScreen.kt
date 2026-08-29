@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -33,10 +34,22 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import dev.mysd.android.R
+import dev.mysd.android.ui.theme.BattleAction
+import dev.mysd.android.ui.theme.BattleBackground
+import dev.mysd.android.ui.theme.BattleBase
+import dev.mysd.android.ui.theme.BattleEnemy
+import dev.mysd.android.ui.theme.BattleFieldMid
+import dev.mysd.android.ui.theme.BattleHorizon
+import dev.mysd.android.ui.theme.BattleHud
+import dev.mysd.android.ui.theme.BattleMetrics
+import dev.mysd.android.ui.theme.BattleOnBackground
+import dev.mysd.android.ui.theme.BattleOnHud
 import dev.mysd.android.ui.theme.LaunchAccent
 import dev.mysd.android.ui.theme.LaunchBackground
 import dev.mysd.android.ui.theme.LaunchBackgroundMid
@@ -255,100 +268,373 @@ fun ActiveBattleContent(
     modifier: Modifier = Modifier,
 ) {
     val spacing = LocalSpacing.current
-    Column(
+    Box(
         modifier = modifier
             .fillMaxSize()
-            .padding(spacing.l),
-        verticalArrangement = Arrangement.spacedBy(spacing.m, Alignment.CenterVertically),
-        horizontalAlignment = Alignment.CenterHorizontally,
+            .background(BattleBackground),
     ) {
-        Text(
-            text = stringResource(R.string.active_battle_title),
-            style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.primary,
+        ActiveBattleFieldBackdrop(
+            state = state,
+            modifier = Modifier.matchParentSize(),
         )
-        Text(
-            text = stringResource(R.string.active_battle_stage, stageTitle(state.stageId)),
-            style = MaterialTheme.typography.bodyLarge,
+        ActiveBattleHud(
+            state = state,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .systemBarsPadding()
+                .padding(BattleMetrics.hudInset),
         )
-        if (state.waveActive) {
+        ActiveBattleEdgeControls(
+            state = state,
+            onIntent = onIntent,
+            contentPadding = PaddingValues(
+                horizontal = BattleMetrics.hudInset,
+                vertical = BattleMetrics.hudInset,
+            ),
+            modifier = Modifier
+                .align(Alignment.Center)
+                .fillMaxSize()
+                .systemBarsPadding(),
+            buttonHorizontalPadding = spacing.s,
+            buttonVerticalPadding = spacing.xs,
+        )
+    }
+}
+
+@Composable
+private fun ActiveBattleHud(
+    state: ActiveBattleSnapshot,
+    modifier: Modifier = Modifier,
+) {
+    val spacing = LocalSpacing.current
+    Surface(
+        modifier = modifier,
+        shape = MaterialTheme.shapes.large,
+        color = BattleHud,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = spacing.m, vertical = spacing.s),
+            verticalArrangement = Arrangement.spacedBy(spacing.xs),
+        ) {
             Text(
-                text = stringResource(R.string.active_battle_wave_activity),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.secondary,
+                text = stringResource(R.string.active_battle_title),
+                style = MaterialTheme.typography.titleLarge,
+                color = BattleOnHud,
             )
-        }
-        if (state.baseVisible) {
             Text(
-                text = stringResource(R.string.active_battle_base_visible),
+                text = stringResource(R.string.active_battle_stage, stageTitle(state.stageId)),
                 style = MaterialTheme.typography.bodyLarge,
+                color = BattleOnHud.copy(alpha = 0.86f),
             )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(spacing.s),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (state.waveActive) {
+                    Text(
+                        text = stringResource(R.string.active_battle_wave_activity),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = BattleAction,
+                    )
+                }
+                if (state.enemyEntitiesVisible) {
+                    Text(
+                        text = stringResource(
+                            R.string.active_battle_enemies_visible,
+                            state.enemyEntityIds.size,
+                        ),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = BattleOnHud.copy(alpha = 0.76f),
+                    )
+                }
+            }
         }
-        if (state.enemyEntitiesVisible) {
-            Text(
-                text = stringResource(
-                    R.string.active_battle_enemies_visible,
-                    state.enemyEntityIds.size,
-                ),
-                style = MaterialTheme.typography.bodyLarge,
-            )
-        }
-        if (state.speedAffordanceVisible) {
-            Button(onClick = { onIntent(ActiveBattleIntent.ChangeSpeed) }) {
-                Text(
-                    text = stringResource(
+    }
+}
+
+@Composable
+private fun ActiveBattleEdgeControls(
+    state: ActiveBattleSnapshot,
+    onIntent: (ActiveBattleIntent) -> Unit,
+    contentPadding: PaddingValues,
+    modifier: Modifier = Modifier,
+    buttonHorizontalPadding: androidx.compose.ui.unit.Dp,
+    buttonVerticalPadding: androidx.compose.ui.unit.Dp,
+) {
+    Box(
+        modifier = modifier.padding(contentPadding),
+    ) {
+        Column(
+            modifier = Modifier.align(Alignment.CenterStart),
+            verticalArrangement = Arrangement.spacedBy(BattleMetrics.controlGap),
+            horizontalAlignment = Alignment.Start,
+        ) {
+            if (state.speedAffordanceVisible) {
+                BattleEdgeButton(
+                    label = stringResource(
                         R.string.active_battle_speed,
                         speedIndicatorLabel(state.speedIndicator),
                     ),
-                    style = MaterialTheme.typography.labelLarge,
+                    onClick = { onIntent(ActiveBattleIntent.ChangeSpeed) },
+                    horizontalPadding = buttonHorizontalPadding,
+                    verticalPadding = buttonVerticalPadding,
                 )
             }
-        }
-        if (state.pauseResumeAffordanceVisible) {
-            Button(onClick = { onIntent(ActiveBattleIntent.PauseOrResume) }) {
-                Text(
-                    text = stringResource(
+            if (state.pauseResumeAffordanceVisible) {
+                BattleEdgeButton(
+                    label = stringResource(
                         if (state.paused) {
                             R.string.active_battle_resume_action
                         } else {
                             R.string.active_battle_pause_action
                         },
                     ),
-                    style = MaterialTheme.typography.labelLarge,
+                    onClick = { onIntent(ActiveBattleIntent.PauseOrResume) },
+                    horizontalPadding = buttonHorizontalPadding,
+                    verticalPadding = buttonVerticalPadding,
                 )
             }
         }
-        if (state.buildAffordanceVisible) {
-            Button(onClick = { onIntent(ActiveBattleIntent.SelectBuildAffordance) }) {
-                Text(
-                    text = stringResource(
+
+        Column(
+            modifier = Modifier.align(Alignment.CenterEnd),
+            verticalArrangement = Arrangement.spacedBy(BattleMetrics.controlGap),
+            horizontalAlignment = Alignment.End,
+        ) {
+            if (state.buildAffordanceVisible) {
+                BattleEdgeButton(
+                    label = stringResource(
                         if (state.buildAffordanceSelected) {
                             R.string.active_battle_build_selected
                         } else {
                             R.string.active_battle_build_action
                         },
                     ),
-                    style = MaterialTheme.typography.labelLarge,
+                    onClick = { onIntent(ActiveBattleIntent.SelectBuildAffordance) },
+                    horizontalPadding = buttonHorizontalPadding,
+                    verticalPadding = buttonVerticalPadding,
                 )
             }
-        }
-        if (state.enhancementAffordanceVisible && !state.enhancementChoiceVisible) {
-            Button(onClick = { onIntent(ActiveBattleIntent.OpenEnhancement) }) {
-                Text(
-                    text = stringResource(R.string.active_battle_enhancement_action),
-                    style = MaterialTheme.typography.labelLarge,
+            if (state.enhancementAffordanceVisible && !state.enhancementChoiceVisible) {
+                BattleEdgeButton(
+                    label = stringResource(R.string.active_battle_enhancement_action),
+                    onClick = { onIntent(ActiveBattleIntent.OpenEnhancement) },
+                    horizontalPadding = buttonHorizontalPadding,
+                    verticalPadding = buttonVerticalPadding,
                 )
             }
-        }
-        if (state.victoryResolutionAffordanceVisible && !state.enhancementChoiceVisible) {
-            Button(onClick = { onIntent(ActiveBattleIntent.ResolveVictory) }) {
-                Text(
-                    text = stringResource(R.string.active_battle_victory_action),
-                    style = MaterialTheme.typography.labelLarge,
+            if (state.victoryResolutionAffordanceVisible && !state.enhancementChoiceVisible) {
+                BattleEdgeButton(
+                    label = stringResource(R.string.active_battle_victory_action),
+                    onClick = { onIntent(ActiveBattleIntent.ResolveVictory) },
+                    horizontalPadding = buttonHorizontalPadding,
+                    verticalPadding = buttonVerticalPadding,
                 )
             }
         }
     }
+}
+
+@Composable
+private fun BattleEdgeButton(
+    label: String,
+    onClick: () -> Unit,
+    horizontalPadding: androidx.compose.ui.unit.Dp,
+    verticalPadding: androidx.compose.ui.unit.Dp,
+) {
+    Button(
+        onClick = onClick,
+        modifier = Modifier
+            .heightIn(min = BattleMetrics.edgeControlSize)
+            .widthIn(min = BattleMetrics.edgeControlSize),
+        contentPadding = PaddingValues(
+            horizontal = horizontalPadding,
+            vertical = verticalPadding,
+        ),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = BattleAction,
+            contentColor = BattleBackground,
+        ),
+        shape = MaterialTheme.shapes.medium,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelLarge,
+            textAlign = TextAlign.Center,
+            maxLines = 2,
+        )
+    }
+}
+
+@Composable
+private fun ActiveBattleFieldBackdrop(
+    state: ActiveBattleSnapshot,
+    modifier: Modifier = Modifier,
+) {
+    val fieldDescription = listOfNotNull(
+        if (state.baseVisible) {
+            stringResource(R.string.active_battle_base_visible)
+        } else {
+            null
+        },
+        if (state.enemyEntitiesVisible) {
+            stringResource(
+                R.string.active_battle_enemies_visible,
+                state.enemyEntityIds.size,
+            )
+        } else {
+            null
+        },
+    ).joinToString(separator = "; ")
+
+    Canvas(
+        modifier = modifier.semantics {
+            contentDescription = fieldDescription
+        },
+    ) {
+        val horizon = size.height * 0.48f
+        val groundPath = Path().apply {
+            moveTo(0f, horizon)
+            lineTo(size.width, horizon)
+            lineTo(size.width, size.height)
+            lineTo(0f, size.height)
+            close()
+        }
+        drawRect(
+            brush = Brush.verticalGradient(
+                colors = listOf(BattleBackground, BattleFieldMid, BattleHorizon),
+            ),
+            size = size,
+        )
+        drawPath(
+            path = groundPath,
+            brush = Brush.verticalGradient(
+                colors = listOf(
+                    BattleHorizon.copy(alpha = 0.42f),
+                    BattleFieldMid.copy(alpha = 0.88f),
+                ),
+                startY = horizon,
+                endY = size.height,
+            ),
+        )
+
+        val gridStroke = BattleMetrics.controlGap.toPx() * 0.2f
+        for (index in 1..5) {
+            val y = horizon + (size.height - horizon) * index / 6f
+            drawLine(
+                color = BattleOnBackground.copy(alpha = 0.08f),
+                start = Offset(0f, y),
+                end = Offset(size.width, y),
+                strokeWidth = gridStroke,
+            )
+        }
+        for (index in 0..7) {
+            val x = size.width * index / 7f
+            drawLine(
+                color = BattleOnBackground.copy(alpha = 0.06f),
+                start = Offset(x, horizon),
+                end = Offset(size.width * (0.5f + (index - 3.5f) * 0.34f), size.height),
+                strokeWidth = gridStroke,
+            )
+        }
+
+        if (state.waveActive) {
+            val waveCenter = Offset(size.width * 0.5f, horizon * 0.78f)
+            drawCircle(
+                color = BattleAction.copy(alpha = 0.07f),
+                radius = size.minDimension * 0.18f,
+                center = waveCenter,
+            )
+            drawCircle(
+                color = BattleAction.copy(alpha = 0.48f),
+                radius = size.minDimension * 0.07f,
+                center = waveCenter,
+                style = Stroke(width = gridStroke * 2.5f),
+            )
+        }
+
+        if (state.baseVisible) {
+            drawBattleBase(
+                center = Offset(size.width * 0.16f, size.height * 0.73f),
+                radius = size.minDimension * 0.12f,
+                strokeWidth = gridStroke * 2.5f,
+            )
+        }
+
+        if (state.enemyEntitiesVisible) {
+            state.enemyEntityIds.forEachIndexed { index, _ ->
+                val column = index % 3
+                val row = index / 3
+                drawBattleEnemy(
+                    center = Offset(
+                        x = size.width * (0.7f + column * 0.1f),
+                        y = horizon + size.height * (0.13f + row * 0.1f),
+                    ),
+                    radius = size.minDimension * 0.038f,
+                    strokeWidth = gridStroke * 2f,
+                )
+            }
+        }
+    }
+}
+
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawBattleBase(
+    center: Offset,
+    radius: Float,
+    strokeWidth: Float,
+) {
+    drawCircle(
+        color = BattleBase.copy(alpha = 0.14f),
+        radius = radius * 1.65f,
+        center = center,
+    )
+    drawCircle(
+        color = BattleBase.copy(alpha = 0.22f),
+        radius = radius,
+        center = center,
+    )
+    val corePath = Path().apply {
+        moveTo(center.x, center.y - radius * 0.8f)
+        lineTo(center.x + radius * 0.72f, center.y - radius * 0.24f)
+        lineTo(center.x + radius * 0.48f, center.y + radius * 0.7f)
+        lineTo(center.x - radius * 0.48f, center.y + radius * 0.7f)
+        lineTo(center.x - radius * 0.72f, center.y - radius * 0.24f)
+        close()
+    }
+    drawPath(path = corePath, color = BattleBase)
+    drawPath(
+        path = corePath,
+        color = BattleOnBackground.copy(alpha = 0.86f),
+        style = Stroke(width = strokeWidth),
+    )
+}
+
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawBattleEnemy(
+    center: Offset,
+    radius: Float,
+    strokeWidth: Float,
+) {
+    drawCircle(
+        color = BattleEnemy.copy(alpha = 0.18f),
+        radius = radius * 2.1f,
+        center = center,
+    )
+    val enemyPath = Path().apply {
+        moveTo(center.x, center.y - radius)
+        lineTo(center.x + radius, center.y)
+        lineTo(center.x, center.y + radius)
+        lineTo(center.x - radius, center.y)
+        close()
+    }
+    drawPath(path = enemyPath, color = BattleEnemy)
+    drawPath(
+        path = enemyPath,
+        color = BattleOnBackground.copy(alpha = 0.74f),
+        style = Stroke(width = strokeWidth),
+    )
 }
 
 @Composable
