@@ -30,4 +30,4 @@ Acceptance-matrix: record=progress,handoff; state=complete,blocked
 Risk-signals: —
 === END SPEC ===
 
-Implementation links: final documentation reconciliation commit is returned in the workflow payload; files: `docs/implementation_plan/PROGRESS.md`, `docs/implementation_plan/phases/PHASE_03_android_contour.md`, `.ai/handoff.md`.
+Implementation links: commit `4a12d1c`; files: `docs/implementation_plan/PROGRESS.md`, `docs/implementation_plan/phases/PHASE_03_android_contour.md`, `.ai/handoff.md`.

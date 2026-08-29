@@ -221,9 +221,11 @@
   introduced because the routes already existed.
 - Delivery commits: `f2658e4`, `655cf66`, `c05d9c0`, `7e84371`, and board close-out `d7924b4`.
 - Verification: final connected `ResumeContentUiTest` `1 passed / 0 failed / 0 skipped`; full MP
-  runner `118 passed / 0 failed / 0 skipped`, lint `ok`; public-safety pass. Fit score `33` with
-  five visual cells explicitly deferred/uncheckable because reference captures were unreadable or
-  profile/tooling incompatible; structural evidence remains recorded.
+  runner `118 passed / 0 failed / 0 skipped`, lint `ok`; public-safety pass. No aggregate fit score
+  was produced or claimed: five visual cells remain explicitly deferred/uncheckable because the
+  Pixel 9/reference and emulator profiles mismatch, ImageMagick pixel comparison is unavailable,
+  and relevant reference captures are preserved-unusable/unreadable; structural evidence remains
+  recorded.
 - TASK-03.13 is archived in `.claude/specs/done`. The final tester assertion remains an intentional
   uncommitted worktree change and was included in the final connected run.
 - Next backlog task: PHASE_03 TASK-03.14 Lifecycle.
@@ -246,7 +248,7 @@
 - TASK-03.10 Arena adapter — commits `24d553d`, `e793697`; the offline service-shaped Arena route is wired through campaign/session/UI with immutable local and network-match-blocked states. Existing evidence records 118 tests passed, lint ok, verifier pass, and successful push to `origin/main`.
 - TASK-03.11 core visual QA — commit `a07c6d5`; connected `emulator-5554` evidence for ST-0001/ST-0002/ST-0003 records structural coverage and FIT-03.11-001/002/003. No pixel score was claimed: the Pixel 9 reference profile differs from the emulator profile and ImageMagick was unavailable; ST-0002 remains blocked by preserved-unusable reference PNGs.
 - TASK-03.12 enhancement/victory visual QA — commits `8054578`, `495833a`; instrumented Compose checks passed 2/2, deterministic/semantic/critic/verifier gates passed, and visual fit was skipped because ST-0004/ST-0005 references are preserved-unusable. FIT-03.12-001/002 remain explicit; deferred reward claim, doubling, transaction, and economy semantics were unchanged.
-- TASK-03.13 meta/service/resume visual QA — commits `f2658e4`, `655cf66`, `c05d9c0`, `7e84371`; final connected `ResumeContentUiTest` passed 1/1, full MP runner reported `118 passed / 0 failed / 0 skipped`, lint ok, and public-safety passed. Fit score was 33 with five visual cells deferred/uncheckable; FIT-03.13-001 through FIT-03.13-005 remain explicit and no pixel score was claimed.
+- TASK-03.13 meta/service/resume visual QA — commits `f2658e4`, `655cf66`, `c05d9c0`, `7e84371`; final connected `ResumeContentUiTest` passed 1/1, full MP runner reported `118 passed / 0 failed / 0 skipped`, lint ok, and public-safety passed. No aggregate fit score was produced or claimed; five visual cells remain deferred/uncheckable because relevant references include preserved-unusable captures, the Pixel 9/reference and emulator profiles mismatch, and ImageMagick pixel comparison is unavailable. FIT-03.13-001 through FIT-03.13-005 remain explicit and no pixel score was claimed.
 - TASK-03.14 lifecycle restoration — commits `54d5d45`, `e6deac9`, with board close-out `505d347`; JVM `125 passed / 0 failed / 0 skipped`, connected `11 passed / 0 failed / 0 skipped`, public-safety pass, and `:app:assembleDebug` successful. Deterministic review and full verifier were the recorded fallback after two semantic-review stalls.
 - TASK-03.15 phase acceptance — existing contour delivery was rechecked without new production work: MP runner `125 passed / 0 failed / 0 skipped`, lint ok; connected `11 passed / 0 failed / 0 skipped` on `Pixel_5(AVD) - 14`; public-safety `pass` (`124` tracked files, `1156` history paths); spec validator `pass` (`16` requirements, `10` stories, `10` acceptance, `16` trace rows); `git diff --check` passed.
 - PHASE_03 exit verification — TASK-03.9 through TASK-03.15 are complete, all accepted semantic routes and service-shaped boundaries are verified offline, lifecycle restoration preserves the Android-free deterministic authority, and all requested per-screen structural QA records exist. Remaining visual parity blockers are the FIT-03.11-001/002/003, FIT-03.12-001/002, and FIT-03.13-001..005 records, including preserved-unusable references, profile mismatch, unavailable ImageMagick pixel comparison, and explicitly uncheckable visual cells. Deferred/excluded Shop, Tech, defeat, reward transaction, real-ad, IAP, account, network Arena, and external-exit behavior remains frozen.
