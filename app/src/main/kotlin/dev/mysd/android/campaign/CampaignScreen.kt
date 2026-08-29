@@ -2,6 +2,7 @@ package dev.mysd.android.campaign
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,11 +12,14 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -49,6 +53,14 @@ import dev.mysd.android.ui.theme.BattleHorizon
 import dev.mysd.android.ui.theme.BattleHud
 import dev.mysd.android.ui.theme.BattleMetrics
 import dev.mysd.android.ui.theme.BattleOnBackground
+import dev.mysd.android.ui.theme.CampaignAccent
+import dev.mysd.android.ui.theme.CampaignBackground
+import dev.mysd.android.ui.theme.CampaignDisabled
+import dev.mysd.android.ui.theme.CampaignMetrics
+import dev.mysd.android.ui.theme.CampaignOnBackground
+import dev.mysd.android.ui.theme.CampaignOnSurface
+import dev.mysd.android.ui.theme.CampaignSupport
+import dev.mysd.android.ui.theme.CampaignSurface
 import dev.mysd.android.ui.theme.BattleOnHud
 import dev.mysd.android.ui.theme.LaunchAccent
 import dev.mysd.android.ui.theme.LaunchBackground
@@ -860,43 +872,247 @@ private fun CampaignSelectionContent(
     modifier: Modifier = Modifier,
 ) {
     val spacing = LocalSpacing.current
-    Column(
+    Box(
         modifier = modifier
             .fillMaxSize()
-            .padding(spacing.l),
-        verticalArrangement = Arrangement.spacedBy(spacing.l, Alignment.CenterVertically),
-        horizontalAlignment = Alignment.CenterHorizontally,
+            .background(CampaignBackground),
     ) {
-        Text(
-            text = stringResource(R.string.campaign_selection_title),
-            style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.secondary,
-        )
-        Button(onClick = onOpenRoster) {
-            Text(
-                text = stringResource(R.string.campaign_roster_action),
-                style = MaterialTheme.typography.labelLarge,
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .systemBarsPadding(),
+        ) {
+            CampaignHeader(modifier = Modifier.fillMaxWidth())
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = CampaignMetrics.contentInset)
+                    .padding(bottom = spacing.m),
+                verticalArrangement = Arrangement.spacedBy(CampaignMetrics.sectionGap),
+            ) {
+                Text(
+                    text = stringResource(R.string.campaign_selection_title),
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = CampaignOnBackground,
+                )
+                Text(
+                    text = stringResource(R.string.campaign_header_body),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = CampaignOnBackground.copy(alpha = 0.78f),
+                )
+                stageIds.forEachIndexed { index, stageId ->
+                    CampaignLevelCard(
+                        stageId = stageId,
+                        index = index,
+                        total = stageIds.size,
+                        onSelect = { onSelectStage(stageId) },
+                    )
+                }
+            }
+            CampaignRouteBar(
+                onOpenRoster = onOpenRoster,
+                onOpenArena = onOpenArena,
             )
         }
-        Button(onClick = onOpenArena) {
-            Text(
-                text = stringResource(R.string.campaign_arena_action),
-                style = MaterialTheme.typography.labelLarge,
-            )
+    }
+}
+
+@Composable
+private fun CampaignHeader(
+    modifier: Modifier = Modifier,
+) {
+    val spacing = LocalSpacing.current
+    Surface(
+        modifier = modifier,
+        color = CampaignSurface,
+        contentColor = CampaignOnSurface,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    horizontal = CampaignMetrics.contentInset,
+                    vertical = CampaignMetrics.cardPadding,
+                ),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(LocalSpacing.current.m),
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.campaign_header_kicker),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = CampaignSupport,
+                )
+                Text(
+                    text = stringResource(R.string.campaign_selection_title),
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = CampaignOnSurface,
+                )
+            }
+            Surface(
+                color = CampaignAccent.copy(alpha = 0.16f),
+                contentColor = CampaignAccent,
+                shape = MaterialTheme.shapes.small,
+            ) {
+                Text(
+                    text = stringResource(R.string.campaign_status_local),
+                    style = MaterialTheme.typography.labelLarge,
+                    modifier = Modifier.padding(
+                        horizontal = CampaignMetrics.cardPadding,
+                        vertical = spacing.xs,
+                    ),
+                )
+            }
         }
-        stageIds.forEach { stageId ->
-            Text(text = stageTitle(stageId), style = MaterialTheme.typography.titleLarge)
+    }
+}
+
+@Composable
+private fun CampaignLevelCard(
+    stageId: CampaignStageId,
+    index: Int,
+    total: Int,
+    onSelect: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        color = CampaignSurface,
+        contentColor = CampaignOnSurface,
+        border = BorderStroke(1.dp, CampaignSupport.copy(alpha = 0.35f)),
+    ) {
+        Column(
+            modifier = Modifier.padding(CampaignMetrics.cardPadding),
+            verticalArrangement = Arrangement.spacedBy(LocalSpacing.current.s),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.spacedBy(LocalSpacing.current.s),
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.campaign_level_label),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = CampaignSupport,
+                    )
+                    Text(
+                        text = stageTitle(stageId),
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = CampaignOnSurface,
+                    )
+                }
+                Text(
+                    text = stringResource(R.string.campaign_level_marker, index + 1, total),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = CampaignAccent,
+                )
+            }
             Text(
                 text = stringResource(R.string.campaign_level_body),
                 style = MaterialTheme.typography.bodyLarge,
+                color = CampaignOnSurface.copy(alpha = 0.84f),
             )
-            Button(onClick = { onSelectStage(stageId) }) {
+            Button(
+                onClick = onSelect,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = CampaignMetrics.minTouchTarget),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = CampaignAccent,
+                    contentColor = CampaignBackground,
+                ),
+            ) {
                 Text(
                     text = stringResource(R.string.campaign_level_setup_action),
                     style = MaterialTheme.typography.labelLarge,
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun CampaignRouteBar(
+    onOpenRoster: () -> Unit,
+    onOpenArena: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .navigationBarsPadding(),
+        color = CampaignSurface,
+        contentColor = CampaignOnSurface,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = LocalSpacing.current.s, vertical = LocalSpacing.current.xs),
+            horizontalArrangement = Arrangement.spacedBy(LocalSpacing.current.xs),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Surface(
+                modifier = Modifier
+                    .weight(1f)
+                    .heightIn(min = CampaignMetrics.bottomRouteHeight),
+                color = CampaignAccent.copy(alpha = 0.18f),
+                contentColor = CampaignAccent,
+                shape = MaterialTheme.shapes.medium,
+            ) {
+                Text(
+                    text = stringResource(R.string.campaign_route_campaign),
+                    style = MaterialTheme.typography.labelLarge,
+                    modifier = Modifier.padding(horizontal = LocalSpacing.current.xs),
+                )
+            }
+            CampaignRouteButton(
+                label = stringResource(R.string.campaign_route_troops),
+                onClick = onOpenRoster,
+                modifier = Modifier.weight(1f),
+            )
+            CampaignRouteButton(
+                label = stringResource(R.string.campaign_route_arena),
+                onClick = onOpenArena,
+                modifier = Modifier.weight(1f),
+            )
+            CampaignRouteButton(
+                label = stringResource(R.string.campaign_shop_action),
+                enabled = false,
+                modifier = Modifier.weight(1f),
+            )
+            CampaignRouteButton(
+                label = stringResource(R.string.campaign_tech_action),
+                enabled = false,
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun CampaignRouteButton(
+    label: String,
+    enabled: Boolean = true,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit = {},
+) {
+    Button(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier.heightIn(min = CampaignMetrics.minTouchTarget),
+        contentPadding = PaddingValues(horizontal = LocalSpacing.current.xs, vertical = LocalSpacing.current.s),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = CampaignSupport.copy(alpha = 0.14f),
+            contentColor = CampaignOnSurface,
+            disabledContainerColor = CampaignBackground.copy(alpha = 0.35f),
+            disabledContentColor = CampaignDisabled,
+        ),
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelLarge,
+        )
     }
 }
 

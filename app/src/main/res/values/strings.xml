@@ -7,6 +7,16 @@
     <string name="campaign_launch_action_hint">Offline route ready</string>
     <string name="campaign_enter_action">Enter campaign</string>
     <string name="campaign_selection_title">Campaign</string>
+    <string name="campaign_header_kicker">MYSD / LOCAL COMMAND</string>
+    <string name="campaign_header_body">Choose a route and shape the next expedition.</string>
+    <string name="campaign_status_local">LOCAL</string>
+    <string name="campaign_level_label">AVAILABLE LEVEL</string>
+    <string name="campaign_level_marker">%1$d / %2$d</string>
+    <string name="campaign_route_campaign">Campaign</string>
+    <string name="campaign_route_troops">Troops</string>
+    <string name="campaign_route_arena">Arena</string>
+    <string name="campaign_shop_action">Shop</string>
+    <string name="campaign_tech_action">Tech</string>
     <string name="campaign_roster_action">Open troops</string>
     <string name="campaign_arena_action">Open Arena</string>
     <string name="arena_title">Local Arena</string>
