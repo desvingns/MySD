@@ -37,9 +37,9 @@
 
 ## NEXT
 
-1. Start implementation from the accepted semantic bundle; keep deferred/excluded scope frozen.
-2. Bridge engine demand only through a separate accepted MyEngine feature run.
-3. Run per-surface Visual Fit Gates during implementation of accepted states.
+1. Start PHASE_04 TASK-04.1 by rereading the fit registry, intended deviations, and fit thresholds.
+2. Run the PHASE_04 fit gate over every registry state, preserving the recorded visual blockers and explicit deferred/excluded scope.
+3. Bridge any engine demand only through a separate accepted MyEngine feature run; do not promote Shop, Tech, defeat, reward transaction, real-ad, IAP, or network Arena behavior.
 
 ## IMPLEMENTATION UPDATE — 2026-08-03
 
@@ -161,3 +161,93 @@
 - Verification: deterministic reviewer, semantic review, independent critic, full verifier, and MP runner passed; runner reported `104 passed / 0 failed / 0 skipped`, lint `ok`. `test :app:assembleDebug` and `scripts/public-safety.ps1` passed with 110 tracked files and 886 history paths checked.
 - Scoped fit for `ST-0007/ROUTE-TROOPS` and `ST-0008/OVERLAY-SETTINGS` returned overall score `50` (screen scores `34` and `66`) with major structure/geometry divergences. Proposed fit SPECs were not written; creative, copy, and accessibility deviations remain acknowledged.
 - Push of `d86a819` was attempted after explicit approval but failed with GitHub `Invalid username or token`; no further credential retry was made.
+- PHASE_03 TASK-03.8 is complete: the Android-free service boundary now exposes
+  `RewardedOpportunityService`, `PurchaseCatalogService`, and `ArenaService` through deterministic
+  local adapters. Accepted service-shaped requests preserve affordance/result shape while reward
+  claim/doubling, purchase transactions, real-ad completion, account behavior, and Arena network
+  matches remain deferred or blocked.
+- Delivery commits: `57f3f25`, `150d6ed`, `2348bdc`, `caaaa93`, `b3ed42f`, and `f603ed0`.
+  The later fixes harden runtime-unmodifiable configuration/snapshot collections and remove the
+  public `copy` mutation bypass from the purchase catalog snapshot.
+- Verification: MP runner `109 passed / 0 failed / 0 skipped`, lint ok; `scripts/public-safety.ps1`
+  pass; `test :app:assembleDebug` successful with the Android Studio JBR and Android SDK; full
+  verifier, semantic review, independent critic, and deterministic reviewer passed. No app wiring
+  or screenshot record was required for this domain/data task.
+- Next accepted task is PHASE_03 TASK-03.9 Reward adapter; push for TASK-03.8 was not attempted.
+- Push for TASK-03.8 was attempted after explicit approval but failed with GitHub `Invalid username or token`;
+  no further credential retry was made and all delivery commits remain local.
+
+## IMPLEMENTATION UPDATE — 2026-08-28
+
+- PHASE_03 TASK-03.9 is complete: the Android-free reward boundary now exposes deterministic
+  `NORMAL_REWARD` and `MULTIPLIER_SHAPED` outcome shapes for accepted and blocked requests without
+  applying claim, ad-completion, multiplier, transaction, economy, SDK, account, payment, or
+  network semantics.
+- Delivery commits: `de2a611` and `07bcde6`.
+- Verification: scoped runner `112 passed / 0 failed / 0 skipped`; full runner `112 passed / 0 failed / 0 skipped`,
+  lint ok, `:app:assembleDebug` successful; public-safety pass (113 tracked files, 850 history paths,
+  zero creative assets); deterministic reviewer, semantic review, independent critic, and full verifier passed.
+- Next accepted task is PHASE_03 TASK-03.10 Arena adapter. Push was not possible because `GITHUB_TOKEN`
+  is not set; no credential retry was made.
+
+## TESTING UPDATE — 2026-08-29
+
+- Added Fakes-only Arena coverage for the accepted `CampaignSession` route, unfinished-run guard,
+  deterministic repeated snapshots, and propagation of a blocked service-shaped snapshot.
+- Extended service-boundary coverage for unknown Arena requests, immutable local/blocked snapshots,
+  and the absence of network, account, match, production-integration, and authoritative-state
+  behavior. Existing campaign, integration, and service tests were reviewed and their assertions
+  were retained.
+- Verification executed after the repair: scoped runner `118 passed / 0 failed / 0 skipped`; full
+  runner `118 passed / 0 failed / 0 skipped`, lint `ok`; deterministic reviewer, semantic review,
+  independent critic, and full verifier passed. Compose/navigation coverage remains an explicit
+  dependency exception because `:app` has no Android test dependencies; the public
+  `CampaignScreenContent` seam was confirmed.
+
+## IMPLEMENTATION UPDATE — 2026-08-29
+
+- PHASE_03 TASK-03.10 is complete: the offline service-shaped Arena state is wired from the
+  campaign surface through `CampaignSession` and the Android UI, while local-service-shaped and
+  network-match-blocked states remain explicit, immutable, deterministic, and offline-only.
+- Delivery commits: `24d553d` (`feat: add offline Arena route`) and `e793697`
+  (`fix: repair Arena integration test nullability`). Both were pushed successfully to
+  `origin/main`.
+- TASK-03.10 is archived in `.claude/specs/done`; no successor task or chain was started.
+
+## VISUAL QA UPDATE — 2026-08-29
+
+- PHASE_03 TASK-03.13 is complete: device-backed structural evidence and fit records were added
+  for campaign, roster, settings, local Arena, and resume surfaces; no product-surface rewrite was
+  introduced because the routes already existed.
+- Delivery commits: `f2658e4`, `655cf66`, `c05d9c0`, `7e84371`, and board close-out `d7924b4`.
+- Verification: final connected `ResumeContentUiTest` `1 passed / 0 failed / 0 skipped`; full MP
+  runner `118 passed / 0 failed / 0 skipped`, lint `ok`; public-safety pass. Fit score `33` with
+  five visual cells explicitly deferred/uncheckable because reference captures were unreadable or
+  profile/tooling incompatible; structural evidence remains recorded.
+- TASK-03.13 is archived in `.claude/specs/done`. The final tester assertion remains an intentional
+  uncommitted worktree change and was included in the final connected run.
+- Next backlog task: PHASE_03 TASK-03.14 Lifecycle.
+
+## LIFECYCLE RESTORATION UPDATE — 2026-08-29
+
+- PHASE_03 TASK-03.14 is complete: campaign run-save persistence now covers background,
+  Activity recreation, and process-death restoration for active and victory contours, with
+  Android-free authority retained in `CampaignSession` and encoded storage isolated in the app.
+- Delivery commits: `54d5d45`, `e6deac9`, and board close-out `505d347`; all pushed to `origin/main`.
+- Verification: JVM `125 passed / 0 failed / 0 skipped`; connected `11 passed / 0 failed / 0 skipped`;
+  public-safety pass; `test :app:assembleDebug` successful. Semantic reviewers stalled twice,
+  so deterministic review and the full verifier evidence were used as the recorded fallback.
+- TASK-03.14 is archived in `.claude/specs/done`. The next runnable backlog remains TASK-03.15
+  Acceptance, followed by TASK-03.16 Progress.
+
+## PHASE_03 CLOSE-OUT — 2026-08-29
+
+- TASK-03.9 Reward adapter — commits `de2a611`, `07bcde6`; scoped and full runners each reported `112 passed / 0 failed / 0 skipped`, lint ok, `:app:assembleDebug` and public-safety passed, and deterministic reviewer, semantic review, independent critic, and full verifier passed. Push was unavailable because `GITHUB_TOKEN` is not set.
+- TASK-03.10 Arena adapter — commits `24d553d`, `e793697`; the offline service-shaped Arena route is wired through campaign/session/UI with immutable local and network-match-blocked states. Existing evidence records 118 tests passed, lint ok, verifier pass, and successful push to `origin/main`.
+- TASK-03.11 core visual QA — commit `a07c6d5`; connected `emulator-5554` evidence for ST-0001/ST-0002/ST-0003 records structural coverage and FIT-03.11-001/002/003. No pixel score was claimed: the Pixel 9 reference profile differs from the emulator profile and ImageMagick was unavailable; ST-0002 remains blocked by preserved-unusable reference PNGs.
+- TASK-03.12 enhancement/victory visual QA — commits `8054578`, `495833a`; instrumented Compose checks passed 2/2, deterministic/semantic/critic/verifier gates passed, and visual fit was skipped because ST-0004/ST-0005 references are preserved-unusable. FIT-03.12-001/002 remain explicit; deferred reward claim, doubling, transaction, and economy semantics were unchanged.
+- TASK-03.13 meta/service/resume visual QA — commits `f2658e4`, `655cf66`, `c05d9c0`, `7e84371`; final connected `ResumeContentUiTest` passed 1/1, full MP runner reported `118 passed / 0 failed / 0 skipped`, lint ok, and public-safety passed. Fit score was 33 with five visual cells deferred/uncheckable; FIT-03.13-001 through FIT-03.13-005 remain explicit and no pixel score was claimed.
+- TASK-03.14 lifecycle restoration — commits `54d5d45`, `e6deac9`, with board close-out `505d347`; JVM `125 passed / 0 failed / 0 skipped`, connected `11 passed / 0 failed / 0 skipped`, public-safety pass, and `:app:assembleDebug` successful. Deterministic review and full verifier were the recorded fallback after two semantic-review stalls.
+- TASK-03.15 phase acceptance — existing contour delivery was rechecked without new production work: MP runner `125 passed / 0 failed / 0 skipped`, lint ok; connected `11 passed / 0 failed / 0 skipped` on `Pixel_5(AVD) - 14`; public-safety `pass` (`124` tracked files, `1156` history paths); spec validator `pass` (`16` requirements, `10` stories, `10` acceptance, `16` trace rows); `git diff --check` passed.
+- PHASE_03 exit verification — TASK-03.9 through TASK-03.15 are complete, all accepted semantic routes and service-shaped boundaries are verified offline, lifecycle restoration preserves the Android-free deterministic authority, and all requested per-screen structural QA records exist. Remaining visual parity blockers are the FIT-03.11-001/002/003, FIT-03.12-001/002, and FIT-03.13-001..005 records, including preserved-unusable references, profile mismatch, unavailable ImageMagick pixel comparison, and explicitly uncheckable visual cells. Deferred/excluded Shop, Tech, defeat, reward transaction, real-ad, IAP, account, network Arena, and external-exit behavior remains frozen.
+- Transition verified — PHASE_03 is `done` and PHASE_04 is the sole `active` phase in `docs/implementation_plan/PROGRESS.md`; the next work is the PHASE_04 fit gate and deferred-scope closure.

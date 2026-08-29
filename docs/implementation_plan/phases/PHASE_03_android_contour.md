@@ -35,14 +35,14 @@ Implement the accepted campaign, battle, enhancement, victory, roster, settings,
 - [x] TASK-03.6 **Victory surface** — implement safe local victory resolution and reward panel while retaining ED-0025 as the defeat blocker (FR-104, US-102, AC-102).
 - [x] TASK-03.7 **Roster/settings** — implement roster and settings open/close contours with upgrade and toggle effects deferred (FR-105, US-103, AC-103).
 - [x] TASK-03.8 **Offline service boundary** — implement deterministic local-adapter handling for accepted service-shaped requests without production SDKs or backends (FR-003, US-003, AC-003).
-- [ ] TASK-03.9 **Reward adapter** — implement deterministic local normal-reward and multiplier-shaped outcomes (FR-106, US-104, AC-104).
-- [ ] TASK-03.10 **Arena adapter** — implement offline service-shaped Arena state without network, account, or match behavior (FR-107, US-104, AC-104).
-- [ ] TASK-03.11 **Visual QA** — render ST-0001/ROUTE-LAUNCH, ST-0002/BATTLE-SETUP, and ST-0003/BATTLE-ACTIVE against registry evidence and file divergences.
-- [ ] TASK-03.12 **Visual QA** — render ST-0004/BATTLE-ENHANCEMENT and ST-0005/BATTLE-VICTORY against registry evidence and file divergences.
-- [ ] TASK-03.13 **Visual QA** — render ST-0006/ROUTE-CAMPAIGN, ST-0007/ROUTE-TROOPS, ST-0008/OVERLAY-SETTINGS, ST-0011/ROUTE-ARENA-LOCAL, and ST-0012/OVERLAY-RESUME against registry evidence and file divergences.
-- [ ] TASK-03.14 **Lifecycle** — verify pause, background, recreate, and process-death restoration through the accepted contour (US-004, AC-004).
-- [ ] TASK-03.15 **Acceptance** — run the foundation feature scenarios AC-001 through AC-005 and AC-100 through AC-104.
-- [ ] TASK-03.16 Update PROGRESS.md.
+- [x] TASK-03.9 **Reward adapter** — implement deterministic local normal-reward and multiplier-shaped outcomes (FR-106, US-104, AC-104).
+- [x] TASK-03.10 **Arena adapter** — implement offline service-shaped Arena state without network, account, or match behavior (FR-107, US-104, AC-104).
+- [x] TASK-03.11 **Visual QA** — render ST-0001/ROUTE-LAUNCH, ST-0002/BATTLE-SETUP, and ST-0003/BATTLE-ACTIVE against registry evidence and file divergences.
+- [x] TASK-03.12 **Visual QA** — render ST-0004/BATTLE-ENHANCEMENT and ST-0005/BATTLE-VICTORY against registry evidence and file divergences.
+- [x] TASK-03.13 **Visual QA** — render ST-0006/ROUTE-CAMPAIGN, ST-0007/ROUTE-TROOPS, ST-0008/OVERLAY-SETTINGS, ST-0011/ROUTE-ARENA-LOCAL, and ST-0012/OVERLAY-RESUME against registry evidence and file divergences.
+- [x] TASK-03.14 **Lifecycle** — verify pause, background, recreate, and process-death restoration through the accepted contour (US-004, AC-004).
+- [x] TASK-03.15 **Acceptance** — run the foundation feature scenarios AC-001 through AC-005 and AC-100 through AC-104.
+- [x] TASK-03.16 Update PROGRESS.md and close the verified transition to PHASE_04.
 
 ## Done criteria
 
@@ -62,3 +62,11 @@ powershell.exe -File scripts/public-safety.ps1
 Human-owned; no planner-generated notes.
 
 - TASK-03.8 implementation commit: `57f3f25`; reward outcome and Arena adapter semantics remain scoped to TASK-03.9 and TASK-03.10.
+- TASK-03.9 implementation commits: `de2a611`, `07bcde6`; deterministic normal/multiplier-shaped outcome enum and 4-cell availability/outcome coverage shipped. Scoped runner `112 passed / 0 failed / 0 skipped`; full runner `112 passed / 0 failed / 0 skipped`, lint ok, assembleDebug successful; public-safety pass. Push was not possible because `GITHUB_TOKEN` is not set.
+- TASK-03.10 implementation commits: `24d553d`, `e793697`; offline local/service-shaped Arena route is wired through campaign/session/UI with immutable network-match-blocked state. 118 tests passed; lint ok; verifier pass; both delivery commits were pushed to `origin/main`.
+- TASK-03.11 device QA record: commit `a07c6d5`; ST-0001/ST-0002/ST-0003 structural evidence passed on `emulator-5554`. No pixel score was claimed because the device/reference profiles differ and ImageMagick is unavailable; FIT-03.11-001/002/003 remain recorded for PHASE_04.
+- TASK-03.12 device QA commits: `8054578`, `495833a`; instrumented Compose checks passed 2/2 and the reviewer/verifier gates passed. ST-0004/ST-0005 visual parity is blocked by preserved-unusable references; FIT-03.12-001/002 and deferred reward semantics remain unchanged.
+- TASK-03.13 device QA commits: `f2658e4`, `655cf66`, `c05d9c0`, `7e84371`; connected `ResumeContentUiTest` passed 1/1 and the full runner reported `118 passed / 0 failed / 0 skipped`, lint ok, public-safety pass. The fit record reports score 33 with five visual cells deferred/uncheckable; FIT-03.13-001 through FIT-03.13-005 remain for PHASE_04.
+- TASK-03.14 lifecycle commits: `54d5d45`, `e6deac9`; JVM `125 passed / 0 failed / 0 skipped`, connected `11 passed / 0 failed / 0 skipped`, public-safety pass, and `:app:assembleDebug` successful. Deterministic review and full verifier were the recorded fallback after two semantic-review stalls.
+- TASK-03.15 acceptance evidence: MP runner `125 passed / 0 failed / 0 skipped`, lint ok; `:app:connectedDebugAndroidTest` `11 passed / 0 failed / 0 skipped` on `Pixel_5(AVD) - 14`; public-safety pass (`124` tracked files, `1156` history paths); spec validator pass (`16` requirements, `10` stories, `10` acceptance, `16` trace rows); `git diff --check` passed.
+- PHASE_03 exit: TASK-03.9 through TASK-03.15 are complete and all task rows above are checked. Accepted semantic contours, offline service boundaries, lifecycle restoration, and per-screen structural QA records are verified; visual parity gaps and deferred/excluded mechanics remain explicit. PHASE_04 is now the sole active phase for fit-gate and deferred-scope closure.
