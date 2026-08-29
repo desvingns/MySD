@@ -1,6 +1,6 @@
 # TASK-03.13 Visual QA — meta and service-shaped surfaces
 
-Status: active
+Status: done
 TASK: feature
 PLATFORM: android
 WHAT: Capture and compare the already-rendered campaign, roster, settings, local Arena, and resume surfaces against the accepted fit registry, adding only the evidence/test seams needed to record evidence-backed divergences.
@@ -34,4 +34,9 @@ Acceptance-matrix: screen=campaign,roster,settings,arena,resume; pass=structural
 Risk-signals: visual/device work; cross-module data flow; session/auth lifecycle
 === END SPEC ===
 
-Implementation links: pending
+Implementation links:
+- Commits: f2658e4, 655cf66, c05d9c0, 7e84371
+- spec/fit/task-03.13-visual-qa.md — device captures and fit record
+- app/src/androidTest/kotlin/dev/mysd/android/campaign/ResumeContentUiTest.kt — connected ST-0012 structural fixture
+- app/build.gradle.kts — Android test dependency and version alignment
+- app/build/reports/androidTests/connected/debug/index.html — final connected test report
