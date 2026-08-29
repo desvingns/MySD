@@ -121,10 +121,17 @@ class ResumeContentUiTest {
     }
 
     private fun assertRemoteCaptureIsValid(device: UiDevice, remotePath: String) {
-        val result = device.executeShellCommand(
-            "if [ -s \"$remotePath\" ]; then echo VALID; else echo INVALID; fi",
-        ).trim()
-        assertTrue("Expected a non-empty remote capture at $remotePath", result == "VALID")
+        val listing = device.executeShellCommand("ls -l $remotePath")
+            .lineSequence()
+            .firstOrNull { it.contains(remotePath) }
+            ?.trim()
+            .orEmpty()
+        val fields = listing.split(Regex("\\s+"))
+        val byteCount = fields.getOrNull(4)?.toLongOrNull()
+        assertTrue(
+            "Expected a non-empty remote capture at $remotePath",
+            fields.lastOrNull() == remotePath && byteCount != null && byteCount > 0L,
+        )
     }
 
     private fun unfinishedRun(): RunSave = RunSave(
