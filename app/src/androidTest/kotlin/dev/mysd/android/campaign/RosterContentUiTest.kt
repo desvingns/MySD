@@ -7,6 +7,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertWidthIsAtLeast
 import androidx.compose.ui.test.captureToImage
@@ -22,7 +23,9 @@ import androidx.test.uiautomator.UiDevice
 import dev.mysd.android.R
 import dev.mysd.android.ui.theme.MySDTheme
 import dev.mysd.android.ui.theme.RosterMetrics
+import dev.mysd.android.ui.theme.SettingsMetrics
 import dev.mysd.game.meta.RosterIntent
+import dev.mysd.game.meta.RosterSettingId
 import dev.mysd.game.meta.RosterSession
 import dev.mysd.game.meta.RosterSnapshot
 import dev.mysd.game.meta.RosterSurface
@@ -120,7 +123,7 @@ class RosterContentUiTest {
     }
 
     @Test
-    fun st0007_preservesSettingsAndCloseActions_withAccessibleTargets() {
+    fun st0008_rendersSettingsOverlayAndPreservesDeferredActions() {
         val session = RosterSession()
         var renderedState by mutableStateOf(session.snapshot())
         val emittedIntents = mutableListOf<RosterIntent>()
@@ -145,14 +148,54 @@ class RosterContentUiTest {
             .assertHeightIsAtLeast(RosterMetrics.minTouchTarget)
             .assertWidthIsAtLeast(RosterMetrics.minTouchTarget)
             .performClick()
+        val settingsState = renderedState
+        composeTestRule
+            .onNodeWithTag("settings-overlay")
+            .assertIsDisplayed()
         composeTestRule
             .onNodeWithText(context.getString(R.string.settings_title))
             .assertIsDisplayed()
         composeTestRule
+            .onNodeWithText(context.getString(R.string.settings_body))
+            .assertIsDisplayed()
+        listOf(
+            RosterSettingId.AUDIO to R.string.settings_audio_option,
+            RosterSettingId.HAPTICS to R.string.settings_haptics_option,
+        ).forEach { (settingId, labelResource) ->
+            composeTestRule
+                .onNodeWithText(context.getString(labelResource))
+                .assertIsDisplayed()
+            composeTestRule
+                .onNode(hasContentDescription(context.getString(labelResource)))
+                .assertIsDisplayed()
+            composeTestRule
+                .onNodeWithTag("settings-switch-${settingId.stableId}")
+                .assertIsDisplayed()
+                .assertIsOff()
+                .assertHeightIsAtLeast(SettingsMetrics.minTouchTarget)
+                .assertWidthIsAtLeast(SettingsMetrics.minTouchTarget)
+                .performClick()
+        }
+        composeTestRule.runOnIdle {
+            assertEquals(settingsState, renderedState)
+            assertEquals(settingsState, session.snapshot())
+        }
+        captureScreenshot("FIT-04-05-ST-0008.png", rootTag = "settings-overlay")
+
+        device.pressBack()
+        composeTestRule.waitForIdle()
+        composeTestRule.runOnIdle {
+            assertEquals(RosterSurface.TROOPS, renderedState.surface)
+        }
+
+        composeTestRule
+            .onNodeWithText(context.getString(R.string.roster_settings_action))
+            .performClick()
+        composeTestRule
             .onNodeWithText(context.getString(R.string.settings_close_action))
             .assertIsDisplayed()
-            .assertHeightIsAtLeast(RosterMetrics.minTouchTarget)
-            .assertWidthIsAtLeast(RosterMetrics.minTouchTarget)
+            .assertHeightIsAtLeast(SettingsMetrics.minTouchTarget)
+            .assertWidthIsAtLeast(SettingsMetrics.minTouchTarget)
             .performClick()
 
         composeTestRule.runOnIdle {
@@ -165,8 +208,8 @@ class RosterContentUiTest {
         composeTestRule
             .onNodeWithText(context.getString(R.string.settings_confirm_action))
             .assertIsDisplayed()
-            .assertHeightIsAtLeast(RosterMetrics.minTouchTarget)
-            .assertWidthIsAtLeast(RosterMetrics.minTouchTarget)
+            .assertHeightIsAtLeast(SettingsMetrics.minTouchTarget)
+            .assertWidthIsAtLeast(SettingsMetrics.minTouchTarget)
             .performClick()
         composeTestRule
             .onNodeWithText(context.getString(R.string.roster_close_action))
@@ -179,6 +222,10 @@ class RosterContentUiTest {
             assertEquals(
                 listOf(
                     RosterIntent.OpenSettings,
+                    RosterIntent.ToggleSetting(RosterSettingId.AUDIO),
+                    RosterIntent.ToggleSetting(RosterSettingId.HAPTICS),
+                    RosterIntent.CloseSettings,
+                    RosterIntent.OpenSettings,
                     RosterIntent.CloseSettings,
                     RosterIntent.OpenSettings,
                     RosterIntent.ConfirmSettings,
@@ -190,17 +237,18 @@ class RosterContentUiTest {
         }
     }
 
-    private fun captureScreenshot(fileName: String) {
+    private fun captureScreenshot(fileName: String, rootTag: String? = null) {
         device.waitForIdle()
         val outputDirectory = requireNotNull(context.getExternalFilesDir("fit"))
         check(outputDirectory.mkdirs() || outputDirectory.isDirectory)
         val screenshot = File(outputDirectory, fileName)
         val screenshotWritten = screenshot.outputStream().use { output ->
-            composeTestRule
-                .onRoot()
-                .captureToImage()
-                .asAndroidBitmap()
-                .compress(Bitmap.CompressFormat.PNG, 100, output)
+            val image = if (rootTag == null) {
+                composeTestRule.onRoot().captureToImage()
+            } else {
+                composeTestRule.onNodeWithTag(rootTag).captureToImage()
+            }
+            image.asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, output)
         }
         assertTrue(screenshotWritten)
         assertTrue(screenshot.isFile)

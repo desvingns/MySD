@@ -20,12 +20,13 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -47,6 +48,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import dev.mysd.android.R
 import dev.mysd.android.ui.theme.BattleAction
@@ -86,6 +88,15 @@ import dev.mysd.android.ui.theme.RosterOnSurface
 import dev.mysd.android.ui.theme.RosterRouteInactive
 import dev.mysd.android.ui.theme.RosterSupport
 import dev.mysd.android.ui.theme.RosterSurface as RosterSurfaceColor
+import dev.mysd.android.ui.theme.SettingsConfirmAction
+import dev.mysd.android.ui.theme.SettingsCloseAction
+import dev.mysd.android.ui.theme.SettingsMetrics
+import dev.mysd.android.ui.theme.SettingsOnPanel
+import dev.mysd.android.ui.theme.SettingsOverlayScrim
+import dev.mysd.android.ui.theme.SettingsPanel
+import dev.mysd.android.ui.theme.SettingsPanelBorder
+import dev.mysd.android.ui.theme.SettingsSwitchThumb
+import dev.mysd.android.ui.theme.SettingsSwitchTrack
 import dev.mysd.game.battle.ActiveBattleIntent
 import dev.mysd.game.battle.ActiveBattleSnapshot
 import dev.mysd.game.battle.ActiveBattleSpeedIndicator
@@ -1216,20 +1227,63 @@ fun RosterContent(
         }
 
         if (state.surface == RosterSurface.SETTINGS) {
-            AlertDialog(
-                onDismissRequest = { onIntent(RosterIntent.CloseSettings) },
-                title = {
+            SettingsOverlay(
+                state = state,
+                onIntent = onIntent,
+            )
+        }
+    }
+}
+
+@Composable
+private fun SettingsOverlay(
+    state: RosterSnapshot,
+    onIntent: (RosterIntent) -> Unit,
+) {
+    val spacing = LocalSpacing.current
+    Dialog(
+        onDismissRequest = { onIntent(RosterIntent.CloseSettings) },
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            dismissOnBackPress = true,
+            dismissOnClickOutside = false,
+        ),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(SettingsOverlayScrim)
+                .testTag("settings-overlay"),
+            contentAlignment = Alignment.Center,
+        ) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .widthIn(max = SettingsMetrics.panelMaxWidth)
+                    .padding(horizontal = SettingsMetrics.panelInset)
+                    .testTag("settings-panel"),
+                shape = MaterialTheme.shapes.extraLarge,
+                color = SettingsPanel,
+                contentColor = SettingsOnPanel,
+                border = BorderStroke(1.dp, SettingsPanelBorder),
+            ) {
+                Column(
+                    modifier = Modifier.padding(SettingsMetrics.panelPadding),
+                    verticalArrangement = Arrangement.spacedBy(spacing.m),
+                ) {
                     Text(
                         text = stringResource(R.string.settings_title),
-                        style = MaterialTheme.typography.titleLarge,
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = SettingsOnPanel,
                     )
-                },
-                text = {
-                    Column(verticalArrangement = Arrangement.spacedBy(spacing.m)) {
-                        Text(
-                            text = stringResource(R.string.settings_body),
-                            style = MaterialTheme.typography.bodyLarge,
-                        )
+                    Text(
+                        text = stringResource(R.string.settings_body),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = SettingsOnPanel.copy(alpha = 0.82f),
+                    )
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(SettingsMetrics.optionGap),
+                    ) {
                         state.settings.forEach { option ->
                             RosterSettingContent(
                                 option = option,
@@ -1237,39 +1291,37 @@ fun RosterContent(
                             )
                         }
                     }
-                },
-                dismissButton = {
-                    TextButton(
-                        onClick = { onIntent(RosterIntent.CloseSettings) },
-                        modifier = Modifier
-                            .heightIn(min = RosterMetrics.minTouchTarget)
-                            .widthIn(min = RosterMetrics.minTouchTarget),
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(
-                            text = stringResource(R.string.settings_close_action),
-                            style = MaterialTheme.typography.labelLarge,
-                        )
+                        TextButton(
+                            onClick = { onIntent(RosterIntent.CloseSettings) },
+                            modifier = Modifier.heightIn(min = SettingsMetrics.minTouchTarget),
+                        ) {
+                            Text(
+                                text = stringResource(R.string.settings_close_action),
+                                style = MaterialTheme.typography.labelLarge,
+                                color = SettingsCloseAction,
+                            )
+                        }
+                        Button(
+                            onClick = { onIntent(RosterIntent.ConfirmSettings) },
+                            modifier = Modifier.heightIn(min = SettingsMetrics.minTouchTarget),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = SettingsConfirmAction,
+                                contentColor = RosterBackground,
+                            ),
+                        ) {
+                            Text(
+                                text = stringResource(R.string.settings_confirm_action),
+                                style = MaterialTheme.typography.labelLarge,
+                            )
+                        }
                     }
-                },
-                confirmButton = {
-                    Button(
-                        onClick = { onIntent(RosterIntent.ConfirmSettings) },
-                        modifier = Modifier
-                            .heightIn(min = RosterMetrics.minTouchTarget)
-                            .widthIn(min = RosterMetrics.minTouchTarget),
-                    ) {
-                        Text(
-                            text = stringResource(R.string.settings_confirm_action),
-                            style = MaterialTheme.typography.labelLarge,
-                        )
-                    }
-                },
-                properties = DialogProperties(
-                    dismissOnBackPress = true,
-                    dismissOnClickOutside = false,
-                ),
-                shape = MaterialTheme.shapes.medium,
-            )
+                }
+            }
         }
     }
 }
@@ -1334,6 +1386,7 @@ private fun RosterSettingContent(
     option: RosterSettingOption,
     onToggle: () -> Unit,
 ) {
+    val label = settingLabel(option.id)
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -1342,14 +1395,23 @@ private fun RosterSettingContent(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = settingLabel(option.id),
+            text = label,
             style = MaterialTheme.typography.bodyLarge,
         )
         if (option.toggleAffordanceVisible) {
             Switch(
-                modifier = Modifier.size(RosterMetrics.minTouchTarget),
+                modifier = Modifier
+                    .size(SettingsMetrics.minTouchTarget)
+                    .semantics { contentDescription = label }
+                    .testTag("settings-switch-${option.id.stableId}"),
                 checked = false,
                 onCheckedChange = { onToggle() },
+                colors = SwitchDefaults.colors(
+                    uncheckedThumbColor = SettingsSwitchThumb,
+                    uncheckedTrackColor = SettingsSwitchTrack,
+                    checkedThumbColor = SettingsSwitchThumb,
+                    checkedTrackColor = SettingsSwitchTrack,
+                ),
             )
         }
     }
