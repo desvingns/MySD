@@ -8,7 +8,9 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertWidthIsAtLeast
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasTextExactly
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
@@ -68,7 +70,23 @@ class CampaignContentUiTest {
             .onNodeWithText(context.getString(R.string.campaign_level_label))
             .assertIsDisplayed()
         composeTestRule
+            .onAllNodes(
+                hasTextExactly(context.getString(R.string.campaign_route_campaign)),
+                useUnmergedTree = true,
+            )
+            .onFirst()
+            .assertIsDisplayed()
+        composeTestRule
             .onNodeWithText(context.getString(R.string.campaign_level_ember_path))
+            .assertIsDisplayed()
+        composeTestRule
+            .onNodeWithText(
+                context.getString(
+                    R.string.campaign_level_marker,
+                    1,
+                    state.acceptedStageIds.size,
+                ),
+            )
             .assertIsDisplayed()
         composeTestRule
             .onNodeWithText(context.getString(R.string.campaign_level_body))
@@ -141,15 +159,13 @@ class CampaignContentUiTest {
         assertTrue(screenshot.length() > 0L)
         val remoteScreenshot = "/sdcard/Download/FIT-04-03-ST-0006.png"
         device.executeShellCommand("cp ${screenshot.absolutePath} $remoteScreenshot")
+        val remoteScreenshotSize = device
+            .executeShellCommand("stat -c %s $remoteScreenshot")
+            .trim()
+            .toLongOrNull()
         assertTrue(
             "Expected a non-empty remote screenshot at $remoteScreenshot",
-            device.executeShellCommand("ls -l $remoteScreenshot")
-                .lineSequence()
-                .any { line ->
-                    val fields = line.trim().split(Regex("\\s+"))
-                    fields.lastOrNull() == remoteScreenshot &&
-                        fields.getOrNull(4)?.toLongOrNull()?.let { it > 0L } == true
-                },
+            remoteScreenshotSize != null && remoteScreenshotSize > 0L,
         )
     }
 }
