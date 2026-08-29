@@ -7,6 +7,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertWidthIsAtLeast
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
@@ -94,6 +95,25 @@ class ActiveBattleContentUiTest {
                     defaultState.enemyEntityIds.size,
                 ),
             )
+            .assertIsDisplayed()
+
+        val expectedBattlefieldDescription = listOfNotNull(
+            if (defaultState.baseVisible) {
+                context.getString(R.string.active_battle_base_visible)
+            } else {
+                null
+            },
+            if (defaultState.enemyEntitiesVisible) {
+                context.getString(
+                    R.string.active_battle_enemies_visible,
+                    defaultState.enemyEntityIds.size,
+                )
+            } else {
+                null
+            },
+        ).joinToString(separator = "; ")
+        composeTestRule
+            .onNode(hasContentDescription(expectedBattlefieldDescription))
             .assertIsDisplayed()
 
         val actionLabels = listOf(
