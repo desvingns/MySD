@@ -13,6 +13,10 @@ import dev.mysd.game.meta.RosterIntent
 import dev.mysd.game.meta.RosterSession
 import dev.mysd.game.meta.RosterSnapshot
 import dev.mysd.game.persistence.RunSave
+import dev.mysd.game.service.ArenaRequest
+import dev.mysd.game.service.ArenaService
+import dev.mysd.game.service.ArenaSnapshot
+import dev.mysd.game.service.OfflineServiceAdapters
 
 @JvmInline
 value class CampaignStageId private constructor(val value: String) {
@@ -49,6 +53,7 @@ data class CampaignSnapshot(
     val unfinishedRunPromptVisible: Boolean,
     val battleStart: BattleStartTransition? = null,
     val rosterOpen: Boolean = false,
+    val arenaOpen: Boolean = false,
 )
 
 sealed interface CampaignIntent {
@@ -73,6 +78,10 @@ sealed interface CampaignIntent {
     data object OpenRoster : CampaignIntent
 
     data object CloseRoster : CampaignIntent
+
+    data object OpenArena : CampaignIntent
+
+    data object CloseArena : CampaignIntent
 }
 
 /**
@@ -84,6 +93,7 @@ sealed interface CampaignIntent {
 class CampaignSession(
     acceptedStageIds: List<CampaignStageId>,
     private val unfinishedRun: UnfinishedCampaignRun?,
+    private val arenaService: ArenaService = OfflineServiceAdapters.foundation().arenaService,
 ) {
     private val stages = acceptedStageIds.toList()
 
@@ -92,6 +102,7 @@ class CampaignSession(
     private var enhancementSession: EnhancementSession? = null
     private var victorySession: VictorySession? = null
     private var rosterSession: RosterSession? = null
+    private var arenaState: ArenaSnapshot? = null
     private var selectedEnhancementId: ContentId? = null
 
     private var state = CampaignSnapshot(
@@ -126,6 +137,9 @@ class CampaignSession(
 
     /** Immutable roster/settings snapshot after the accepted troops route is opened, if any. */
     fun rosterSnapshot(): RosterSnapshot? = rosterSession?.snapshot()
+
+    /** Immutable Arena service-shaped snapshot after the accepted local route is opened, if any. */
+    fun arenaSnapshot(): ArenaSnapshot? = arenaState
 
     /** Routes touch-to-command input to the authoritative active-battle session. */
     fun submit(intent: ActiveBattleIntent): ActiveBattleSnapshot? {
@@ -208,6 +222,11 @@ class CampaignSession(
                 } else if (!state.rosterOpen) {
                     rosterSession = null
                 }
+                if (state.arenaOpen && !previous.arenaOpen) {
+                    arenaState = arenaService.request(ArenaRequest())
+                } else if (!state.arenaOpen) {
+                    arenaState = null
+                }
             }
         }
         return state
@@ -252,6 +271,7 @@ class CampaignSession(
                 current.route != CampaignRoute.CAMPAIGN_SELECTION ||
                 current.unfinishedRunPromptVisible ||
                 current.rosterOpen ||
+                current.arenaOpen ||
                 intent.stageId !in stages
             ) {
                 current
@@ -276,7 +296,8 @@ class CampaignSession(
         CampaignIntent.OpenRoster -> if (
             current.route == CampaignRoute.CAMPAIGN_SELECTION &&
                 !current.unfinishedRunPromptVisible &&
-                !current.rosterOpen
+                !current.rosterOpen &&
+                !current.arenaOpen
         ) {
             current.copy(rosterOpen = true)
         } else {
@@ -285,6 +306,23 @@ class CampaignSession(
 
         CampaignIntent.CloseRoster -> if (current.rosterOpen) {
             current.copy(rosterOpen = false)
+        } else {
+            current
+        }
+
+        CampaignIntent.OpenArena -> if (
+            current.route == CampaignRoute.CAMPAIGN_SELECTION &&
+                !current.unfinishedRunPromptVisible &&
+                !current.rosterOpen &&
+                !current.arenaOpen
+        ) {
+            current.copy(arenaOpen = true)
+        } else {
+            current
+        }
+
+        CampaignIntent.CloseArena -> if (current.arenaOpen) {
+            current.copy(arenaOpen = false)
         } else {
             current
         }
@@ -311,7 +349,10 @@ class CampaignSession(
 object AcceptedCampaignFixture {
     val STAGE_ID: CampaignStageId = CampaignStageId.of("stage-ember-path")
 
-    fun createSession(runSave: RunSave?): CampaignSession = CampaignSession(
+    fun createSession(
+        runSave: RunSave?,
+        arenaService: ArenaService = OfflineServiceAdapters.foundation().arenaService,
+    ): CampaignSession = CampaignSession(
         acceptedStageIds = listOf(STAGE_ID),
         unfinishedRun = runSave
             ?.takeIf {
@@ -320,5 +361,6 @@ object AcceptedCampaignFixture {
                     it.stageId == STAGE_ID.value
             }
             ?.let { UnfinishedCampaignRun(stageId = STAGE_ID) },
+        arenaService = arenaService,
     )
 }

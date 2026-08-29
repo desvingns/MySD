@@ -6,6 +6,12 @@
     <string name="campaign_enter_action">Enter campaign</string>
     <string name="campaign_selection_title">Campaign</string>
     <string name="campaign_roster_action">Open troops</string>
+    <string name="campaign_arena_action">Open Arena</string>
+    <string name="arena_title">Local Arena</string>
+    <string name="arena_local_body">Arena service-shaped state is available offline.</string>
+    <string name="arena_blocked_body">This Arena request is blocked in the local boundary.</string>
+    <string name="arena_match_body">Network matches and account behavior are unavailable.</string>
+    <string name="arena_close_action">Close Arena</string>
     <string name="campaign_level_ember_path">Ember Path</string>
     <string name="campaign_level_body">Accepted local level</string>
     <string name="campaign_level_setup_action">Set up level</string>

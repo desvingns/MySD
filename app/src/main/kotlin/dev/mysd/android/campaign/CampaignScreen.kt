@@ -41,6 +41,8 @@ import dev.mysd.game.meta.RosterSettingOption
 import dev.mysd.game.meta.RosterSnapshot
 import dev.mysd.game.meta.RosterSurface
 import dev.mysd.game.meta.RosterTroopSlot
+import dev.mysd.game.service.ArenaLocalState
+import dev.mysd.game.service.ArenaSnapshot
 
 @Composable
 fun CampaignScreen(
@@ -55,6 +57,7 @@ fun CampaignScreen(
     enhancement: EnhancementSnapshot? = null,
     victory: VictorySnapshot? = null,
     roster: RosterSnapshot? = null,
+    arena: ArenaSnapshot? = null,
 ) {
     CampaignScreenContent(
         state = state,
@@ -68,6 +71,7 @@ fun CampaignScreen(
         enhancement = enhancement,
         victory = victory,
         roster = roster,
+        arena = arena,
     )
 }
 
@@ -84,6 +88,7 @@ fun CampaignScreenContent(
     enhancement: EnhancementSnapshot? = null,
     victory: VictorySnapshot? = null,
     roster: RosterSnapshot? = null,
+    arena: ArenaSnapshot? = null,
 ) {
     val battleStart = state.battleStart
     if (battleStart != null) {
@@ -111,7 +116,13 @@ fun CampaignScreenContent(
             )
         }
     } else {
-        if (state.rosterOpen && roster != null) {
+        if (state.arenaOpen && arena != null) {
+            ArenaContent(
+                state = arena,
+                onCloseArena = { onIntent(CampaignIntent.CloseArena) },
+                modifier = modifier,
+            )
+        } else if (state.rosterOpen && roster != null) {
             RosterContent(
                 state = roster,
                 onIntent = onRosterIntent,
@@ -132,6 +143,7 @@ fun CampaignScreenContent(
                 stageIds = state.acceptedStageIds,
                 onSelectStage = { stageId -> onIntent(CampaignIntent.SelectLevel(stageId)) },
                 onOpenRoster = { onIntent(CampaignIntent.OpenRoster) },
+                onOpenArena = { onIntent(CampaignIntent.OpenArena) },
                 modifier = modifier,
             )
 
@@ -163,6 +175,49 @@ fun CampaignScreenContent(
             onCancel = { onIntent(CampaignIntent.CancelUnfinishedRun) },
             onContinue = { onIntent(CampaignIntent.ContinueUnfinishedRun) },
         )
+    }
+}
+
+@Composable
+fun ArenaContent(
+    state: ArenaSnapshot,
+    onCloseArena: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val spacing = LocalSpacing.current
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(spacing.l),
+        verticalArrangement = Arrangement.spacedBy(spacing.m, Alignment.CenterVertically),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = stringResource(R.string.arena_title),
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        Text(
+            text = stringResource(
+                if (state.localState == ArenaLocalState.LOCAL_SERVICE_SHAPED) {
+                    R.string.arena_local_body
+                } else {
+                    R.string.arena_blocked_body
+                },
+            ),
+            style = MaterialTheme.typography.bodyLarge,
+        )
+        Text(
+            text = stringResource(R.string.arena_match_body),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.secondary,
+        )
+        TextButton(onClick = onCloseArena) {
+            Text(
+                text = stringResource(R.string.arena_close_action),
+                style = MaterialTheme.typography.labelLarge,
+            )
+        }
     }
 }
 
@@ -488,6 +543,7 @@ private fun CampaignSelectionContent(
     stageIds: List<CampaignStageId>,
     onSelectStage: (CampaignStageId) -> Unit,
     onOpenRoster: () -> Unit,
+    onOpenArena: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val spacing = LocalSpacing.current
@@ -506,6 +562,12 @@ private fun CampaignSelectionContent(
         Button(onClick = onOpenRoster) {
             Text(
                 text = stringResource(R.string.campaign_roster_action),
+                style = MaterialTheme.typography.labelLarge,
+            )
+        }
+        Button(onClick = onOpenArena) {
+            Text(
+                text = stringResource(R.string.campaign_arena_action),
                 style = MaterialTheme.typography.labelLarge,
             )
         }

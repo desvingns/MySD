@@ -207,6 +207,25 @@ data class ArenaSnapshot(
     init {
         require(!matchRequestEnabled) { "Network Arena match behavior is excluded." }
         require(!accountRequired) { "Account behavior is excluded from the local boundary." }
+        when (localState) {
+            ArenaLocalState.LOCAL_SERVICE_SHAPED -> {
+                require(trace.availability == LocalServiceAvailability.LOCAL_ONLY) {
+                    "A local Arena state requires local-only availability."
+                }
+                require(trace.affordancePreserved) {
+                    "A local Arena state must preserve its accepted affordance."
+                }
+            }
+
+            ArenaLocalState.NETWORK_MATCH_BLOCKED -> {
+                require(trace.availability == LocalServiceAvailability.BLOCKED) {
+                    "A blocked Arena state requires blocked availability."
+                }
+                require(!trace.affordancePreserved) {
+                    "A blocked Arena state cannot preserve its affordance."
+                }
+            }
+        }
     }
 }
 
