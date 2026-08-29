@@ -1293,7 +1293,10 @@ private fun SettingsOverlay(
                     }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End,
+                        horizontalArrangement = Arrangement.spacedBy(
+                            SettingsMetrics.actionGap,
+                            Alignment.End,
+                        ),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         TextButton(

@@ -36,7 +36,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
 
-/** ST-0007 roster composition, deferred upgrade boundary, and existing close/settings actions. */
+/** ST-0007 roster composition/deferred upgrade; ST-0008 settings overlay and close actions. */
 @RunWith(AndroidJUnit4::class)
 class RosterContentUiTest {
 
@@ -125,7 +125,8 @@ class RosterContentUiTest {
     @Test
     fun st0008_rendersSettingsOverlayAndPreservesDeferredActions() {
         val session = RosterSession()
-        var renderedState by mutableStateOf(session.snapshot())
+        val initialState = session.snapshot()
+        var renderedState by mutableStateOf(initialState)
         val emittedIntents = mutableListOf<RosterIntent>()
         var closeCount = 0
 
@@ -152,6 +153,16 @@ class RosterContentUiTest {
         composeTestRule
             .onNodeWithTag("settings-overlay")
             .assertIsDisplayed()
+        val settingsPanel = composeTestRule
+            .onNodeWithTag("settings-panel")
+            .assertIsDisplayed()
+        val maxPanelWidthPx = with(composeTestRule.density) {
+            SettingsMetrics.panelMaxWidth.toPx()
+        }
+        assertTrue(
+            "Expected settings panel width <= ${SettingsMetrics.panelMaxWidth}",
+            settingsPanel.fetchSemanticsNode().boundsInRoot.width <= maxPanelWidthPx,
+        )
         composeTestRule
             .onNodeWithText(context.getString(R.string.settings_title))
             .assertIsDisplayed()
@@ -185,7 +196,7 @@ class RosterContentUiTest {
         device.pressBack()
         composeTestRule.waitForIdle()
         composeTestRule.runOnIdle {
-            assertEquals(RosterSurface.TROOPS, renderedState.surface)
+            assertReturnedToTroops(initialState, renderedState)
         }
 
         composeTestRule
@@ -199,7 +210,7 @@ class RosterContentUiTest {
             .performClick()
 
         composeTestRule.runOnIdle {
-            assertEquals(RosterSurface.TROOPS, renderedState.surface)
+            assertReturnedToTroops(initialState, renderedState)
         }
 
         composeTestRule
@@ -211,6 +222,11 @@ class RosterContentUiTest {
             .assertHeightIsAtLeast(SettingsMetrics.minTouchTarget)
             .assertWidthIsAtLeast(SettingsMetrics.minTouchTarget)
             .performClick()
+
+        composeTestRule.runOnIdle {
+            assertReturnedToTroops(initialState, renderedState)
+        }
+
         composeTestRule
             .onNodeWithText(context.getString(R.string.roster_close_action))
             .assertIsDisplayed()
@@ -233,8 +249,18 @@ class RosterContentUiTest {
                 emittedIntents,
             )
             assertEquals(1, closeCount)
-            assertEquals(RosterSurface.TROOPS, renderedState.surface)
+            assertReturnedToTroops(initialState, renderedState)
         }
+    }
+
+    private fun assertReturnedToTroops(
+        initialState: RosterSnapshot,
+        actualState: RosterSnapshot,
+    ) {
+        assertEquals(initialState.troopSlots, actualState.troopSlots)
+        assertEquals(initialState.settings, actualState.settings)
+        assertEquals(RosterSurface.TROOPS, actualState.surface)
+        assertEquals(initialState.copy(surface = RosterSurface.TROOPS), actualState)
     }
 
     private fun captureScreenshot(fileName: String, rootTag: String? = null) {
