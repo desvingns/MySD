@@ -41,3 +41,12 @@ object RosterMetrics {
     val routeHeight: Dp = 72.dp
     val routeItemMinWidth: Dp = 80.dp
 }
+
+object SettingsMetrics {
+    val panelMaxWidth: Dp = 420.dp
+    val panelInset: Dp = 24.dp
+    val panelPadding: Dp = 24.dp
+    val optionGap: Dp = 12.dp
+    val actionGap: Dp = 8.dp
+    val minTouchTarget: Dp = 48.dp
+}

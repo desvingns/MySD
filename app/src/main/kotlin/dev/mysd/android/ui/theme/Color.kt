@@ -57,6 +57,17 @@ val RosterOnSurface = Color(0xFFF6F8FF)
 val RosterDisabled = Color(0xFF8793A6)
 val RosterRouteInactive = Color(0xFF31506A)
 
+// Semantic tokens for the bounded settings overlay. These keep the modal controls
+// distinct from the roster surface while preserving the original MySD palette.
+val SettingsOverlayScrim = Color(0x99030B1A)
+val SettingsPanel = Color(0xF01B3855)
+val SettingsPanelBorder = Color(0x6676E0D3)
+val SettingsOnPanel = Color(0xFFF6F8FF)
+val SettingsSwitchTrack = Color(0xFF31506A)
+val SettingsSwitchThumb = Color(0xFFFFCF5C)
+val SettingsConfirmAction = Color(0xFFFFCF5C)
+val SettingsCloseAction = Color(0xFF76E0D3)
+
 val LightColorScheme = lightColorScheme(
     primary = Indigo40,
     secondary = IndigoGrey40,
