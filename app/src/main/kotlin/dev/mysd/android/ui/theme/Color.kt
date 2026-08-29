@@ -68,6 +68,17 @@ val SettingsSwitchThumb = Color(0xFFFFCF5C)
 val SettingsConfirmAction = Color(0xFFFFCF5C)
 val SettingsCloseAction = Color(0xFF76E0D3)
 
+// Semantic tokens for the original unfinished-run resume panel. These stay isolated
+// from settings and roster surfaces so the resume prompt can carry a clear interruption
+// state without coupling its presentation to another screen.
+val ResumeOverlayScrim = Color(0xB8030B1A)
+val ResumePanel = Color(0xF01B3855)
+val ResumePanelBorder = Color(0x6676E0D3)
+val ResumeOnPanel = Color(0xFFF6F8FF)
+val ResumeSupportingText = Color(0xFFB9C8D8)
+val ResumeContinueAction = Color(0xFFFFCF5C)
+val ResumeCancelAction = Color(0xFF76E0D3)
+
 val LightColorScheme = lightColorScheme(
     primary = Indigo40,
     secondary = IndigoGrey40,

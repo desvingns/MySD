@@ -50,3 +50,12 @@ object SettingsMetrics {
     val actionGap: Dp = 8.dp
     val minTouchTarget: Dp = 48.dp
 }
+
+object ResumeMetrics {
+    val panelInset: Dp = 24.dp
+    val panelPadding: Dp = 24.dp
+    val contentGap: Dp = 12.dp
+    val actionGap: Dp = 8.dp
+    val actionMinWidth: Dp = 112.dp
+    val minTouchTarget: Dp = 48.dp
+}
