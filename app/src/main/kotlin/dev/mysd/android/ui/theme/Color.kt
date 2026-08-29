@@ -45,6 +45,18 @@ val CampaignOnBackground = Color(0xFFF4F8FF)
 val CampaignOnSurface = Color(0xFFF6F8FF)
 val CampaignDisabled = Color(0xFF8793A6)
 
+// Semantic tokens for the original illustrated roster composition. These remain isolated
+// from campaign route tokens so roster cards and controls can evolve independently.
+val RosterBackground = Color(0xFF0A1730)
+val RosterSurface = Color(0xE6172F4D)
+val RosterCard = Color(0xFF21445D)
+val RosterAccent = Color(0xFFFFCF5C)
+val RosterSupport = Color(0xFF76E0D3)
+val RosterOnBackground = Color(0xFFF4F8FF)
+val RosterOnSurface = Color(0xFFF6F8FF)
+val RosterDisabled = Color(0xFF8793A6)
+val RosterRouteInactive = Color(0xFF31506A)
+
 val LightColorScheme = lightColorScheme(
     primary = Indigo40,
     secondary = IndigoGrey40,

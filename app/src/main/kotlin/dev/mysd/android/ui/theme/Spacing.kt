@@ -32,3 +32,12 @@ object CampaignMetrics {
     val sectionGap: Dp = 16.dp
     val bottomRouteHeight: Dp = 72.dp
 }
+
+object RosterMetrics {
+    val minTouchTarget: Dp = 48.dp
+    val contentInset: Dp = 24.dp
+    val cardPadding: Dp = 16.dp
+    val cardGap: Dp = 12.dp
+    val routeHeight: Dp = 72.dp
+    val routeItemMinWidth: Dp = 80.dp
+}
