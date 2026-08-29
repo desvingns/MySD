@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredWidthIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.widthIn
@@ -1100,7 +1101,9 @@ private fun CampaignRouteButton(
     Button(
         onClick = onClick,
         enabled = enabled,
-        modifier = modifier.heightIn(min = CampaignMetrics.minTouchTarget),
+        modifier = modifier
+            .requiredWidthIn(min = CampaignMetrics.minTouchTarget)
+            .heightIn(min = CampaignMetrics.minTouchTarget),
         contentPadding = PaddingValues(horizontal = LocalSpacing.current.xs, vertical = LocalSpacing.current.s),
         colors = ButtonDefaults.buttonColors(
             containerColor = CampaignSupport.copy(alpha = 0.14f),
