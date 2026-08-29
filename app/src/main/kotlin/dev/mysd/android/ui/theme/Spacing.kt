@@ -24,3 +24,11 @@ object BattleMetrics {
     val hudInset: Dp = 16.dp
     val controlGap: Dp = 8.dp
 }
+
+object CampaignMetrics {
+    val minTouchTarget: Dp = 48.dp
+    val contentInset: Dp = 24.dp
+    val cardPadding: Dp = 16.dp
+    val sectionGap: Dp = 16.dp
+    val bottomRouteHeight: Dp = 72.dp
+}

@@ -35,6 +35,16 @@ val BattleEnemy = IndigoPink40
 val BattleOnBackground = LaunchOnBackground
 val BattleOnHud = LaunchOnPanel
 
+// Semantic tokens for the original campaign-selection shell. These remain isolated from
+// launch and battle call sites so campaign composition can evolve without coupling routes.
+val CampaignBackground = Color(0xFF0B1935)
+val CampaignSurface = Color(0xE61A3150)
+val CampaignAccent = Color(0xFFFFC857)
+val CampaignSupport = Color(0xFF6DE3D7)
+val CampaignOnBackground = Color(0xFFF4F8FF)
+val CampaignOnSurface = Color(0xFFF6F8FF)
+val CampaignDisabled = Color(0xFF8793A6)
+
 val LightColorScheme = lightColorScheme(
     primary = Indigo40,
     secondary = IndigoGrey40,
