@@ -57,6 +57,12 @@ class ResumeContentUiTest {
             )
             assertTrue(
                 device.wait(
+                    Until.hasObject(By.text(context.getString(R.string.campaign_unfinished_body))),
+                    UI_TIMEOUT_MS,
+                ),
+            )
+            assertTrue(
+                device.wait(
                     Until.hasObject(By.text(context.getString(R.string.campaign_cancel_action))),
                     UI_TIMEOUT_MS,
                 ),
@@ -64,6 +70,16 @@ class ResumeContentUiTest {
             assertTrue(
                 device.wait(
                     Until.hasObject(By.text(context.getString(R.string.campaign_continue_action))),
+                    UI_TIMEOUT_MS,
+                ),
+            )
+            assertTrue(
+                device.wait(
+                    Until.hasObject(
+                        By.desc(
+                            context.getString(R.string.campaign_unfinished_panel_description),
+                        ),
+                    ),
                     UI_TIMEOUT_MS,
                 ),
             )
@@ -81,6 +97,15 @@ class ResumeContentUiTest {
             device.executeShellCommand("cp ${uiDump.absolutePath} /sdcard/Download/ST-0012.xml")
             assertRemoteCaptureIsValid(device, "/sdcard/Download/ST-0012.png")
             assertRemoteCaptureIsValid(device, "/sdcard/Download/ST-0012.xml")
+
+            val fitScreenshot = File(outputDirectory, "FIT-04-06-ST-0012.png")
+            assertTrue(device.takeScreenshot(fitScreenshot))
+            assertTrue(fitScreenshot.isFile)
+            assertTrue(fitScreenshot.length() > 0L)
+            device.executeShellCommand(
+                "cp ${fitScreenshot.absolutePath} /sdcard/Download/FIT-04-06-ST-0012.png",
+            )
+            assertRemoteCaptureIsValid(device, "/sdcard/Download/FIT-04-06-ST-0012.png")
         } finally {
             scenario?.close()
             restoreRunSave(context, hadPreviousSave, previousEncodedSave)

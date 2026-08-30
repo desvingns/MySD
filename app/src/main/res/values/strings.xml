@@ -32,6 +32,7 @@
     <string name="campaign_unfinished_setup_body">The unfinished local run is ready to continue.</string>
     <string name="campaign_unfinished_title">Unfinished run</string>
     <string name="campaign_unfinished_body">A local run is waiting. Continue it or return to campaign selection.</string>
+    <string name="campaign_unfinished_panel_description">Unfinished run resume panel</string>
     <string name="campaign_cancel_action">Cancel</string>
     <string name="campaign_continue_action">Continue</string>
     <string name="battle_setup_title">Battle setup</string>

@@ -22,7 +22,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -88,6 +87,14 @@ import dev.mysd.android.ui.theme.RosterOnSurface
 import dev.mysd.android.ui.theme.RosterRouteInactive
 import dev.mysd.android.ui.theme.RosterSupport
 import dev.mysd.android.ui.theme.RosterSurface as RosterSurfaceColor
+import dev.mysd.android.ui.theme.ResumeCancelAction
+import dev.mysd.android.ui.theme.ResumeContinueAction
+import dev.mysd.android.ui.theme.ResumeMetrics
+import dev.mysd.android.ui.theme.ResumeOnPanel
+import dev.mysd.android.ui.theme.ResumeOverlayScrim
+import dev.mysd.android.ui.theme.ResumePanel
+import dev.mysd.android.ui.theme.ResumePanelBorder
+import dev.mysd.android.ui.theme.ResumeSupportingText
 import dev.mysd.android.ui.theme.SettingsConfirmAction
 import dev.mysd.android.ui.theme.SettingsCloseAction
 import dev.mysd.android.ui.theme.SettingsMetrics
@@ -1927,42 +1934,90 @@ private fun UnfinishedRunPrompt(
     onCancel: () -> Unit,
     onContinue: () -> Unit,
 ) {
-    AlertDialog(
-        onDismissRequest = onCancel,
-        title = {
-            Text(
-                text = stringResource(R.string.campaign_unfinished_title),
-                style = MaterialTheme.typography.titleLarge,
-            )
-        },
-        text = {
-            Text(
-                text = stringResource(R.string.campaign_unfinished_body),
-                style = MaterialTheme.typography.bodyLarge,
-            )
-        },
-        dismissButton = {
-            TextButton(onClick = onCancel) {
-                Text(
-                    text = stringResource(R.string.campaign_cancel_action),
-                    style = MaterialTheme.typography.labelLarge,
-                )
-            }
-        },
-        confirmButton = {
-            Button(onClick = onContinue) {
-                Text(
-                    text = stringResource(R.string.campaign_continue_action),
-                    style = MaterialTheme.typography.labelLarge,
-                )
-            }
-        },
+    val panelDescription = stringResource(R.string.campaign_unfinished_panel_description)
+    Dialog(
+        onDismissRequest = {},
         properties = DialogProperties(
+            usePlatformDefaultWidth = false,
             dismissOnBackPress = false,
             dismissOnClickOutside = false,
         ),
-        shape = MaterialTheme.shapes.medium,
-    )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(ResumeOverlayScrim)
+                .semantics {
+                    contentDescription = panelDescription
+                }
+                .testTag("resume-overlay"),
+            contentAlignment = Alignment.Center,
+        ) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = ResumeMetrics.panelInset)
+                    .testTag("resume-panel"),
+                shape = MaterialTheme.shapes.extraLarge,
+                color = ResumePanel,
+                contentColor = ResumeOnPanel,
+                border = BorderStroke(1.dp, ResumePanelBorder),
+            ) {
+                Column(
+                    modifier = Modifier.padding(ResumeMetrics.panelPadding),
+                    verticalArrangement = Arrangement.spacedBy(ResumeMetrics.contentGap),
+                ) {
+                    Text(
+                        text = stringResource(R.string.campaign_unfinished_title),
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = ResumeOnPanel,
+                    )
+                    Text(
+                        text = stringResource(R.string.campaign_unfinished_body),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = ResumeSupportingText,
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(ResumeMetrics.actionGap),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        TextButton(
+                            onClick = onCancel,
+                            modifier = Modifier
+                                .weight(1f)
+                                .heightIn(min = ResumeMetrics.minTouchTarget)
+                                .widthIn(min = ResumeMetrics.actionMinWidth)
+                                .testTag("resume-cancel-action"),
+                        ) {
+                            Text(
+                                text = stringResource(R.string.campaign_cancel_action),
+                                style = MaterialTheme.typography.labelLarge,
+                                color = ResumeCancelAction,
+                            )
+                        }
+                        Button(
+                            onClick = onContinue,
+                            modifier = Modifier
+                                .weight(1f)
+                                .heightIn(min = ResumeMetrics.minTouchTarget)
+                                .widthIn(min = ResumeMetrics.actionMinWidth)
+                                .testTag("resume-continue-action"),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = ResumeContinueAction,
+                                contentColor = ResumePanel,
+                            ),
+                        ) {
+                            Text(
+                                text = stringResource(R.string.campaign_continue_action),
+                                style = MaterialTheme.typography.labelLarge,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable
