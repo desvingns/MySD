@@ -1935,6 +1935,9 @@ private fun UnfinishedRunPrompt(
     onContinue: () -> Unit,
 ) {
     val panelDescription = stringResource(R.string.campaign_unfinished_panel_description)
+    val panelSurfaceDescription = "$panelDescription surface"
+    val cancelLabel = stringResource(R.string.campaign_cancel_action)
+    val continueLabel = stringResource(R.string.campaign_continue_action)
     Dialog(
         onDismissRequest = {},
         properties = DialogProperties(
@@ -1957,6 +1960,9 @@ private fun UnfinishedRunPrompt(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = ResumeMetrics.panelInset)
+                    .semantics {
+                        contentDescription = panelSurfaceDescription
+                    }
                     .testTag("resume-panel"),
                 shape = MaterialTheme.shapes.extraLarge,
                 color = ResumePanel,
@@ -1988,10 +1994,13 @@ private fun UnfinishedRunPrompt(
                                 .weight(1f)
                                 .heightIn(min = ResumeMetrics.minTouchTarget)
                                 .widthIn(min = ResumeMetrics.actionMinWidth)
+                                .semantics {
+                                    contentDescription = cancelLabel
+                                }
                                 .testTag("resume-cancel-action"),
                         ) {
                             Text(
-                                text = stringResource(R.string.campaign_cancel_action),
+                                text = cancelLabel,
                                 style = MaterialTheme.typography.labelLarge,
                                 color = ResumeCancelAction,
                             )
@@ -2002,6 +2011,9 @@ private fun UnfinishedRunPrompt(
                                 .weight(1f)
                                 .heightIn(min = ResumeMetrics.minTouchTarget)
                                 .widthIn(min = ResumeMetrics.actionMinWidth)
+                                .semantics {
+                                    contentDescription = continueLabel
+                                }
                                 .testTag("resume-continue-action"),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = ResumeContinueAction,
@@ -2009,7 +2021,7 @@ private fun UnfinishedRunPrompt(
                             ),
                         ) {
                             Text(
-                                text = stringResource(R.string.campaign_continue_action),
+                                text = continueLabel,
                                 style = MaterialTheme.typography.labelLarge,
                             )
                         }
