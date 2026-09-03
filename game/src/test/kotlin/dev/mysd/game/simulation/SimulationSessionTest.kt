@@ -125,6 +125,63 @@ class SimulationSessionTest {
     }
 
     @Test
+    fun `queued tower upgrades use the replay boundary and remain deterministic`() {
+        val initial = PlayableBattleEngine.initialState(
+            initialResource = 150,
+            resourceCap = 200,
+            incomePerSecond = 0,
+        )
+        val first = SimulationSession.playableBattle(seed = 42L, initialState = initial)
+        val second = SimulationSession.playableBattle(seed = 42L, initialState = initial)
+        val target = initial.slots[2].id
+
+        first.buildTower(target)
+        second.buildTower(target)
+        val firstBuildTick = first.advance(50)
+        val secondBuildTick = second.advance(50)
+        first.upgradeTower(target)
+        second.upgradeTower(target)
+        val firstUpgradeTick = first.advance(50)
+        val secondUpgradeTick = second.advance(50)
+
+        val firstEncoding = first.canonicalCommandEncoding()
+        val secondEncoding = second.canonicalCommandEncoding()
+
+        val encodedUpgradeType = Base64.getEncoder().encodeToString(
+            "playable-battle.upgrade-tower".toByteArray(),
+        )
+        assertTrue(firstEncoding.contains(encodedUpgradeType))
+        assertEquals(firstEncoding, secondEncoding)
+        assertEquals(first.inputHash(), second.inputHash())
+        assertEquals(1, firstBuildTick.single().commandsProcessed)
+        assertEquals(1, secondBuildTick.single().commandsProcessed)
+        assertEquals(firstBuildTick, secondBuildTick)
+        assertEquals(1, firstUpgradeTick.single().commandsProcessed)
+        assertEquals(1, secondUpgradeTick.single().commandsProcessed)
+        assertEquals(firstUpgradeTick, secondUpgradeTick)
+        assertEquals(1, first.state().slots[2].towerLevel)
+        assertEquals(initial.resource - initial.buildCost - initial.towerUpgradeBaseCost, first.state().resource)
+        assertEquals(first.snapshot(), second.snapshot())
+        assertEquals(first.replayHashChain(), second.replayHashChain())
+
+        first.upgradeTower(target)
+        second.upgradeTower(target)
+        val finalFirst = first.advance(50)
+        val finalSecond = second.advance(50)
+
+        assertEquals(1, finalFirst.single().commandsProcessed)
+        assertEquals(finalFirst, finalSecond)
+        assertEquals(2, first.state().slots[2].towerLevel)
+        assertEquals(
+            initial.resource - initial.buildCost - initial.towerUpgradeBaseCost -
+                (initial.towerUpgradeBaseCost + initial.towerUpgradeCostStep),
+            first.state().resource,
+        )
+        assertEquals(first.snapshot(), second.snapshot())
+        assertEquals(first.replayHashChain(), second.replayHashChain())
+    }
+
+    @Test
     fun `same seed and queued build command produce replay-equivalent trajectory`() {
         val initial = PlayableBattleEngine.initialState(
             initialResource = 100,

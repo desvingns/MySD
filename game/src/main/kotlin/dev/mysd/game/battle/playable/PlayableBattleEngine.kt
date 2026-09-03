@@ -23,6 +23,8 @@ enum class PlayableBattleSpendRejection {
     INSUFFICIENT_RESOURCE,
     UNKNOWN_SLOT,
     TARGET_SLOT_OCCUPIED,
+    TARGET_SLOT_EMPTY,
+    TOWER_MAX_LEVEL,
     BATTLE_PAUSED,
 }
 
@@ -40,9 +42,19 @@ data class PlayableBattleSpendResult(
         get() = accepted
 }
 
+/** Deterministic values produced by one accepted tower upgrade. */
+data class PlayableBattleTowerUpgrade(
+    val currentLevel: Int,
+    val cost: Int,
+    val nextLevel: Int,
+    val nextDamage: Int,
+    val nextCooldownTicks: Int,
+)
+
 /** Pure fixed-step reducer for the first playable battle. */
 object PlayableBattleEngine {
     const val TICKS_PER_SECOND: Int = SimulationClock.TICK_RATE_HZ
+    const val MAX_TOWER_LEVEL: Int = PlayableBattleState.MAX_TOWER_LEVEL
     const val DEFAULT_INITIAL_RESOURCE: Int = 50
     const val DEFAULT_RESOURCE_CAP: Int = 100
     const val DEFAULT_INCOME_PER_SECOND: Int = 10
@@ -77,6 +89,13 @@ object PlayableBattleEngine {
         enemies = enemies,
         towerId = level.tower.id,
         buildCost = level.tower.buildCost,
+        towerBaseDamage = level.tower.damage,
+        towerBaseCooldownTicks = level.tower.cooldownTicks,
+        towerUpgradeBaseCost = level.tower.upgradeBaseCost,
+        towerUpgradeCostStep = level.tower.upgradeCostStep,
+        towerDamageStep = level.tower.damageStep,
+        towerCooldownStep = level.tower.cooldownStep,
+        towerMinCooldownTicks = level.tower.minCooldownTicks,
     )
 
     fun createInitialState(
@@ -234,7 +253,16 @@ object PlayableBattleEngine {
 
         val placedState = spendResult.state.copy(
             slots = spendResult.state.slots.map { slot ->
-                if (slot.id == targetSlotId) slot.copy(towerId = state.towerId) else slot
+                if (slot.id == targetSlotId) {
+                    slot.copy(
+                        towerId = state.towerId,
+                        towerLevel = 0,
+                        towerDamage = null,
+                        towerCooldownTicks = null,
+                    )
+                } else {
+                    slot
+                }
             },
         )
         return spendResult.copy(state = placedState)
@@ -244,6 +272,107 @@ object PlayableBattleEngine {
         state: PlayableBattleState,
         targetSlotId: ContentId,
     ): PlayableBattleSpendResult = buildTower(state, targetSlotId)
+
+    /**
+     * Calculates one upgrade from the current level using the level fixture's integer-only
+     * formula. Level zero uses the configured base stats; level one applies one further step.
+     */
+    fun calculateTowerUpgrade(
+        state: PlayableBattleState,
+        currentLevel: Int,
+    ): PlayableBattleTowerUpgrade {
+        require(currentLevel in 0 until MAX_TOWER_LEVEL) {
+            "Tower upgrade level must be between 0 and ${MAX_TOWER_LEVEL - 1}."
+        }
+
+        val cost = Math.toIntExact(
+            Math.addExact(
+                state.towerUpgradeBaseCost.toLong(),
+                Math.multiplyExact(
+                    currentLevel.toLong(),
+                    state.towerUpgradeCostStep.toLong(),
+                ),
+            ),
+        )
+        val nextDamage = Math.toIntExact(
+            Math.addExact(
+                state.towerBaseDamage.toLong(),
+                Math.multiplyExact(currentLevel.toLong(), state.towerDamageStep.toLong()),
+            ),
+        )
+        val steppedCooldown = state.towerBaseCooldownTicks.toLong() -
+            Math.multiplyExact(currentLevel.toLong(), state.towerCooldownStep.toLong())
+        val nextCooldownTicks = Math.toIntExact(
+            maxOf(state.towerMinCooldownTicks.toLong(), steppedCooldown),
+        )
+
+        return PlayableBattleTowerUpgrade(
+            currentLevel = currentLevel,
+            cost = cost,
+            nextLevel = currentLevel + 1,
+            nextDamage = nextDamage,
+            nextCooldownTicks = nextCooldownTicks,
+        )
+    }
+
+    /** Applies one sequential upgrade, preserving the exact input state on every rejection. */
+    fun upgradeTower(
+        state: PlayableBattleState,
+        targetSlotId: ContentId,
+    ): PlayableBattleSpendResult {
+        val slot = state.slots.firstOrNull { it.id == targetSlotId }
+        val rejection = when {
+            state.phase == PlayableBattlePhase.PAUSED -> PlayableBattleSpendRejection.BATTLE_PAUSED
+            slot == null -> PlayableBattleSpendRejection.UNKNOWN_SLOT
+            slot.towerId == null -> PlayableBattleSpendRejection.TARGET_SLOT_EMPTY
+            slot.towerLevel >= MAX_TOWER_LEVEL -> PlayableBattleSpendRejection.TOWER_MAX_LEVEL
+            else -> null
+        }
+        if (rejection != null) {
+            return PlayableBattleSpendResult(
+                accepted = false,
+                state = state,
+                targetSlotId = targetSlotId,
+                rejection = rejection,
+            )
+        }
+
+        checkNotNull(slot)
+        val upgrade = calculateTowerUpgrade(state, slot.towerLevel)
+        if (upgrade.cost > state.resource) {
+            return PlayableBattleSpendResult(
+                accepted = false,
+                state = state,
+                targetSlotId = targetSlotId,
+                rejection = PlayableBattleSpendRejection.INSUFFICIENT_RESOURCE,
+            )
+        }
+
+        val upgradedState = state.copy(
+            resource = state.resource - upgrade.cost,
+            slots = state.slots.map { currentSlot ->
+                if (currentSlot.id == targetSlotId) {
+                    currentSlot.copy(
+                        towerLevel = upgrade.nextLevel,
+                        towerDamage = upgrade.nextDamage,
+                        towerCooldownTicks = upgrade.nextCooldownTicks,
+                    )
+                } else {
+                    currentSlot
+                }
+            },
+        )
+        return PlayableBattleSpendResult(
+            accepted = true,
+            state = upgradedState,
+            targetSlotId = targetSlotId,
+        )
+    }
+
+    fun tryUpgradeTower(
+        state: PlayableBattleState,
+        targetSlotId: ContentId,
+    ): PlayableBattleSpendResult = upgradeTower(state, targetSlotId)
 
     fun reduce(
         state: PlayableBattleState,
@@ -268,6 +397,11 @@ object PlayableBattleEngine {
         )
 
         is PlayableBattleCommand.BuildTower -> buildTower(
+            state = state,
+            targetSlotId = command.targetSlotId,
+        )
+
+        is PlayableBattleCommand.UpgradeTower -> upgradeTower(
             state = state,
             targetSlotId = command.targetSlotId,
         )

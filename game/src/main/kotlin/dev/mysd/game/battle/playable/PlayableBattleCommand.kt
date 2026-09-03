@@ -21,6 +21,14 @@ sealed interface PlayableBattleCommand {
         val slotId: ContentId
             get() = targetSlotId
     }
+
+    /** Requests the next sequential upgrade for an occupied tower. */
+    data class UpgradeTower(
+        val targetSlotId: ContentId,
+    ) : PlayableBattleCommand {
+        val slotId: ContentId
+            get() = targetSlotId
+    }
 }
 
 /** Canonical wire representation shared by command submission and replay reconstruction. */
@@ -29,12 +37,14 @@ internal object PlayableBattleCommandCodec {
     const val RESUME_TYPE: String = "playable-battle.resume"
     const val SPEND_RESOURCE_TYPE: String = "playable-battle.spend-resource"
     const val BUILD_TOWER_TYPE: String = "playable-battle.build-tower"
+    const val UPGRADE_TOWER_TYPE: String = "playable-battle.upgrade-tower"
 
     fun type(command: PlayableBattleCommand): String = when (command) {
         PlayableBattleCommand.Pause -> PAUSE_TYPE
         PlayableBattleCommand.Resume -> RESUME_TYPE
         is PlayableBattleCommand.SpendResource -> SPEND_RESOURCE_TYPE
         is PlayableBattleCommand.BuildTower -> BUILD_TOWER_TYPE
+        is PlayableBattleCommand.UpgradeTower -> UPGRADE_TOWER_TYPE
     }
 
     fun payload(command: PlayableBattleCommand): String = when (command) {
@@ -46,6 +56,8 @@ internal object PlayableBattleCommandCodec {
             listOf(command.targetSlotId?.value.orEmpty(), command.cost).joinToString("|")
 
         is PlayableBattleCommand.BuildTower -> command.targetSlotId.value
+
+        is PlayableBattleCommand.UpgradeTower -> command.targetSlotId.value
     }
 
     fun decode(command: EngineCommand): PlayableBattleCommand? = when (command.type) {
@@ -61,6 +73,7 @@ internal object PlayableBattleCommandCodec {
 
         SPEND_RESOURCE_TYPE -> decodeSpend(command.stablePayload())
         BUILD_TOWER_TYPE -> PlayableBattleCommand.BuildTower(ContentId.of(command.stablePayload()))
+        UPGRADE_TOWER_TYPE -> PlayableBattleCommand.UpgradeTower(ContentId.of(command.stablePayload()))
         else -> null
     }
 

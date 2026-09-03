@@ -36,6 +36,7 @@ class PlayableBattleStateTest {
         assertEquals(state.incomeRemainderTicks, state.resourceRemainderTicks)
         assertEquals(state.slots, state.buildSlots)
         assertTrue(state.slots.all { it.isEmpty && it.occupiedTowerId == null })
+        assertTrue(state.slots.all { it.towerLevel == 0 && it.towerDamage == null })
     }
 
     @Test
@@ -48,6 +49,20 @@ class PlayableBattleStateTest {
         assertFailsWith<IllegalArgumentException> { valid.copy(incomePerSecond = -1) }
         assertFailsWith<IllegalArgumentException> { valid.copy(incomeRemainderTicks = 20) }
         assertFailsWith<IllegalArgumentException> { valid.copy(buildCost = -1) }
+        assertFailsWith<IllegalArgumentException> { valid.copy(towerBaseDamage = -1) }
+        assertFailsWith<IllegalArgumentException> { valid.copy(towerBaseCooldownTicks = 0) }
+        assertFailsWith<IllegalArgumentException> { valid.copy(towerUpgradeBaseCost = -1) }
+        assertFailsWith<IllegalArgumentException> { valid.copy(towerUpgradeCostStep = -1) }
+        assertFailsWith<IllegalArgumentException> { valid.copy(towerDamageStep = -1) }
+        assertFailsWith<IllegalArgumentException> { valid.copy(towerCooldownStep = -1) }
+        assertFailsWith<IllegalArgumentException> { valid.copy(towerMinCooldownTicks = 0) }
+        assertFailsWith<IllegalArgumentException> {
+            valid.copy(
+                slots = valid.slots.mapIndexed { index, slot ->
+                    if (index == 0) slot.copy(towerId = valid.towerId, towerLevel = 3) else slot
+                },
+            )
+        }
         assertFailsWith<IllegalArgumentException> {
             valid.copy(slots = listOf(valid.slots[0], valid.slots[1].copy(id = valid.slots[0].id)) + valid.slots.drop(2))
         }
@@ -74,5 +89,21 @@ class PlayableBattleStateTest {
         assertNotEquals(hash(active), hash(changedPhase))
         assertNotEquals(hash(active), hash(changedTower))
         assertNotEquals(hash(active), hash(changedBuildCost))
+    }
+
+    @Test
+    fun stateHashIncludesTowerProgressionAndConfiguredUpgradeBalance() {
+        val initial = PlayableBattleEngine.initialState(initialResource = 100)
+        val built = PlayableBattleEngine.buildTower(initial, initial.slots.first().id).state
+        val upgraded = PlayableBattleEngine.upgradeTower(built, initial.slots.first().id).state
+
+        fun hash(state: PlayableBattleState): String = stableHashOf { state.appendHash(this) }
+
+        assertNotEquals(hash(initial), hash(built))
+        assertNotEquals(hash(built), hash(upgraded))
+        assertEquals(1, upgraded.slots.first().towerLevel)
+        assertEquals(upgraded.slots.first().towerDamage, upgraded.slots.first().damage)
+        assertEquals(upgraded.slots.first().towerCooldownTicks, upgraded.slots.first().cooldownTicks)
+        assertNotEquals(hash(upgraded), hash(upgraded.copy(towerDamageStep = upgraded.towerDamageStep + 1)))
     }
 }

@@ -33,9 +33,32 @@ data class PlayableBattleSlotState(
     val id: ContentId,
     val positionTicks: Int,
     val towerId: ContentId? = null,
+    val towerLevel: Int = 0,
+    val towerDamage: Int? = null,
+    val towerCooldownTicks: Int? = null,
 ) {
     init {
         require(positionTicks >= 0) { "Build slot position must be non-negative." }
+        require(towerLevel in 0..PlayableBattleState.MAX_TOWER_LEVEL) {
+            "Tower level must be between 0 and ${PlayableBattleState.MAX_TOWER_LEVEL}."
+        }
+        require(towerDamage == null || towerDamage >= 0) {
+            "Tower damage must be non-negative when configured."
+        }
+        require(towerCooldownTicks == null || towerCooldownTicks >= 1) {
+            "Tower cooldown must be at least one tick when configured."
+        }
+        if (towerId == null) {
+            require(towerLevel == 0) { "An empty build slot must have tower level zero." }
+            require(towerDamage == null) { "An empty build slot must not have tower damage." }
+            require(towerCooldownTicks == null) {
+                "An empty build slot must not have tower cooldown."
+            }
+        } else if (towerLevel > 0) {
+            require(towerDamage != null && towerCooldownTicks != null) {
+                "An upgraded tower must expose its current stats."
+            }
+        }
     }
 
     val isEmpty: Boolean
@@ -43,6 +66,15 @@ data class PlayableBattleSlotState(
 
     val occupiedTowerId: ContentId?
         get() = towerId
+
+    val level: Int
+        get() = towerLevel
+
+    val damage: Int?
+        get() = towerDamage
+
+    val cooldownTicks: Int?
+        get() = towerCooldownTicks
 }
 
 /** Immutable snapshot of one enemy entity moving along the deterministic path. */
@@ -82,6 +114,13 @@ data class PlayableBattleState(
     val enemies: List<PlayableBattleEnemyState>,
     val towerId: ContentId = OriginalContentFixtures.foundationPlayableLevel().tower.id,
     val buildCost: Int = OriginalContentFixtures.foundationPlayableLevel().tower.buildCost,
+    val towerBaseDamage: Int = OriginalContentFixtures.foundationPlayableLevel().tower.damage,
+    val towerBaseCooldownTicks: Int = OriginalContentFixtures.foundationPlayableLevel().tower.cooldownTicks,
+    val towerUpgradeBaseCost: Int = OriginalContentFixtures.foundationPlayableLevel().tower.upgradeBaseCost,
+    val towerUpgradeCostStep: Int = OriginalContentFixtures.foundationPlayableLevel().tower.upgradeCostStep,
+    val towerDamageStep: Int = OriginalContentFixtures.foundationPlayableLevel().tower.damageStep,
+    val towerCooldownStep: Int = OriginalContentFixtures.foundationPlayableLevel().tower.cooldownStep,
+    val towerMinCooldownTicks: Int = OriginalContentFixtures.foundationPlayableLevel().tower.minCooldownTicks,
 ) : HashableState {
     init {
         require(resourceCap >= 0) { "Resource cap must be non-negative." }
@@ -91,6 +130,13 @@ data class PlayableBattleState(
             "Income remainder must be within one fixed second."
         }
         require(buildCost >= 0) { "Tower build cost must be non-negative." }
+        require(towerBaseDamage >= 0) { "Tower base damage must be non-negative." }
+        require(towerBaseCooldownTicks >= 1) { "Tower base cooldown must be at least one tick." }
+        require(towerUpgradeBaseCost >= 0) { "Tower upgrade base cost must be non-negative." }
+        require(towerUpgradeCostStep >= 0) { "Tower upgrade cost step must be non-negative." }
+        require(towerDamageStep >= 0) { "Tower damage step must be non-negative." }
+        require(towerCooldownStep >= 0) { "Tower cooldown step must be non-negative." }
+        require(towerMinCooldownTicks >= 1) { "Tower minimum cooldown must be at least one tick." }
         require(slots.map { it.id }.toSet().size == slots.size) {
             "Build slot ids must be unique."
         }
@@ -118,8 +164,29 @@ data class PlayableBattleState(
     val towerBuildCost: Int
         get() = buildCost
 
+    val baseDamage: Int
+        get() = towerBaseDamage
+
+    val baseCooldownTicks: Int
+        get() = towerBaseCooldownTicks
+
+    val upgradeBaseCost: Int
+        get() = towerUpgradeBaseCost
+
+    val upgradeCostStep: Int
+        get() = towerUpgradeCostStep
+
+    val damageStep: Int
+        get() = towerDamageStep
+
+    val cooldownStep: Int
+        get() = towerCooldownStep
+
+    val minCooldownTicks: Int
+        get() = towerMinCooldownTicks
+
     override fun appendHash(hash: StableHash) {
-        hash.add("mysd.playable-battle-state.v1")
+        hash.add("mysd.playable-battle-state.v2")
             .add(stageId.value)
             .add(phase.name)
             .add(resource)
@@ -128,6 +195,13 @@ data class PlayableBattleState(
             .add(incomeRemainderTicks)
             .add(towerId.value)
             .add(buildCost)
+            .add(towerBaseDamage)
+            .add(towerBaseCooldownTicks)
+            .add(towerUpgradeBaseCost)
+            .add(towerUpgradeCostStep)
+            .add(towerDamageStep)
+            .add(towerCooldownStep)
+            .add(towerMinCooldownTicks)
             .add(base.id.value)
             .add(base.health)
             .add(base.maxHealth)
@@ -139,6 +213,11 @@ data class PlayableBattleState(
                 .add(slot.positionTicks)
                 .add(slot.towerId != null)
             slot.towerId?.let { hash.add(it.value) }
+            hash.add(slot.towerLevel)
+            hash.add(slot.towerDamage != null)
+            slot.towerDamage?.let(hash::add)
+            hash.add(slot.towerCooldownTicks != null)
+            slot.towerCooldownTicks?.let(hash::add)
         }
 
         hash.add(enemies.size)
@@ -151,7 +230,8 @@ data class PlayableBattleState(
         }
     }
 
-    private companion object {
+    companion object {
+        const val MAX_TOWER_LEVEL: Int = 2
         const val TICKS_PER_SECOND: Int = 20
     }
 }

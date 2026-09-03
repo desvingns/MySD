@@ -246,6 +246,101 @@ class PlayableBattleEngineTest {
     }
 
     @Test
+    fun `tower upgrade calculation uses fixture formula and cooldown clamp`() {
+        val state = PlayableBattleEngine.initialState()
+
+        val first = PlayableBattleEngine.calculateTowerUpgrade(state, currentLevel = 0)
+        val second = PlayableBattleEngine.calculateTowerUpgrade(state, currentLevel = 1)
+
+        assertEquals(0, first.currentLevel)
+        assertEquals(30, first.cost)
+        assertEquals(1, first.nextLevel)
+        assertEquals(state.towerBaseDamage, first.nextDamage)
+        assertEquals(state.towerBaseCooldownTicks, first.nextCooldownTicks)
+        assertEquals(1, second.currentLevel)
+        assertEquals(50, second.cost)
+        assertEquals(2, second.nextLevel)
+        assertEquals(state.towerBaseDamage + state.towerDamageStep, second.nextDamage)
+        assertEquals(
+            maxOf(state.towerMinCooldownTicks, state.towerBaseCooldownTicks - state.towerCooldownStep),
+            second.nextCooldownTicks,
+        )
+    }
+
+    @Test
+    fun `two sequential upgrades apply deterministic stats and exact costs`() {
+        val initial = PlayableBattleEngine.initialState(
+            initialResource = 150,
+            resourceCap = 200,
+            incomePerSecond = 0,
+        )
+        val target = initial.slots[0].id
+        val built = PlayableBattleEngine.buildTower(initial, target)
+
+        val first = PlayableBattleEngine.upgradeTower(built.state, target)
+        val firstTower = first.state.slots.first { it.id == target }
+        val second = PlayableBattleEngine.upgradeTower(first.state, target)
+        val secondTower = second.state.slots.first { it.id == target }
+
+        assertTrue(first.accepted)
+        assertEquals(1, firstTower.towerLevel)
+        assertEquals(initial.towerBaseDamage, firstTower.towerDamage)
+        assertEquals(initial.towerBaseCooldownTicks, firstTower.towerCooldownTicks)
+        assertEquals(150 - initial.buildCost - initial.towerUpgradeBaseCost, first.resource)
+        assertTrue(second.accepted)
+        assertEquals(2, secondTower.towerLevel)
+        assertEquals(initial.towerBaseDamage + initial.towerDamageStep, secondTower.towerDamage)
+        assertEquals(
+            maxOf(initial.towerMinCooldownTicks, initial.towerBaseCooldownTicks - initial.towerCooldownStep),
+            secondTower.towerCooldownTicks,
+        )
+        assertEquals(
+            150 - initial.buildCost - initial.towerUpgradeBaseCost -
+                (initial.towerUpgradeBaseCost + initial.towerUpgradeCostStep),
+            second.resource,
+        )
+    }
+
+    @Test
+    fun `upgrade rejects empty unknown max-level and unaffordable targets atomically`() {
+        val initial = PlayableBattleEngine.initialState(
+            initialResource = 150,
+            resourceCap = 200,
+            incomePerSecond = 0,
+        )
+        val target = initial.slots[1].id
+
+        val empty = PlayableBattleEngine.upgradeTower(initial, target)
+        val unknown = PlayableBattleEngine.upgradeTower(initial, ContentId.of("build-slot-unknown"))
+        val built = PlayableBattleEngine.buildTower(initial, target).state
+        val first = PlayableBattleEngine.upgradeTower(built, target).state
+        val second = PlayableBattleEngine.upgradeTower(first, target).state
+        val maxLevel = PlayableBattleEngine.upgradeTower(second, target)
+        val noFunds = PlayableBattleEngine.upgradeTower(
+            PlayableBattleEngine.buildTower(
+                PlayableBattleEngine.initialState(initialResource = 40, incomePerSecond = 0),
+                target,
+            ).state,
+            target,
+        )
+
+        assertFalse(empty.accepted)
+        assertEquals(PlayableBattleSpendRejection.TARGET_SLOT_EMPTY, empty.rejection)
+        assertSame(initial, empty.state)
+        assertFalse(unknown.accepted)
+        assertEquals(PlayableBattleSpendRejection.UNKNOWN_SLOT, unknown.rejection)
+        assertSame(initial, unknown.state)
+        assertFalse(maxLevel.accepted)
+        assertEquals(PlayableBattleSpendRejection.TOWER_MAX_LEVEL, maxLevel.rejection)
+        assertSame(second, maxLevel.state)
+        assertFalse(noFunds.accepted)
+        assertEquals(PlayableBattleSpendRejection.INSUFFICIENT_RESOURCE, noFunds.rejection)
+        assertEquals(0, noFunds.resource)
+        assertEquals(0, noFunds.state.slots.first { it.id == target }.towerLevel)
+        assertEquals(null, noFunds.state.slots.first { it.id == target }.towerDamage)
+    }
+
+    @Test
     fun invalidEconomyAndTickInputsAreRejected() {
         val initial = PlayableBattleEngine.initialState()
 
@@ -281,6 +376,12 @@ class PlayableBattleEngineTest {
         }
         assertFailsWith<IllegalArgumentException> {
             PlayableBattleEngine.spend(initial, initial.slots.first().id, cost = -1)
+        }
+        assertFailsWith<IllegalArgumentException> {
+            PlayableBattleEngine.calculateTowerUpgrade(initial, currentLevel = -1)
+        }
+        assertFailsWith<IllegalArgumentException> {
+            PlayableBattleEngine.calculateTowerUpgrade(initial, currentLevel = PlayableBattleEngine.MAX_TOWER_LEVEL)
         }
     }
 

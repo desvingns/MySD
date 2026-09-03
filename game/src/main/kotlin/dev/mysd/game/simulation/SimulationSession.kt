@@ -245,6 +245,9 @@ class PlayableBattleSession(
     fun buildTower(targetSlotId: ContentId): PlayableBattleSnapshot =
         submit(PlayableBattleCommand.BuildTower(targetSlotId))
 
+    fun upgradeTower(targetSlotId: ContentId): PlayableBattleSnapshot =
+        submit(PlayableBattleCommand.UpgradeTower(targetSlotId))
+
     fun spend(
         targetSlotId: ContentId?,
         cost: Int,
