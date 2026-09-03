@@ -121,14 +121,14 @@ class CampaignEnhancementIntegrationTest {
             ScenarioFixtureKind.VICTORY.terminalClassification,
         )
         assertEquals(
-            ScenarioTerminalClassification.STRUCTURED_BLOCKER,
-            ScenarioFixtureKind.STRUCTURED_DEFEAT_BLOCKER.terminalClassification,
+            ScenarioTerminalClassification.DEFEAT,
+            ScenarioFixtureKind.DEFEAT.terminalClassification,
         )
         assertEquals(
-            ScenarioPlayability.BLOCKED,
-            ScenarioFixtureKind.STRUCTURED_DEFEAT_BLOCKER.playability,
+            ScenarioPlayability.PLAYABLE,
+            ScenarioFixtureKind.DEFEAT.playability,
         )
-        assertFalse(ScenarioFixtureKind.STRUCTURED_DEFEAT_BLOCKER.terminalClassification.isTerminal)
+        assertTrue(ScenarioFixtureKind.DEFEAT.terminalClassification.isTerminal)
 
         session.submit(ActiveBattleIntent.ResolveVictory)
         assertEquals(victory, session.victorySnapshot())

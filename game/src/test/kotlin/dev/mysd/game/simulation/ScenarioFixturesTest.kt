@@ -67,18 +67,19 @@ class ScenarioFixturesTest {
     }
 
     @Test
-    fun structuredDefeatBlockerIsBlockedAndNotATerminalResult() {
-        val blocker = ScenarioFixtures.catalog(seed = 23L).fixtures.single {
-            it.kind == ScenarioFixtureKind.STRUCTURED_DEFEAT_BLOCKER
+    fun defeatFixtureIsPlayableAndTerminalWhileKeepingItsStableId() {
+        val defeat = ScenarioFixtures.catalog(seed = 23L).fixtures.single {
+            it.kind == ScenarioFixtureKind.DEFEAT
         }
 
-        assertEquals(ScenarioPhase.STRUCTURED_DEFEAT_BLOCKER, blocker.phase)
-        assertEquals(ScenarioTerminalClassification.STRUCTURED_BLOCKER, blocker.terminalClassification)
-        assertFalse(blocker.terminalClassification.isTerminal)
-        assertEquals(ScenarioPlayability.BLOCKED, blocker.playability)
-        assertEquals(listOf("ST-0003", "ED-0025"), blocker.evidenceRefs)
-        assertTrue(ScenarioFixtures.catalog(seed = 23L).fixtures.none {
-            it.terminalClassification.name == "DEFEAT"
+        assertEquals("fixture_defeat_blocker", defeat.id)
+        assertEquals(ScenarioPhase.DEFEAT, defeat.phase)
+        assertEquals(ScenarioTerminalClassification.DEFEAT, defeat.terminalClassification)
+        assertTrue(defeat.terminalClassification.isTerminal)
+        assertEquals(ScenarioPlayability.PLAYABLE, defeat.playability)
+        assertEquals(listOf("ST-0003", "ED-0025"), defeat.evidenceRefs)
+        assertTrue(ScenarioFixtures.catalog(seed = 23L).fixtures.any {
+            it.terminalClassification == ScenarioTerminalClassification.DEFEAT
         })
     }
 

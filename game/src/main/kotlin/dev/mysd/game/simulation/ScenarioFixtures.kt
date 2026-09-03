@@ -38,13 +38,22 @@ enum class ScenarioFixtureKind(
         playability = ScenarioPlayability.PLAYABLE,
         evidenceRefs = listOf("ST-0005"),
     ),
-    STRUCTURED_DEFEAT_BLOCKER(
+    DEFEAT(
         stableId = "fixture_defeat_blocker",
-        phase = ScenarioPhase.STRUCTURED_DEFEAT_BLOCKER,
-        terminalClassification = ScenarioTerminalClassification.STRUCTURED_BLOCKER,
-        playability = ScenarioPlayability.BLOCKED,
+        phase = ScenarioPhase.DEFEAT,
+        terminalClassification = ScenarioTerminalClassification.DEFEAT,
+        playability = ScenarioPlayability.PLAYABLE,
         evidenceRefs = listOf("ST-0003", "ED-0025"),
     ),
+
+    ;
+
+    companion object {
+        /** Source-compatible name for the pre-SPEC structured blocker. */
+        @Deprecated("Use DEFEAT; the fixture is now a playable terminal scenario.")
+        val STRUCTURED_DEFEAT_BLOCKER: ScenarioFixtureKind
+            get() = DEFEAT
+    }
 }
 
 enum class ScenarioPhase {
@@ -52,13 +61,29 @@ enum class ScenarioPhase {
     ACTIVE_WAVE,
     ENHANCEMENT_CHOICE,
     VICTORY,
-    STRUCTURED_DEFEAT_BLOCKER,
+    DEFEAT,
+
+    ;
+
+    companion object {
+        @Deprecated("Use DEFEAT; the structured blocker is no longer the fixture phase.")
+        val STRUCTURED_DEFEAT_BLOCKER: ScenarioPhase
+            get() = DEFEAT
+    }
 }
 
 enum class ScenarioTerminalClassification(val isTerminal: Boolean) {
     NON_TERMINAL(isTerminal = false),
     VICTORY(isTerminal = true),
-    STRUCTURED_BLOCKER(isTerminal = false),
+    DEFEAT(isTerminal = true),
+
+    ;
+
+    companion object {
+        @Deprecated("Use DEFEAT; the structured blocker is now a terminal result.")
+        val STRUCTURED_BLOCKER: ScenarioTerminalClassification
+            get() = DEFEAT
+    }
 }
 
 enum class ScenarioPlayability {
@@ -69,8 +94,9 @@ enum class ScenarioPlayability {
 /**
  * An Android-free, seed-bound descriptor for one accepted scenario contour.
  *
- * This type intentionally contains no gameplay state. In particular, a structured blocker is
- * not represented as a defeat result and cannot imply unobserved defeat mechanics.
+ * This type intentionally contains no mutable gameplay state. Terminal fixtures are positive
+ * playable classifications; their deterministic gameplay state is produced by the battle
+ * scenario tests, not stored in the catalog descriptor.
  */
 data class ScenarioFixture(
     val kind: ScenarioFixtureKind,

@@ -139,7 +139,12 @@ object PlayableLevelContentValidator {
         requireNonNegative(level.enemyFamily.health, "level.enemy.health")
         requireNonNegative(level.enemyFamily.speedTicks, "level.enemy.speedTicks")
         requireNonNegative(level.enemyFamily.baseDamage, "level.enemy.baseDamage")
-        requireNonNegative(level.wave.spawnIntervalTicks, "level.wave.spawnIntervalTicks")
+        if (level.wave.spawnIntervalTicks < 1) {
+            throw MalformedContentFixtureException(
+                "Wave spawn interval must be at least one tick",
+                "level.wave.spawnIntervalTicks",
+            )
+        }
 
         if (level.wave.spawnCount !in MIN_WAVE_SPAWN_COUNT..MAX_WAVE_SPAWN_COUNT) {
             throw MalformedContentFixtureException(

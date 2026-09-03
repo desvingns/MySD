@@ -64,10 +64,32 @@ class PlayableBattleStateTest {
             )
         }
         assertFailsWith<IllegalArgumentException> {
+            valid.copy(
+                slots = valid.slots.mapIndexed { index, slot ->
+                    if (index == 0) slot.copy(towerId = valid.towerId, towerLevel = 1) else slot
+                },
+            )
+        }
+        assertFailsWith<IllegalArgumentException> {
+            valid.copy(
+                slots = valid.slots.mapIndexed { index, slot ->
+                    if (index == 0) {
+                        slot.copy(
+                            towerId = valid.towerId,
+                            towerLevel = 2,
+                            towerDamage = valid.towerBaseDamage,
+                        )
+                    } else {
+                        slot
+                    }
+                },
+            )
+        }
+        assertFailsWith<IllegalArgumentException> {
             valid.copy(slots = listOf(valid.slots[0], valid.slots[1].copy(id = valid.slots[0].id)) + valid.slots.drop(2))
         }
         assertFailsWith<IllegalArgumentException> {
-            valid.copy(enemies = listOf(valid.enemies[0], valid.enemies[1].copy(id = valid.enemies[0].id)) + valid.enemies.drop(2))
+            valid.copy(enemies = listOf(valid.enemies[0], valid.enemies[0].copy(id = valid.enemies[0].id)))
         }
     }
 
@@ -93,7 +115,10 @@ class PlayableBattleStateTest {
 
     @Test
     fun stateHashIncludesTowerProgressionAndConfiguredUpgradeBalance() {
-        val initial = PlayableBattleEngine.initialState(initialResource = 100)
+        val initial = PlayableBattleEngine.initialState(
+            initialResource = 150,
+            resourceCap = 200,
+        )
         val built = PlayableBattleEngine.buildTower(initial, initial.slots.first().id).state
         val upgraded = PlayableBattleEngine.upgradeTower(built, initial.slots.first().id).state
 
@@ -104,6 +129,18 @@ class PlayableBattleStateTest {
         assertEquals(1, upgraded.slots.first().towerLevel)
         assertEquals(upgraded.slots.first().towerDamage, upgraded.slots.first().damage)
         assertEquals(upgraded.slots.first().towerCooldownTicks, upgraded.slots.first().cooldownTicks)
+        val maxed = PlayableBattleEngine.upgradeTower(upgraded, initial.slots.first().id).state
+        assertEquals(2, maxed.slots.first().towerLevel)
+        assertEquals(
+            initial.towerBaseDamage + initial.towerDamageStep,
+            maxed.slots.first().towerDamage,
+        )
+        assertEquals(
+            maxOf(initial.towerMinCooldownTicks, initial.towerBaseCooldownTicks - initial.towerCooldownStep),
+            maxed.slots.first().towerCooldownTicks,
+        )
+        assertNotEquals(hash(upgraded), hash(maxed))
         assertNotEquals(hash(upgraded), hash(upgraded.copy(towerDamageStep = upgraded.towerDamageStep + 1)))
+        assertNotEquals(hash(upgraded), hash(upgraded.copy(towerCooldownStep = upgraded.towerCooldownStep + 1)))
     }
 }

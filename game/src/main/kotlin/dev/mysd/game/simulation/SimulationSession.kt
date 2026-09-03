@@ -13,6 +13,7 @@ import dev.mysd.game.battle.playable.PlayableBattleCommandCodec
 import dev.mysd.game.battle.playable.PlayableBattleEngine
 import dev.mysd.game.battle.playable.PlayableBattlePhase
 import dev.mysd.game.battle.playable.PlayableBattleState
+import dev.mysd.game.battle.playable.PlayableBattleTerminal
 import dev.mysd.game.content.ContentId
 
 /** One authoritative result emitted after a fixed simulation tick. */
@@ -164,6 +165,21 @@ data class PlayableBattleSnapshot(
 
     val enemies
         get() = state.enemies
+
+    val terminalResult: PlayableBattleTerminal?
+        get() = state.terminalResult
+
+    val terminal: PlayableBattleTerminal?
+        get() = state.terminalResult
+
+    val waveSpawnCount: Int
+        get() = state.waveSpawnCount
+
+    val waveSpawnedCount: Int
+        get() = state.waveSpawnedCount
+
+    val pendingEnemiesCount: Int
+        get() = state.pendingEnemiesCount
 }
 
 /**
@@ -199,6 +215,9 @@ class PlayableBattleSession(
      */
     fun advance(elapsedMillis: Long): List<SimulationTickResult> {
         require(elapsedMillis >= 0L) { "elapsedMillis must be non-negative." }
+        if (stateBox.value.isTerminal) {
+            return emptyList()
+        }
         if (stateBox.value.phase == PlayableBattlePhase.PAUSED &&
             !simulation.hasPendingCommand(PlayableBattleCommandCodec.RESUME_TYPE)
         ) {
@@ -211,7 +230,7 @@ class PlayableBattleSession(
             val stepMillis = minOf(remainingMillis, SimulationClock.TICK_DURATION_MILLIS)
             results += simulation.advance(stepMillis)
             remainingMillis -= stepMillis
-            if (stateBox.value.phase == PlayableBattlePhase.PAUSED &&
+            if ((stateBox.value.phase == PlayableBattlePhase.PAUSED || stateBox.value.isTerminal) &&
                 !simulation.hasPendingCommand(PlayableBattleCommandCodec.RESUME_TYPE)
             ) {
                 break
@@ -234,6 +253,9 @@ class PlayableBattleSession(
     fun resume(): PlayableBattleSnapshot = submit(PlayableBattleCommand.Resume)
 
     fun submit(command: PlayableBattleCommand): PlayableBattleSnapshot {
+        if (stateBox.value.isTerminal) {
+            return snapshot()
+        }
         simulation.submit(
             scheduledTick = Tick(currentTick),
             type = PlayableBattleCommandCodec.type(command),

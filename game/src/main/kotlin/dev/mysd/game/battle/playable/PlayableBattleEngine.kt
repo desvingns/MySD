@@ -4,6 +4,7 @@ import dev.mysd.game.content.OriginalContentFixtures
 import dev.mysd.game.content.PlayableLevelContent
 import dev.mysd.game.content.ContentId
 import dev.mysd.game.simulation.SimulationClock
+import kotlin.math.abs
 import kotlin.math.min
 
 /** Pure result of the integer-only passive-income calculation. */
@@ -26,6 +27,7 @@ enum class PlayableBattleSpendRejection {
     TARGET_SLOT_EMPTY,
     TOWER_MAX_LEVEL,
     BATTLE_PAUSED,
+    BATTLE_TERMINAL,
 }
 
 /** Result boundary for an atomic resource mutation. */
@@ -67,6 +69,7 @@ object PlayableBattleEngine {
         incomePerSecond: Int = DEFAULT_INCOME_PER_SECOND,
         phase: PlayableBattlePhase = PlayableBattlePhase.ACTIVE,
         enemies: List<PlayableBattleEnemyState> = defaultEnemies(level),
+        waveSpawnedCount: Int? = null,
     ): PlayableBattleState = PlayableBattleState(
         stageId = level.stageId,
         phase = phase,
@@ -86,7 +89,7 @@ object PlayableBattleEngine {
                 positionTicks = slot.positionTicks,
             )
         },
-        enemies = enemies,
+        enemies = enemies.sortedBy(PlayableBattleEnemyState::id),
         towerId = level.tower.id,
         buildCost = level.tower.buildCost,
         towerBaseDamage = level.tower.damage,
@@ -96,6 +99,16 @@ object PlayableBattleEngine {
         towerDamageStep = level.tower.damageStep,
         towerCooldownStep = level.tower.cooldownStep,
         towerMinCooldownTicks = level.tower.minCooldownTicks,
+        waveId = level.wave.id,
+        enemyFamilyId = level.enemyFamily.id,
+        enemyHealth = level.enemyFamily.health,
+        enemySpeedTicks = level.enemyFamily.speedTicks,
+        waveSpawnCount = level.wave.spawnCount,
+        waveSpawnedCount = waveSpawnedCount ?: enemies.size,
+        waveElapsedTicks = 0,
+        waveSpawnIntervalTicks = level.wave.spawnIntervalTicks,
+        towerRangeTicks = level.tower.rangeTicks,
+        baseLeakDamage = level.enemyFamily.baseDamage,
     )
 
     fun createInitialState(
@@ -105,6 +118,7 @@ object PlayableBattleEngine {
         incomePerSecond: Int = DEFAULT_INCOME_PER_SECOND,
         phase: PlayableBattlePhase = PlayableBattlePhase.ACTIVE,
         enemies: List<PlayableBattleEnemyState> = defaultEnemies(level),
+        waveSpawnedCount: Int? = null,
     ): PlayableBattleState = initialState(
         level = level,
         initialResource = initialResource,
@@ -112,6 +126,7 @@ object PlayableBattleEngine {
         incomePerSecond = incomePerSecond,
         phase = phase,
         enemies = enemies,
+        waveSpawnedCount = waveSpawnedCount,
     )
 
     /**
@@ -148,7 +163,7 @@ object PlayableBattleEngine {
         deltaTicks: Int,
     ): PlayableBattleState {
         require(deltaTicks >= 0) { "Delta ticks must be non-negative." }
-        if (deltaTicks == 0 || state.phase == PlayableBattlePhase.PAUSED) {
+        if (deltaTicks == 0 || state.phase == PlayableBattlePhase.PAUSED || state.isTerminal) {
             return state
         }
 
@@ -166,7 +181,7 @@ object PlayableBattleEngine {
     }
 
     /** Reduces exactly one complete 50 ms tick. */
-    fun tick(state: PlayableBattleState): PlayableBattleState = advance(state, 1)
+    fun tick(state: PlayableBattleState): PlayableBattleState = advanceOneTick(state)
 
     /** Reduces complete ticks only; a paused state is an identity for every delta. */
     fun advance(
@@ -174,26 +189,32 @@ object PlayableBattleEngine {
         deltaTicks: Int,
     ): PlayableBattleState {
         require(deltaTicks >= 0) { "Delta ticks must be non-negative." }
-        if (deltaTicks == 0 || state.phase == PlayableBattlePhase.PAUSED) {
+        if (deltaTicks == 0 || state.phase == PlayableBattlePhase.PAUSED || state.isTerminal) {
             return state
         }
 
-        val resourceState = accumulateResource(state, deltaTicks)
-        val advancedEnemies = state.enemies.map { enemy ->
-            val displacement = Math.multiplyExact(enemy.speedTicks.toLong(), deltaTicks.toLong())
-            val nextPosition = Math.toIntExact(
-                Math.addExact(enemy.positionTicks.toLong(), displacement),
-            )
-            enemy.copy(positionTicks = nextPosition)
+        var nextState = state
+        var remainingTicks = deltaTicks
+        while (remainingTicks > 0 && !nextState.isTerminal) {
+            nextState = advanceOneTick(nextState)
+            remainingTicks -= 1
         }
-        return resourceState.copy(enemies = advancedEnemies)
+        return nextState
     }
 
     fun pause(state: PlayableBattleState): PlayableBattleState =
-        if (state.phase == PlayableBattlePhase.PAUSED) state else state.copy(phase = PlayableBattlePhase.PAUSED)
+        if (state.phase == PlayableBattlePhase.PAUSED || state.isTerminal) {
+            state
+        } else {
+            state.copy(phase = PlayableBattlePhase.PAUSED)
+        }
 
     fun resume(state: PlayableBattleState): PlayableBattleState =
-        if (state.phase == PlayableBattlePhase.ACTIVE) state else state.copy(phase = PlayableBattlePhase.ACTIVE)
+        if (state.phase == PlayableBattlePhase.ACTIVE || state.isTerminal) {
+            state
+        } else {
+            state.copy(phase = PlayableBattlePhase.ACTIVE)
+        }
 
     /**
      * Attempts one resource mutation as a single pure transition. On rejection the exact input
@@ -206,6 +227,7 @@ object PlayableBattleEngine {
     ): PlayableBattleSpendResult {
         require(cost >= 0) { "Spend cost must be non-negative." }
         val rejection = when {
+            state.isTerminal -> PlayableBattleSpendRejection.BATTLE_TERMINAL
             state.phase == PlayableBattlePhase.PAUSED -> PlayableBattleSpendRejection.BATTLE_PAUSED
             targetSlotId != null && state.slots.none { it.id == targetSlotId } ->
                 PlayableBattleSpendRejection.UNKNOWN_SLOT
@@ -322,6 +344,7 @@ object PlayableBattleEngine {
     ): PlayableBattleSpendResult {
         val slot = state.slots.firstOrNull { it.id == targetSlotId }
         val rejection = when {
+            state.isTerminal -> PlayableBattleSpendRejection.BATTLE_TERMINAL
             state.phase == PlayableBattlePhase.PAUSED -> PlayableBattleSpendRejection.BATTLE_PAUSED
             slot == null -> PlayableBattleSpendRejection.UNKNOWN_SLOT
             slot.towerId == null -> PlayableBattleSpendRejection.TARGET_SLOT_EMPTY
@@ -379,13 +402,13 @@ object PlayableBattleEngine {
         command: PlayableBattleCommand,
     ): PlayableBattleSpendResult = when (command) {
         PlayableBattleCommand.Pause -> PlayableBattleSpendResult(
-            accepted = state.phase == PlayableBattlePhase.ACTIVE,
+            accepted = state.phase == PlayableBattlePhase.ACTIVE && !state.isTerminal,
             state = pause(state),
             targetSlotId = null,
         )
 
         PlayableBattleCommand.Resume -> PlayableBattleSpendResult(
-            accepted = state.phase == PlayableBattlePhase.PAUSED,
+            accepted = state.phase == PlayableBattlePhase.PAUSED && !state.isTerminal,
             state = resume(state),
             targetSlotId = null,
         )
@@ -412,14 +435,205 @@ object PlayableBattleEngine {
         command: PlayableBattleCommand,
     ): PlayableBattleState = reduce(state, command).state
 
+    /**
+     * Applies one active simulation tick in a fixed order:
+     * commands are reduced by the session before this method, then spawning, movement, tower
+     * contact/base leaks, tower attacks, and finally terminal resolution happen here.
+     *
+     * The first enemy is present at tick zero. Subsequent enemies spawn when the elapsed wave
+     * tick reaches each configured interval. A spawned enemy also moves during its spawn tick.
+     */
+    private fun advanceOneTick(state: PlayableBattleState): PlayableBattleState {
+        if (state.phase == PlayableBattlePhase.PAUSED || state.isTerminal) {
+            return state
+        }
+
+        val resourceState = accumulateResource(state, 1)
+        val elapsedTicks = Math.addExact(resourceState.waveElapsedTicks, 1)
+        var spawnedCount = resourceState.waveSpawnedCount
+        val spawnedEnemies = resourceState.enemies.toMutableList()
+        while (spawnedCount < resourceState.waveSpawnCount &&
+            elapsedTicks >= Math.multiplyExact(
+                spawnedCount.toLong(),
+                resourceState.waveSpawnIntervalTicks.toLong(),
+            )
+        ) {
+            spawnedEnemies += PlayableBattleEnemyState(
+                id = "${resourceState.enemyFamilyId.value}-$spawnedCount",
+                familyId = resourceState.enemyFamilyId,
+                health = resourceState.enemyHealth,
+                positionTicks = 0,
+                speedTicks = resourceState.enemySpeedTicks,
+            )
+            spawnedCount += 1
+        }
+
+        val enemiesToMove = spawnedEnemies
+            .sortedBy(PlayableBattleEnemyState::id)
+            .map { enemy ->
+                val displacement = Math.multiplyExact(enemy.speedTicks.toLong(), 1L)
+                val nextPosition = Math.toIntExact(
+                    Math.addExact(enemy.positionTicks.toLong(), displacement),
+                )
+                MovedEnemy(
+                    previousPositionTicks = enemy.positionTicks,
+                    state = enemy.copy(positionTicks = nextPosition),
+                )
+            }
+
+        val slotsAfterContact = destroyContactedTowers(
+            slots = resourceState.slots,
+            movedEnemies = enemiesToMove,
+        )
+        val baseAndEnemies = resolveBaseLeaks(
+            base = resourceState.base,
+            movedEnemies = enemiesToMove,
+            baseLeakDamage = resourceState.baseLeakDamage,
+        )
+        val attackResult = resolveTowerAttacks(
+            slots = slotsAfterContact,
+            enemies = baseAndEnemies.enemies,
+            towerRangeTicks = resourceState.towerRangeTicks,
+            towerBaseDamage = resourceState.towerBaseDamage,
+            towerBaseCooldownTicks = resourceState.towerBaseCooldownTicks,
+        )
+        val nextBase = baseAndEnemies.base
+        val terminal = when {
+            nextBase.health <= 0 -> PlayableBattleTerminal.DEFEAT
+            attackResult.enemies.isEmpty() && spawnedCount >= resourceState.waveSpawnCount ->
+                PlayableBattleTerminal.VICTORY
+
+            else -> null
+        }
+
+        return resourceState.copy(
+            base = nextBase,
+            slots = attackResult.slots,
+            enemies = attackResult.enemies.sortedBy(PlayableBattleEnemyState::id),
+            waveSpawnedCount = spawnedCount,
+            waveElapsedTicks = elapsedTicks,
+            terminalResult = terminal,
+        )
+    }
+
+    private data class MovedEnemy(
+        val previousPositionTicks: Int,
+        val state: PlayableBattleEnemyState,
+    )
+
+    private data class BaseLeakResolution(
+        val base: PlayableBattleBaseState,
+        val enemies: List<PlayableBattleEnemyState>,
+    )
+
+    private data class TowerAttackResolution(
+        val slots: List<PlayableBattleSlotState>,
+        val enemies: List<PlayableBattleEnemyState>,
+    )
+
+    private fun destroyContactedTowers(
+        slots: List<PlayableBattleSlotState>,
+        movedEnemies: List<MovedEnemy>,
+    ): List<PlayableBattleSlotState> {
+        val contactedSlotIds = slots
+            .asSequence()
+            .filter { it.towerId != null }
+            .filter { slot ->
+                movedEnemies.any { enemy ->
+                    enemy.previousPositionTicks <= slot.positionTicks &&
+                        enemy.state.positionTicks >= slot.positionTicks
+                }
+            }
+            .map { it.id }
+            .toSet()
+        return slots.map { slot ->
+            if (slot.id in contactedSlotIds) {
+                slot.copy(
+                    towerId = null,
+                    towerLevel = 0,
+                    towerDamage = null,
+                    towerCooldownTicks = null,
+                    towerCooldownRemainingTicks = 0,
+                )
+            } else {
+                slot
+            }
+        }
+    }
+
+    private fun resolveBaseLeaks(
+        base: PlayableBattleBaseState,
+        movedEnemies: List<MovedEnemy>,
+        baseLeakDamage: Int,
+    ): BaseLeakResolution {
+        val remainingEnemies = movedEnemies
+            .filterNot { it.state.positionTicks >= base.positionTicks }
+            .map(MovedEnemy::state)
+        val leakCount = movedEnemies.count { it.state.positionTicks >= base.positionTicks }
+        val damage = Math.multiplyExact(leakCount.toLong(), baseLeakDamage.toLong())
+        val nextHealth = Math.max(0L, base.health.toLong() - damage).toInt()
+        return BaseLeakResolution(
+            base = if (leakCount == 0) base else base.copy(health = nextHealth),
+            enemies = remainingEnemies,
+        )
+    }
+
+    private fun resolveTowerAttacks(
+        slots: List<PlayableBattleSlotState>,
+        enemies: List<PlayableBattleEnemyState>,
+        towerRangeTicks: Int,
+        towerBaseDamage: Int,
+        towerBaseCooldownTicks: Int,
+    ): TowerAttackResolution {
+        val nextSlots = slots.toMutableList()
+        val nextEnemies = enemies.toMutableList()
+        slots.indices.sortedBy { slots[it].id.value }.forEach { slotIndex ->
+            val slot = nextSlots[slotIndex]
+            val towerId = slot.towerId ?: return@forEach
+            val cooldownRemaining = maxOf(0, slot.towerCooldownRemainingTicks - 1)
+            val damage = slot.towerDamage ?: towerBaseDamage
+            val cooldownTicks = slot.towerCooldownTicks ?: towerBaseCooldownTicks
+            val target = nextEnemies
+                .asSequence()
+                .filter { enemy -> abs(enemy.positionTicks - slot.positionTicks) <= towerRangeTicks }
+                .minWithOrNull(
+                    compareBy<PlayableBattleEnemyState> {
+                        abs(it.positionTicks - slot.positionTicks)
+                    }.thenBy(PlayableBattleEnemyState::id),
+                )
+            if (cooldownRemaining == 0 && target != null) {
+                val targetIndex = nextEnemies.indexOfFirst { it.id == target.id }
+                val damaged = target.copy(health = maxOf(0, target.health - damage))
+                if (damaged.health == 0) {
+                    nextEnemies.removeAt(targetIndex)
+                } else {
+                    nextEnemies[targetIndex] = damaged
+                }
+                nextSlots[slotIndex] = slot.copy(
+                    towerId = towerId,
+                    towerCooldownRemainingTicks = cooldownTicks,
+                )
+            } else {
+                nextSlots[slotIndex] = slot.copy(
+                    towerId = towerId,
+                    towerCooldownRemainingTicks = cooldownRemaining,
+                )
+            }
+        }
+        return TowerAttackResolution(
+            slots = nextSlots,
+            enemies = nextEnemies,
+        )
+    }
+
     private fun defaultEnemies(level: PlayableLevelContent): List<PlayableBattleEnemyState> =
-        (0 until level.wave.spawnCount).map { index ->
+        listOf(
             PlayableBattleEnemyState(
-                id = "${level.enemyFamily.id.value}-$index",
+                id = "${level.enemyFamily.id.value}-0",
                 familyId = level.enemyFamily.id,
                 health = level.enemyFamily.health,
                 positionTicks = 0,
                 speedTicks = level.enemyFamily.speedTicks,
-            )
-        }
+            ),
+        )
 }

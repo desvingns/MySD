@@ -11,6 +11,14 @@ enum class PlayableBattlePhase {
     PAUSED,
 }
 
+/** Terminal result of a playable battle, or no result while the battle is still running. */
+enum class PlayableBattleTerminal {
+    VICTORY,
+    DEFEAT,
+}
+
+typealias PlayableBattleTerminalResult = PlayableBattleTerminal
+
 /** Immutable snapshot of the playable level's main base. */
 data class PlayableBattleBaseState(
     val id: ContentId,
@@ -36,6 +44,7 @@ data class PlayableBattleSlotState(
     val towerLevel: Int = 0,
     val towerDamage: Int? = null,
     val towerCooldownTicks: Int? = null,
+    val towerCooldownRemainingTicks: Int = 0,
 ) {
     init {
         require(positionTicks >= 0) { "Build slot position must be non-negative." }
@@ -48,11 +57,17 @@ data class PlayableBattleSlotState(
         require(towerCooldownTicks == null || towerCooldownTicks >= 1) {
             "Tower cooldown must be at least one tick when configured."
         }
+        require(towerCooldownRemainingTicks >= 0) {
+            "Tower cooldown remaining must be non-negative."
+        }
         if (towerId == null) {
             require(towerLevel == 0) { "An empty build slot must have tower level zero." }
             require(towerDamage == null) { "An empty build slot must not have tower damage." }
             require(towerCooldownTicks == null) {
                 "An empty build slot must not have tower cooldown."
+            }
+            require(towerCooldownRemainingTicks == 0) {
+                "An empty build slot must not have a cooldown remaining."
             }
         } else if (towerLevel > 0) {
             require(towerDamage != null && towerCooldownTicks != null) {
@@ -75,6 +90,9 @@ data class PlayableBattleSlotState(
 
     val cooldownTicks: Int?
         get() = towerCooldownTicks
+
+    val cooldownRemainingTicks: Int
+        get() = towerCooldownRemainingTicks
 }
 
 /** Immutable snapshot of one enemy entity moving along the deterministic path. */
@@ -121,6 +139,17 @@ data class PlayableBattleState(
     val towerDamageStep: Int = OriginalContentFixtures.foundationPlayableLevel().tower.damageStep,
     val towerCooldownStep: Int = OriginalContentFixtures.foundationPlayableLevel().tower.cooldownStep,
     val towerMinCooldownTicks: Int = OriginalContentFixtures.foundationPlayableLevel().tower.minCooldownTicks,
+    val terminalResult: PlayableBattleTerminal? = null,
+    val waveId: ContentId = OriginalContentFixtures.foundationPlayableLevel().wave.id,
+    val enemyFamilyId: ContentId = OriginalContentFixtures.foundationPlayableLevel().enemyFamily.id,
+    val enemyHealth: Int = OriginalContentFixtures.foundationPlayableLevel().enemyFamily.health,
+    val enemySpeedTicks: Int = OriginalContentFixtures.foundationPlayableLevel().enemyFamily.speedTicks,
+    val waveSpawnCount: Int = OriginalContentFixtures.foundationPlayableLevel().wave.spawnCount,
+    val waveSpawnedCount: Int = enemies.size,
+    val waveElapsedTicks: Int = 0,
+    val waveSpawnIntervalTicks: Int = OriginalContentFixtures.foundationPlayableLevel().wave.spawnIntervalTicks,
+    val towerRangeTicks: Int = OriginalContentFixtures.foundationPlayableLevel().tower.rangeTicks,
+    val baseLeakDamage: Int = OriginalContentFixtures.foundationPlayableLevel().enemyFamily.baseDamage,
 ) : HashableState {
     init {
         require(resourceCap >= 0) { "Resource cap must be non-negative." }
@@ -137,11 +166,41 @@ data class PlayableBattleState(
         require(towerDamageStep >= 0) { "Tower damage step must be non-negative." }
         require(towerCooldownStep >= 0) { "Tower cooldown step must be non-negative." }
         require(towerMinCooldownTicks >= 1) { "Tower minimum cooldown must be at least one tick." }
+        require(waveId.value.isNotBlank()) { "Wave id must not be blank." }
+        require(enemyFamilyId.value.isNotBlank()) { "Enemy family id must not be blank." }
+        require(enemyHealth >= 0) { "Enemy health must be non-negative." }
+        require(enemySpeedTicks >= 0) { "Enemy speed must be non-negative." }
+        require(waveSpawnCount in 8..10) { "Wave spawn count must be between 8 and 10." }
+        require(waveSpawnedCount in 0..waveSpawnCount) {
+            "Wave spawned count must be within the configured wave count."
+        }
+        require(waveElapsedTicks >= 0) { "Wave elapsed ticks must be non-negative." }
+        require(waveSpawnIntervalTicks >= 1) { "Wave spawn interval must be at least one tick." }
+        require(towerRangeTicks >= 0) { "Tower range must be non-negative." }
+        require(baseLeakDamage >= 0) { "Base leak damage must be non-negative." }
+        require(enemies.size <= waveSpawnedCount) {
+            "Living enemies cannot exceed the number of spawned enemies."
+        }
         require(slots.map { it.id }.toSet().size == slots.size) {
             "Build slot ids must be unique."
         }
         require(enemies.map { it.id }.toSet().size == enemies.size) {
             "Enemy entity ids must be unique."
+        }
+        when (terminalResult) {
+            PlayableBattleTerminal.VICTORY -> {
+                require(base.health > 0) { "Victory requires a living base." }
+                require(waveSpawnedCount == waveSpawnCount) {
+                    "Victory requires every wave enemy to be spawned."
+                }
+                require(enemies.isEmpty()) { "Victory requires no living enemies." }
+            }
+
+            PlayableBattleTerminal.DEFEAT -> require(base.health == 0) {
+                "Defeat requires the base health to be zero."
+            }
+
+            null -> Unit
         }
     }
 
@@ -185,10 +244,39 @@ data class PlayableBattleState(
     val minCooldownTicks: Int
         get() = towerMinCooldownTicks
 
+    /** Compatibility alias for callers that name the terminal field `terminal`. */
+    val terminal: PlayableBattleTerminal?
+        get() = terminalResult
+
+    val isTerminal: Boolean
+        get() = terminalResult != null
+
+    val pendingEnemiesCount: Int
+        get() = waveSpawnCount - waveSpawnedCount
+
+    val pendingEnemyCount: Int
+        get() = pendingEnemiesCount
+
+    val livingEnemiesCount: Int
+        get() = enemies.size
+
+    val waveTotalCount: Int
+        get() = waveSpawnCount
+
+    val spawnedEnemiesCount: Int
+        get() = waveSpawnedCount
+
+    val leakDamage: Int
+        get() = baseLeakDamage
+
+    val enemyBaseDamage: Int
+        get() = baseLeakDamage
+
     override fun appendHash(hash: StableHash) {
-        hash.add("mysd.playable-battle-state.v2")
+        hash.add("mysd.playable-battle-state.v3")
             .add(stageId.value)
             .add(phase.name)
+            .add(terminalResult?.name ?: "none")
             .add(resource)
             .add(resourceCap)
             .add(incomePerSecond)
@@ -202,6 +290,16 @@ data class PlayableBattleState(
             .add(towerDamageStep)
             .add(towerCooldownStep)
             .add(towerMinCooldownTicks)
+            .add(waveId.value)
+            .add(enemyFamilyId.value)
+            .add(enemyHealth)
+            .add(enemySpeedTicks)
+            .add(waveSpawnCount)
+            .add(waveSpawnedCount)
+            .add(waveElapsedTicks)
+            .add(waveSpawnIntervalTicks)
+            .add(towerRangeTicks)
+            .add(baseLeakDamage)
             .add(base.id.value)
             .add(base.health)
             .add(base.maxHealth)
@@ -218,6 +316,7 @@ data class PlayableBattleState(
             slot.towerDamage?.let(hash::add)
             hash.add(slot.towerCooldownTicks != null)
             slot.towerCooldownTicks?.let(hash::add)
+            hash.add(slot.towerCooldownRemainingTicks)
         }
 
         hash.add(enemies.size)
