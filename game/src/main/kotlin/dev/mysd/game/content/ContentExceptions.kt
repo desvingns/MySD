@@ -6,7 +6,12 @@ class InvalidContentIdException(
     val rawValue: String,
 ) : ContentValidationException("Invalid content id: '$rawValue'")
 
-class MalformedContentFixtureException(message: String) : ContentValidationException(message)
+class MalformedContentFixtureException(
+    message: String,
+    val fieldPath: String? = null,
+) : ContentValidationException(
+    if (fieldPath == null) message else "$fieldPath: $message",
+)
 
 class FutureContentSchemaVersionException(
     val version: Int,

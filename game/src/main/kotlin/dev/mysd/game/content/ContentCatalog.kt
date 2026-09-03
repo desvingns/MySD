@@ -27,6 +27,19 @@ object OriginalContentIds {
     val FOUNDATION_ENEMY = ContentId.of("enemy-ash-sprout")
     val FOUNDATION_ENHANCEMENT = ContentId.of("enhancement-steady-pulse")
     val FOUNDATION_ENHANCEMENT_EMBER_WARD = ContentId.of("enhancement-ember-ward")
+    val FOUNDATION_BASE = ContentId.of("base-ember-heart")
+    val FOUNDATION_BUILD_SLOT_1 = ContentId.of("build-slot-ash-left")
+    val FOUNDATION_BUILD_SLOT_2 = ContentId.of("build-slot-ash-center")
+    val FOUNDATION_BUILD_SLOT_3 = ContentId.of("build-slot-ash-right")
+    /** The first playable tower reuses the original building namespace entry. */
+    val FOUNDATION_TOWER = FOUNDATION_BUILDING
+    val FOUNDATION_WAVE = ContentId.of("wave-ember-path-final")
+
+    val FOUNDATION_SCENE = FOUNDATION_STAGE
+    val FOUNDATION_BUILD_TILE_1 = FOUNDATION_BUILD_SLOT_1
+    val FOUNDATION_BUILD_TILE_2 = FOUNDATION_BUILD_SLOT_2
+    val FOUNDATION_BUILD_TILE_3 = FOUNDATION_BUILD_SLOT_3
+    val FOUNDATION_ENEMY_FAMILY = FOUNDATION_ENEMY
 }
 
 /**
@@ -40,6 +53,7 @@ data class ContentCatalog(
     val unitIds: Set<ContentId>,
     val enemyIds: Set<ContentId>,
     val enhancementIds: Set<ContentId>,
+    val playableLevel: PlayableLevelContent,
 ) {
     init {
         ContentCatalogValidator.validate(this)
@@ -56,35 +70,69 @@ object ContentCatalogValidator {
         validateIds(catalog.unitIds, "unitIds")
         validateIds(catalog.enemyIds, "enemyIds")
         validateIds(catalog.enhancementIds, "enhancementIds")
+        PlayableLevelContentValidator.validate(catalog.playableLevel)
         if (catalog.stageIds.isEmpty()) {
-            throw MalformedContentFixtureException("Content catalog must contain at least one stage id")
+            throw MalformedContentFixtureException(
+                "Content catalog must contain at least one stage id",
+                "stageIds",
+            )
         }
         if (catalog.buildingIds.isEmpty()) {
-            throw MalformedContentFixtureException("Content catalog must contain at least one building id")
+            throw MalformedContentFixtureException(
+                "Content catalog must contain at least one building id",
+                "buildingIds",
+            )
         }
         if (catalog.unitIds.isEmpty()) {
-            throw MalformedContentFixtureException("Content catalog must contain at least one unit id")
+            throw MalformedContentFixtureException(
+                "Content catalog must contain at least one unit id",
+                "unitIds",
+            )
         }
         if (catalog.enemyIds.isEmpty()) {
-            throw MalformedContentFixtureException("Content catalog must contain at least one enemy id")
+            throw MalformedContentFixtureException(
+                "Content catalog must contain at least one enemy id",
+                "enemyIds",
+            )
         }
         if (catalog.enhancementIds.isEmpty()) {
-            throw MalformedContentFixtureException("Content catalog must contain at least one enhancement id")
+            throw MalformedContentFixtureException(
+                "Content catalog must contain at least one enhancement id",
+                "enhancementIds",
+            )
+        }
+        if (catalog.playableLevel.stageId !in catalog.stageIds) {
+            throw MalformedContentFixtureException(
+                "Playable level stage must be declared in stageIds",
+                "level.stageId",
+            )
+        }
+        if (catalog.playableLevel.tower.id !in catalog.buildingIds) {
+            throw MalformedContentFixtureException(
+                "Playable level tower must be declared in buildingIds",
+                "level.tower.id",
+            )
+        }
+        if (catalog.playableLevel.enemyFamily.id !in catalog.enemyIds) {
+            throw MalformedContentFixtureException(
+                "Playable level enemy family must be declared in enemyIds",
+                "level.enemy.id",
+            )
         }
     }
 
     private fun validateIds(ids: Set<ContentId>, field: String) {
         ids.forEach { id ->
             if (id.value.isEmpty()) {
-                throw MalformedContentFixtureException("Blank content id in $field")
+                throw MalformedContentFixtureException("Blank content id", field)
             }
         }
     }
 }
 
-/** A minimal accepted fixture that establishes the original-ID namespace without balance data. */
+/** The original first playable level fixture used by the Android-free content boundary. */
 object OriginalContentFixtures {
-    const val CONTENT_VERSION: Int = 1
+    const val CONTENT_VERSION: Int = 2
 
     fun foundationCatalog(): ContentCatalog = ContentCatalog(
         contentVersion = CONTENT_VERSION,
@@ -95,6 +143,45 @@ object OriginalContentFixtures {
         enhancementIds = setOf(
             OriginalContentIds.FOUNDATION_ENHANCEMENT,
             OriginalContentIds.FOUNDATION_ENHANCEMENT_EMBER_WARD,
+        ),
+        playableLevel = foundationPlayableLevel(),
+    )
+
+    fun foundationPlayableLevel(): PlayableLevelContent = PlayableLevelContent(
+        stageId = OriginalContentIds.FOUNDATION_STAGE,
+        base = MainBaseContent(
+            id = OriginalContentIds.FOUNDATION_BASE,
+            health = 120,
+            positionTicks = 120,
+        ),
+        buildSlots = listOf(
+            BuildTileContent(OriginalContentIds.FOUNDATION_BUILD_SLOT_1, positionTicks = 30),
+            BuildTileContent(OriginalContentIds.FOUNDATION_BUILD_SLOT_2, positionTicks = 60),
+            BuildTileContent(OriginalContentIds.FOUNDATION_BUILD_SLOT_3, positionTicks = 90),
+        ),
+        tower = TowerContent(
+            id = OriginalContentIds.FOUNDATION_TOWER,
+            buildCost = 40,
+            damage = 3,
+            cooldownTicks = 10,
+            rangeTicks = 35,
+            upgradeBaseCost = 30,
+            upgradeCostStep = 20,
+            damageStep = 1,
+            cooldownStep = 2,
+            minCooldownTicks = 4,
+        ),
+        enemyFamily = EnemyFamilyContent(
+            id = OriginalContentIds.FOUNDATION_ENEMY,
+            health = 8,
+            speedTicks = 2,
+            baseDamage = 12,
+        ),
+        wave = WaveContent(
+            id = OriginalContentIds.FOUNDATION_WAVE,
+            enemyFamilyId = OriginalContentIds.FOUNDATION_ENEMY,
+            spawnCount = 9,
+            spawnIntervalTicks = 20,
         ),
     )
 }
