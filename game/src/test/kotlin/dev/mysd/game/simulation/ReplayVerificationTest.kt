@@ -125,7 +125,11 @@ class ReplayVerificationTest {
 
         uninterrupted.buildTower(targetSlot)
         uninterrupted.advance(7 * SimulationClock.TICK_DURATION_MILLIS)
+        val savedSnapshot = uninterrupted.snapshot()
+        assertTrue(uninterrupted.state().slots.any { it.towerId != null })
+        assertTrue(uninterrupted.state().enemies.isNotEmpty())
         uninterrupted.upgradeTower(targetSlot)
+        uninterrupted.spend(targetSlotId = null, cost = 0)
 
         val saved = RunSave(
             runId = "playable-run-001",
@@ -137,6 +141,13 @@ class ReplayVerificationTest {
             tick = uninterrupted.currentTick,
             active = true,
             pendingCommands = listOf(
+                PendingCommand(
+                    id = 2L,
+                    scheduledTick = uninterrupted.currentTick,
+                    type = "playable-battle.spend-resource",
+                    actorId = null,
+                    payload = "|0",
+                ),
                 PendingCommand(
                     id = 1L,
                     scheduledTick = uninterrupted.currentTick,
@@ -150,6 +161,28 @@ class ReplayVerificationTest {
             playableBattleState = uninterrupted.state(),
         )
         val payload = RunSaveCodec.encode(saved)
+        val decoded = RunSaveCodec.decode(payload)
+
+        assertEquals(saved.playableBattleState, decoded.playableBattleState)
+        assertEquals(
+            listOf(
+                PendingCommand(
+                    id = 1L,
+                    scheduledTick = saved.tick,
+                    type = "playable-battle.upgrade-tower",
+                    actorId = null,
+                    payload = targetSlot.value,
+                ),
+                PendingCommand(
+                    id = 2L,
+                    scheduledTick = saved.tick,
+                    type = "playable-battle.spend-resource",
+                    actorId = null,
+                    payload = "|0",
+                ),
+            ),
+            decoded.pendingCommands,
+        )
 
         val outcome = SimulationSession.restorePlayableBattle(payload)
         assertEquals(PlayableBattleRestoreStatus.RESTORED, outcome.status)
@@ -159,14 +192,32 @@ class ReplayVerificationTest {
         }
 
         assertEquals(saved.playableBattleState, restored.state())
+        assertEquals(savedSnapshot, restored.snapshot())
         assertEquals(uninterrupted.snapshot(), restored.snapshot())
         assertEquals(saved.tick, restored.currentTick)
         assertEquals(saved.rngState, restored.rngState)
+        assertEquals(saved.seed, restored.seed)
+        assertEquals(saved.simulationVersion, restored.simulationVersion)
+        assertEquals(0L, restored.pendingMillis)
 
         uninterrupted.spend(targetSlotId = null, cost = 0)
         restored.spend(targetSlotId = null, cost = 0)
-        val uninterruptedTrajectory = uninterrupted.advance(5 * SimulationClock.TICK_DURATION_MILLIS)
-        val restoredTrajectory = restored.advance(5 * SimulationClock.TICK_DURATION_MILLIS)
+        val restoredCanonical = restored.canonicalCommandEncoding()
+        assertContains(restoredCanonical, "commandCount=3")
+        assertContains(restoredCanonical, "command.0.id=1")
+        assertContains(restoredCanonical, "command.1.id=2")
+        assertContains(restoredCanonical, "command.2.id=3")
+        assertTrue(restored.inputHash().isNotBlank())
+        assertTrue(restored.replayHashChain().isNotBlank())
+
+        val uninterruptedTrajectory = buildList {
+            addAll(uninterrupted.advance(125L))
+            addAll(uninterrupted.advance(125L))
+        }
+        val restoredTrajectory = buildList {
+            addAll(restored.advance(125L))
+            addAll(restored.advance(125L))
+        }
 
         ReplayVerification.requireMatch(uninterruptedTrajectory, restoredTrajectory)
         assertEquals(uninterrupted.snapshot(), restored.snapshot())
@@ -190,12 +241,29 @@ class ReplayVerificationTest {
             terminalResult = null,
         )
 
-        val outcome = SimulationSession.restorePlayableBattle(legacy)
+        val currentContourPayload = RunSaveCodec.encode(legacy)
+        val historicalContourPayload = currentContourPayload
+            .lineSequence()
+            .filterNot { it.startsWith("playableStatePresent=") }
+            .joinToString("\n")
+            .replaceFirst("schemaVersion=${RunSaveCodec.CURRENT_SCHEMA_VERSION}", "schemaVersion=3")
 
-        assertEquals(PlayableBattleRestoreStatus.UNSUPPORTED_LEGACY, outcome.status)
-        when (outcome) {
-            is PlayableBattleRestoreResult.Restored -> error("Legacy contour must not create playable state")
-            PlayableBattleRestoreResult.UnsupportedLegacy -> Unit
+        assertNull(RunSaveCodec.decode(currentContourPayload).playableBattleState)
+        assertNull(RunSaveCodec.decode(historicalContourPayload).playableBattleState)
+
+        val outcomes = listOf(
+            SimulationSession.restorePlayableBattle(legacy),
+            SimulationSession.restorePlayableBattle(currentContourPayload),
+            SimulationSession.restorePlayableBattle(historicalContourPayload),
+        )
+
+        outcomes.forEach { outcome ->
+            assertEquals(PlayableBattleRestoreStatus.UNSUPPORTED_LEGACY, outcome.status)
+            when (outcome) {
+                is PlayableBattleRestoreResult.Restored ->
+                    error("Legacy contour must not create playable state")
+                PlayableBattleRestoreResult.UnsupportedLegacy -> Unit
+            }
         }
     }
 

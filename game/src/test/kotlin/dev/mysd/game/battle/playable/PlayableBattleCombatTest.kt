@@ -407,9 +407,13 @@ class PlayableBattleCombatTest {
         assertEquals(PlayableBattleTerminal.DEFEAT, restored.snapshot().terminalResult)
         assertEquals(uninterrupted.snapshot(), restored.snapshot())
         val frozen = restored.snapshot()
+        val frozenCommandEncoding = restored.canonicalCommandEncoding()
 
         assertTrue(restored.advance(5_000).isEmpty())
         assertEquals(frozen, restored.snapshot())
+        assertEquals(frozen.stateHash, restored.snapshot().stateHash)
+        assertEquals(frozen.tick, restored.currentTick)
+        assertEquals(frozen.pendingMillis, restored.pendingMillis)
         assertEquals(frozen, restored.pause())
         assertEquals(frozen, restored.resume())
         assertEquals(frozen, restored.submit(PlayableBattleCommand.Pause))
@@ -417,6 +421,7 @@ class PlayableBattleCombatTest {
         assertEquals(frozen, restored.buildTower(initial.slots.first().id))
         assertEquals(frozen, restored.upgradeTower(initial.slots.first().id))
         assertEquals(frozen, restored.snapshot())
+        assertEquals(frozenCommandEncoding, restored.canonicalCommandEncoding())
     }
 
     @Test
