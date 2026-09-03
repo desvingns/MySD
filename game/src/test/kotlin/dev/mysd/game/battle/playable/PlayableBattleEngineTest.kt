@@ -198,13 +198,21 @@ class PlayableBattleEngineTest {
         session.advance(25)
         val beforePause = session.snapshot()
         session.pause()
+        val queuedPause = session.snapshot()
+        val pauseTicks = session.advance(25)
+        val paused = session.snapshot()
         session.advance(1_000)
         val whilePaused = session.snapshot()
 
         assertEquals(0L, beforePause.tick)
         assertEquals(25L, beforePause.pendingMillis)
-        assertEquals(beforePause.tick, whilePaused.tick)
-        assertEquals(beforePause.pendingMillis, whilePaused.pendingMillis)
+        assertEquals(PlayableBattlePhase.ACTIVE, queuedPause.phase)
+        assertEquals(1, pauseTicks.single().commandsProcessed)
+        assertEquals(1L, paused.tick)
+        assertEquals(PlayableBattlePhase.PAUSED, paused.phase)
+        assertEquals(paused, whilePaused)
+        assertEquals(1L, whilePaused.tick)
+        assertEquals(0L, whilePaused.pendingMillis)
         assertEquals(beforePause.resource, whilePaused.resource)
         assertEquals(
             beforePause.enemies.map { it.positionTicks },
@@ -212,13 +220,47 @@ class PlayableBattleEngineTest {
         )
 
         session.resume()
-        session.advance(25)
+        val queuedResume = session.snapshot()
+        session.advance(50)
         val afterResume = session.snapshot()
 
-        assertEquals(1L, afterResume.tick)
+        assertEquals(PlayableBattlePhase.PAUSED, queuedResume.phase)
+        assertEquals(2L, afterResume.tick)
         assertEquals(0L, afterResume.pendingMillis)
         assertEquals(51, afterResume.resource)
         assertEquals(9, afterResume.resourceRemainderTicks)
+    }
+
+    @Test
+    fun queuedBuildTowerUsesSimulationReplayBoundaryAndIsVisibleAfterOneTick() {
+        val initial = PlayableBattleEngine.initialState(
+            initialResource = 50,
+            resourceCap = 100,
+            incomePerSecond = 0,
+        )
+        val first = SimulationSession.playableBattle(seed = 42L, initialState = initial)
+        val second = SimulationSession.playableBattle(seed = 42L, initialState = initial)
+        val target = initial.slots[1].id
+
+        first.buildTower(target)
+        second.buildTower(target)
+
+        assertTrue(first.state().slots[1].isEmpty)
+        assertEquals(first.canonicalCommandEncoding(), second.canonicalCommandEncoding())
+        assertEquals(first.inputHash(), second.inputHash())
+        assertEquals(first.replayHashChain(), second.replayHashChain())
+
+        val firstTick = first.advance(50)
+        val secondTick = second.advance(50)
+        val firstSnapshot = first.snapshot()
+        val secondSnapshot = second.snapshot()
+
+        assertEquals(1, firstTick.single().commandsProcessed)
+        assertEquals(firstTick, secondTick)
+        assertEquals(initial.towerId, firstSnapshot.state.slots[1].towerId)
+        assertEquals(initial.resource - initial.buildCost, firstSnapshot.resource)
+        assertEquals(firstSnapshot, secondSnapshot)
+        assertEquals(first.replayHashChain(), second.replayHashChain())
     }
 
     @Test

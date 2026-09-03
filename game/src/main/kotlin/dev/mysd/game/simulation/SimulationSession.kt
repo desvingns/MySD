@@ -1,5 +1,6 @@
 package dev.mysd.game.simulation
 
+import dev.myengine.core.CommandId
 import dev.myengine.core.DeterministicEngine
 import dev.myengine.core.EngineCommand
 import dev.myengine.core.EngineSystem
@@ -8,6 +9,7 @@ import dev.myengine.core.StableHash
 import dev.myengine.core.TextCommand
 import dev.myengine.core.Tick
 import dev.mysd.game.battle.playable.PlayableBattleCommand
+import dev.mysd.game.battle.playable.PlayableBattleCommandCodec
 import dev.mysd.game.battle.playable.PlayableBattleEngine
 import dev.mysd.game.battle.playable.PlayableBattlePhase
 import dev.mysd.game.battle.playable.PlayableBattleState
@@ -46,6 +48,7 @@ class SimulationSession<S : HashableState>(
         .sortedWith(compareBy<EngineSystem<S>> { it.order }.thenBy { it.id })
 
     private val commandLog = CommandLog()
+    private val pendingCommands = linkedMapOf<CommandId, EngineCommand>()
 
     private val engine = DeterministicEngine(
         state = initialState,
@@ -64,6 +67,7 @@ class SimulationSession<S : HashableState>(
 
     fun submit(command: EngineCommand) {
         commandLog.append(command)
+        pendingCommands[command.id] = command
         engine.submit(command)
     }
 
@@ -73,7 +77,17 @@ class SimulationSession<S : HashableState>(
         type: String,
         payload: String,
         actorId: Long? = null,
-    ): TextCommand = commandLog.submit(scheduledTick, type, payload, actorId).also(engine::submit)
+    ): TextCommand {
+        val command = TextCommand(
+            id = commandLog.allocateId(),
+            scheduledTick = scheduledTick,
+            type = type,
+            payload = payload,
+            actorId = actorId,
+        )
+        submit(command)
+        return command
+    }
 
     fun submitAll(commands: Iterable<EngineCommand>) {
         commands.forEach(::submit)
@@ -86,6 +100,8 @@ class SimulationSession<S : HashableState>(
 
     fun replayHashChain(): String = commandLog.replayHashChain()
 
+    internal fun hasPendingCommand(type: String): Boolean = pendingCommands.values.any { it.type == type }
+
     /**
      * Accumulates elapsed time and advances only complete 50 ms steps.
      *
@@ -95,6 +111,9 @@ class SimulationSession<S : HashableState>(
     fun advance(elapsedMillis: Long): List<SimulationTickResult> {
         val ticks = clock.consume(elapsedMillis)
         return engine.step(ticks).map { result ->
+            pendingCommands.entries.removeIf { (_, command) ->
+                command.scheduledTick.value <= result.tick.value
+            }
             SimulationTickResult(
                 tick = result.tick.value,
                 commandsProcessed = result.commandsProcessed,
@@ -159,7 +178,6 @@ class PlayableBattleSession(
     clock: SimulationClock = SimulationClock(),
 ) {
     private val stateBox = PlayableBattleStateBox(initialState, seed)
-    private val playableCommandLog = CommandLog()
     private val simulation = SimulationSession(
         seed,
         stateBox,
@@ -175,13 +193,31 @@ class PlayableBattleSession(
     val pendingMillis: Long
         get() = simulation.pendingMillis
 
-    /** Advances only complete ticks while active; paused elapsed time is intentionally discarded. */
+    /**
+     * Advances complete ticks until the queued pause is applied; paused elapsed time is discarded
+     * unless a queued resume command needs a fixed tick to reach the authoritative system.
+     */
     fun advance(elapsedMillis: Long): List<SimulationTickResult> {
         require(elapsedMillis >= 0L) { "elapsedMillis must be non-negative." }
-        if (stateBox.value.phase == PlayableBattlePhase.PAUSED) {
+        if (stateBox.value.phase == PlayableBattlePhase.PAUSED &&
+            !simulation.hasPendingCommand(PlayableBattleCommandCodec.RESUME_TYPE)
+        ) {
             return emptyList()
         }
-        return simulation.advance(elapsedMillis)
+
+        val results = mutableListOf<SimulationTickResult>()
+        var remainingMillis = elapsedMillis
+        while (remainingMillis > 0L) {
+            val stepMillis = minOf(remainingMillis, SimulationClock.TICK_DURATION_MILLIS)
+            results += simulation.advance(stepMillis)
+            remainingMillis -= stepMillis
+            if (stateBox.value.phase == PlayableBattlePhase.PAUSED &&
+                !simulation.hasPendingCommand(PlayableBattleCommandCodec.RESUME_TYPE)
+            ) {
+                break
+            }
+        }
+        return results
     }
 
     fun state(): PlayableBattleState = stateBox.value
@@ -198,8 +234,11 @@ class PlayableBattleSession(
     fun resume(): PlayableBattleSnapshot = submit(PlayableBattleCommand.Resume)
 
     fun submit(command: PlayableBattleCommand): PlayableBattleSnapshot {
-        stateBox.value = PlayableBattleEngine.reduceState(stateBox.value, command)
-        record(command)
+        simulation.submit(
+            scheduledTick = Tick(currentTick),
+            type = PlayableBattleCommandCodec.type(command),
+            payload = PlayableBattleCommandCodec.payload(command),
+        )
         return snapshot()
     }
 
@@ -209,47 +248,13 @@ class PlayableBattleSession(
     fun spend(
         targetSlotId: ContentId?,
         cost: Int,
-    ) = PlayableBattleEngine.spend(stateBox.value, targetSlotId, cost).also { result ->
-        stateBox.value = result.state
-        record(PlayableBattleCommand.SpendResource(targetSlotId, cost))
-    }
+    ): PlayableBattleSnapshot = submit(PlayableBattleCommand.SpendResource(targetSlotId, cost))
 
-    fun canonicalCommandEncoding(): String = playableCommandLog.canonicalEncoding()
+    fun canonicalCommandEncoding(): String = simulation.canonicalCommandEncoding()
 
-    fun inputHash(): String = playableCommandLog.inputHash()
+    fun inputHash(): String = simulation.inputHash()
 
-    fun replayHashChain(): String = playableCommandLog.replayHashChain()
-
-    private fun record(command: PlayableBattleCommand) {
-        val type: String
-        val payload: String
-        when (command) {
-            PlayableBattleCommand.Pause -> {
-                type = "playable-battle.pause"
-                payload = ""
-            }
-
-            PlayableBattleCommand.Resume -> {
-                type = "playable-battle.resume"
-                payload = ""
-            }
-
-            is PlayableBattleCommand.SpendResource -> {
-                type = "playable-battle.spend-resource"
-                payload = listOf(command.targetSlotId?.value ?: "", command.cost).joinToString("|")
-            }
-
-            is PlayableBattleCommand.BuildTower -> {
-                type = "playable-battle.build-tower"
-                payload = command.targetSlotId.value
-            }
-        }
-        playableCommandLog.submit(
-            scheduledTick = Tick(currentTick),
-            type = type,
-            payload = payload,
-        )
-    }
+    fun replayHashChain(): String = simulation.replayHashChain()
 
     private class PlayableBattleStateBox(
         var value: PlayableBattleState,
@@ -267,6 +272,11 @@ class PlayableBattleSession(
         override val order: Int = 0
 
         override fun update(context: dev.myengine.core.SimulationContext<PlayableBattleStateBox>) {
+            context.commands.forEach { engineCommand ->
+                PlayableBattleCommandCodec.decode(engineCommand)?.let { command ->
+                    context.state.value = PlayableBattleEngine.reduceState(context.state.value, command)
+                }
+            }
             context.state.value = PlayableBattleEngine.tick(context.state.value)
         }
     }
