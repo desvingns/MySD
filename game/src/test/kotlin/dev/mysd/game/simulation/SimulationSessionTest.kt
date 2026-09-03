@@ -1,5 +1,7 @@
 package dev.mysd.game.simulation
 
+import dev.mysd.game.battle.playable.PlayableBattleEngine
+import dev.mysd.game.battle.playable.PlayableBattlePhase
 import dev.myengine.core.CommandId
 import dev.myengine.core.EngineSystem
 import dev.myengine.core.HashableState
@@ -14,6 +16,7 @@ import kotlin.io.path.readText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
@@ -29,6 +32,75 @@ class SimulationSessionTest {
         assertEquals(2, clock.consume(100))
         assertEquals(20, SimulationClock.TICK_RATE_HZ)
         assertEquals(50L, SimulationClock.TICK_DURATION_MILLIS)
+    }
+
+    @Test
+    fun playableBattleRunsTwentyActiveTicksForOneSecondWithDeterministicHashes() {
+        val initial = PlayableBattleEngine.initialState(
+            initialResource = 50,
+            resourceCap = 100,
+            incomePerSecond = 10,
+        )
+        val first = SimulationSession.playableBattle(seed = 42L, initialState = initial)
+        val second = SimulationSession.playableBattle(seed = 42L, initialState = initial)
+
+        val firstTrajectory = first.advance(1_000)
+        val secondTrajectory = second.advance(1_000)
+
+        assertEquals(PlayableBattleEngine.TICKS_PER_SECOND, firstTrajectory.size)
+        assertEquals((1L..20L).toList(), firstTrajectory.map { it.tick })
+        assertEquals(firstTrajectory, secondTrajectory)
+        assertTrue(firstTrajectory.all { it.stateHash.isNotBlank() })
+        assertEquals(20L, first.currentTick)
+        assertEquals(0L, first.pendingMillis)
+        assertEquals(60, first.state().resource)
+        assertEquals(0, first.state().incomeRemainderTicks)
+        assertEquals(40, first.state().enemies.first().positionTicks)
+    }
+
+    @Test
+    fun pausedPlayableBattleFreezesFullStateAndResumeKeepsClockRemainder() {
+        val session = SimulationSession.playableBattle(
+            seed = 7L,
+            initialState = PlayableBattleEngine.initialState().copy(incomeRemainderTicks = 19),
+        )
+
+        session.advance(25)
+        val beforePause = session.snapshot()
+        val paused = session.pause()
+        session.advance(10_000)
+        val afterPausedElapsed = session.snapshot()
+
+        assertEquals(PlayableBattlePhase.PAUSED, paused.phase)
+        assertEquals(0L, paused.tick)
+        assertEquals(25L, paused.pendingMillis)
+        assertEquals(19, paused.resourceRemainderTicks)
+        assertEquals(paused, afterPausedElapsed)
+        assertEquals(beforePause.tick, afterPausedElapsed.tick)
+        assertEquals(beforePause.pendingMillis, afterPausedElapsed.pendingMillis)
+        assertEquals(beforePause.resource, afterPausedElapsed.resource)
+        assertEquals(beforePause.enemies, afterPausedElapsed.enemies)
+
+        session.resume()
+        val resumed = session.snapshot()
+        assertEquals(PlayableBattlePhase.ACTIVE, resumed.phase)
+        session.advance(25)
+        val afterResumeTick = session.snapshot()
+
+        assertEquals(1L, afterResumeTick.tick)
+        assertEquals(0L, afterResumeTick.pendingMillis)
+        assertEquals(51, afterResumeTick.resource)
+        assertEquals(9, afterResumeTick.resourceRemainderTicks)
+    }
+
+    @Test
+    fun playableBattleRejectsNegativeElapsedMillis() {
+        val session = SimulationSession.playableBattle(
+            seed = 1L,
+            initialState = PlayableBattleEngine.initialState(),
+        )
+
+        assertFailsWith<IllegalArgumentException> { session.advance(-1L) }
     }
 
     @Test
