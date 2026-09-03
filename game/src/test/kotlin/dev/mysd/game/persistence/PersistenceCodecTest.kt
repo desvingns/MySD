@@ -1,5 +1,7 @@
 package dev.mysd.game.persistence
 
+import dev.myengine.core.stableHashOf
+import dev.mysd.game.battle.playable.PlayableBattleEngine
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -283,6 +285,50 @@ class PersistenceCodecTest {
         val reordered = (lines.take(2) + lines.drop(2).asReversed()).joinToString("\n")
 
         assertEquals(encoded, RunSaveCodec.encode(RunSaveCodec.decode(reordered)))
+    }
+
+    @Test
+    fun playableStateRoundTripPreservesAuthoritativeEntityOrderAndHash() {
+        val initial = PlayableBattleEngine.initialState()
+        val firstEnemy = initial.enemies.single()
+        val secondEnemy = firstEnemy.copy(
+            id = "${firstEnemy.id}-later",
+            positionTicks = firstEnemy.positionTicks + 1,
+        )
+        val state = initial.copy(
+            slots = initial.slots.asReversed(),
+            enemies = listOf(secondEnemy, firstEnemy),
+            waveSpawnedCount = 2,
+            waveElapsedTicks = 1,
+        )
+        val run = sampleRun().copy(
+            stageId = state.stageId.value,
+            playableBattleState = state,
+        )
+
+        val decoded = requireNotNull(RunSaveCodec.decode(RunSaveCodec.encode(run)).playableBattleState)
+
+        assertEquals(state, decoded)
+        fun hash(value: dev.mysd.game.battle.playable.PlayableBattleState): String =
+            stableHashOf { value.appendHash(this) }
+        assertEquals(hash(state), hash(decoded))
+    }
+
+    @Test
+    fun malformedPlayableStateReportsTheExactNestedFieldPath() {
+        val state = PlayableBattleEngine.initialState()
+        val run = sampleRun().copy(
+            stageId = state.stageId.value,
+            playableBattleState = state,
+        )
+        val malformed = RunSaveCodec.encode(run)
+            .replace("state.resource=${state.resource}", "state.resource=-1")
+
+        val error = assertFailsWith<MalformedPersistenceException> {
+            RunSaveCodec.decode(malformed)
+        }
+
+        assertTrue(error.message.orEmpty().contains("state.resource"))
     }
 
     private fun sampleRun() = RunSave(

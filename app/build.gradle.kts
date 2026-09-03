@@ -11,8 +11,8 @@ android {
         applicationId = "dev.mysd.android"
         minSdk = libs.versions.androidMinSdk.get().toInt()
         targetSdk = libs.versions.androidTargetSdk.get().toInt()
-        versionCode = 20
-        versionName = "0.1.19"
+        versionCode = 21
+        versionName = "0.1.20"
     }
 
     buildFeatures {

@@ -262,7 +262,7 @@ object RunSaveCodec {
         fields["state.towerRangeTicks"] = state.towerRangeTicks.toString()
         fields["state.baseLeakDamage"] = state.baseLeakDamage.toString()
         fields["state.slotCount"] = state.slots.size.toString()
-        state.slots.sortedBy { it.id.value }.forEachIndexed { index, slot ->
+        state.slots.forEachIndexed { index, slot ->
             fields["state.slot.$index.id"] = PersistenceWire.encodeText(slot.id.value)
             fields["state.slot.$index.positionTicks"] = slot.positionTicks.toString()
             fields["state.slot.$index.towerPresent"] = if (slot.towerId == null) "0" else "1"
@@ -275,7 +275,7 @@ object RunSaveCodec {
             fields["state.slot.$index.towerCooldownRemainingTicks"] = slot.towerCooldownRemainingTicks.toString()
         }
         fields["state.enemyCount"] = state.enemies.size.toString()
-        state.enemies.sortedBy { it.id }.forEachIndexed { index, enemy ->
+        state.enemies.forEachIndexed { index, enemy ->
             fields["state.enemy.$index.id"] = PersistenceWire.encodeText(enemy.id)
             fields["state.enemy.$index.familyId"] = PersistenceWire.encodeText(enemy.familyId.value)
             fields["state.enemy.$index.health"] = enemy.health.toString()
@@ -292,37 +292,81 @@ object RunSaveCodec {
         val terminalPresent = PersistenceWire.flag(fields, "state.terminalPresent")
         val terminalRaw = PersistenceWire.required(fields, "state.terminalResult")
         val terminal = decodePlayableTerminal(terminalPresent, terminalRaw)
+        val slotIds = mutableSetOf<ContentId>()
         val slots = try {
             (0 until slotCount).map { index ->
                 val prefix = "state.slot.$index"
+                val slotId = PersistenceWire.contentId(fields, "$prefix.id")
+                if (!slotIds.add(slotId)) {
+                    throw MalformedPersistenceException("Duplicate playable state slot id: $prefix.id")
+                }
+                val positionTicks = PersistenceWire.nonNegativeInt(fields, "$prefix.positionTicks")
                 val towerPresent = PersistenceWire.flag(fields, "$prefix.towerPresent")
                 val towerRaw = PersistenceWire.required(fields, "$prefix.towerId")
                 val towerId = decodeOptionalContentId(towerPresent, "$prefix.towerId", towerRaw, fields)
+                val towerLevel = PersistenceWire.intInRange(
+                    fields,
+                    "$prefix.towerLevel",
+                    0..PlayableBattleState.MAX_TOWER_LEVEL,
+                )
                 val towerDamagePresent = PersistenceWire.flag(fields, "$prefix.towerDamagePresent")
                 val towerDamageRaw = PersistenceWire.required(fields, "$prefix.towerDamage")
+                val towerDamage = decodeOptionalInt(
+                    towerDamagePresent,
+                    "$prefix.towerDamage",
+                    towerDamageRaw,
+                    fields,
+                )
+                towerDamage?.let { PersistenceWire.requireNonNegative(it, "$prefix.towerDamage") }
                 val towerCooldownPresent = PersistenceWire.flag(fields, "$prefix.towerCooldownPresent")
                 val towerCooldownRaw = PersistenceWire.required(fields, "$prefix.towerCooldownTicks")
+                val towerCooldownTicks = decodeOptionalInt(
+                    towerCooldownPresent,
+                    "$prefix.towerCooldownTicks",
+                    towerCooldownRaw,
+                    fields,
+                )
+                towerCooldownTicks?.let {
+                    PersistenceWire.requireAtLeast(it, 1, "$prefix.towerCooldownTicks")
+                }
+                val cooldownRemainingTicks = PersistenceWire.nonNegativeInt(
+                    fields,
+                    "$prefix.towerCooldownRemainingTicks",
+                )
+                if (towerId == null) {
+                    if (towerLevel != 0) {
+                        throw MalformedPersistenceException(
+                            "Invalid empty slot field: $prefix.towerLevel",
+                        )
+                    }
+                    if (towerDamage != null) {
+                        throw MalformedPersistenceException(
+                            "Invalid empty slot field: $prefix.towerDamage",
+                        )
+                    }
+                    if (towerCooldownTicks != null) {
+                        throw MalformedPersistenceException(
+                            "Invalid empty slot field: $prefix.towerCooldownTicks",
+                        )
+                    }
+                    if (cooldownRemainingTicks != 0) {
+                        throw MalformedPersistenceException(
+                            "Invalid empty slot field: $prefix.towerCooldownRemainingTicks",
+                        )
+                    }
+                } else if (towerLevel > 0 && (towerDamage == null || towerCooldownTicks == null)) {
+                    throw MalformedPersistenceException(
+                        "Upgraded tower is missing stats at $prefix.towerLevel",
+                    )
+                }
                 PlayableBattleSlotState(
-                    id = PersistenceWire.contentId(fields, "$prefix.id"),
-                    positionTicks = PersistenceWire.int(fields, "$prefix.positionTicks"),
+                    id = slotId,
+                    positionTicks = positionTicks,
                     towerId = towerId,
-                    towerLevel = PersistenceWire.int(fields, "$prefix.towerLevel"),
-                    towerDamage = decodeOptionalInt(
-                        towerDamagePresent,
-                        "$prefix.towerDamage",
-                        towerDamageRaw,
-                        fields,
-                    ),
-                    towerCooldownTicks = decodeOptionalInt(
-                        towerCooldownPresent,
-                        "$prefix.towerCooldownTicks",
-                        towerCooldownRaw,
-                        fields,
-                    ),
-                    towerCooldownRemainingTicks = PersistenceWire.int(
-                        fields,
-                        "$prefix.towerCooldownRemainingTicks",
-                    ),
+                    towerLevel = towerLevel,
+                    towerDamage = towerDamage,
+                    towerCooldownTicks = towerCooldownTicks,
+                    towerCooldownRemainingTicks = cooldownRemainingTicks,
                 )
             }
         } catch (error: PersistenceException) {
@@ -332,15 +376,21 @@ object RunSaveCodec {
                 "Invalid playable state slot: ${error.message ?: "state invariant violation"}",
             )
         }
+        val enemyIds = mutableSetOf<String>()
         val enemies = try {
             (0 until enemyCount).map { index ->
                 val prefix = "state.enemy.$index"
+                val enemyId = PersistenceWire.decodeText(fields, "$prefix.id")
+                PersistenceWire.requireNonBlank(enemyId, "$prefix.id")
+                if (!enemyIds.add(enemyId)) {
+                    throw MalformedPersistenceException("Duplicate playable state enemy id: $prefix.id")
+                }
                 PlayableBattleEnemyState(
-                    id = PersistenceWire.decodeText(fields, "$prefix.id"),
+                    id = enemyId,
                     familyId = PersistenceWire.contentId(fields, "$prefix.familyId"),
-                    health = PersistenceWire.int(fields, "$prefix.health"),
-                    positionTicks = PersistenceWire.int(fields, "$prefix.positionTicks"),
-                    speedTicks = PersistenceWire.int(fields, "$prefix.speedTicks"),
+                    health = PersistenceWire.nonNegativeInt(fields, "$prefix.health"),
+                    positionTicks = PersistenceWire.nonNegativeInt(fields, "$prefix.positionTicks"),
+                    speedTicks = PersistenceWire.nonNegativeInt(fields, "$prefix.speedTicks"),
                 )
             }
         } catch (error: PersistenceException) {
@@ -350,42 +400,127 @@ object RunSaveCodec {
                 "Invalid playable state enemy: ${error.message ?: "state invariant violation"}",
             )
         }
+        val stateStageId = PersistenceWire.contentId(fields, "state.stageId")
+        val statePhase = decodePlayablePhase(fields)
+        val baseId = PersistenceWire.contentId(fields, "state.base.id")
+        val baseMaxHealth = PersistenceWire.nonNegativeInt(fields, "state.base.maxHealth")
+        val baseHealth = PersistenceWire.intInRange(
+            fields,
+            "state.base.health",
+            0..baseMaxHealth,
+        )
+        val basePositionTicks = PersistenceWire.nonNegativeInt(fields, "state.base.positionTicks")
+        val resourceCap = PersistenceWire.nonNegativeInt(fields, "state.resourceCap")
+        val resource = PersistenceWire.intInRange(fields, "state.resource", 0..resourceCap)
+        val incomePerSecond = PersistenceWire.nonNegativeInt(fields, "state.incomePerSecond")
+        val incomeRemainderTicks = PersistenceWire.intInRange(
+            fields,
+            "state.incomeRemainderTicks",
+            0 until PlayableBattleState.TICKS_PER_SECOND,
+        )
+        val towerId = PersistenceWire.contentId(fields, "state.towerId")
+        val buildCost = PersistenceWire.nonNegativeInt(fields, "state.buildCost")
+        val towerBaseDamage = PersistenceWire.nonNegativeInt(fields, "state.towerBaseDamage")
+        val towerBaseCooldownTicks = PersistenceWire.atLeastInt(
+            fields,
+            "state.towerBaseCooldownTicks",
+            1,
+        )
+        val towerUpgradeBaseCost = PersistenceWire.nonNegativeInt(fields, "state.towerUpgradeBaseCost")
+        val towerUpgradeCostStep = PersistenceWire.nonNegativeInt(fields, "state.towerUpgradeCostStep")
+        val towerDamageStep = PersistenceWire.nonNegativeInt(fields, "state.towerDamageStep")
+        val towerCooldownStep = PersistenceWire.nonNegativeInt(fields, "state.towerCooldownStep")
+        val towerMinCooldownTicks = PersistenceWire.atLeastInt(
+            fields,
+            "state.towerMinCooldownTicks",
+            1,
+        )
+        val waveId = PersistenceWire.contentId(fields, "state.waveId")
+        val enemyFamilyId = PersistenceWire.contentId(fields, "state.enemyFamilyId")
+        val enemyHealth = PersistenceWire.nonNegativeInt(fields, "state.enemyHealth")
+        val enemySpeedTicks = PersistenceWire.nonNegativeInt(fields, "state.enemySpeedTicks")
+        val waveSpawnCount = PersistenceWire.intInRange(fields, "state.waveSpawnCount", 8..10)
+        val waveSpawnedCount = PersistenceWire.intInRange(
+            fields,
+            "state.waveSpawnedCount",
+            0..waveSpawnCount,
+        )
+        val waveElapsedTicks = PersistenceWire.nonNegativeInt(fields, "state.waveElapsedTicks")
+        val waveSpawnIntervalTicks = PersistenceWire.atLeastInt(
+            fields,
+            "state.waveSpawnIntervalTicks",
+            1,
+        )
+        val towerRangeTicks = PersistenceWire.nonNegativeInt(fields, "state.towerRangeTicks")
+        val baseLeakDamage = PersistenceWire.nonNegativeInt(fields, "state.baseLeakDamage")
+        if (enemies.size > waveSpawnedCount) {
+            throw MalformedPersistenceException(
+                "Living enemies exceed persistence field: state.waveSpawnedCount",
+            )
+        }
+        when (terminal) {
+            PlayableBattleTerminal.VICTORY -> {
+                if (baseHealth <= 0) {
+                    throw MalformedPersistenceException(
+                        "Invalid terminal combination: state.base.health must be positive for VICTORY",
+                    )
+                }
+                if (waveSpawnedCount != waveSpawnCount) {
+                    throw MalformedPersistenceException(
+                        "Invalid terminal combination: state.waveSpawnedCount must equal state.waveSpawnCount for VICTORY",
+                    )
+                }
+                if (enemies.isNotEmpty()) {
+                    throw MalformedPersistenceException(
+                        "Invalid terminal combination: state.enemyCount must be zero for VICTORY",
+                    )
+                }
+            }
+
+            PlayableBattleTerminal.DEFEAT -> if (baseHealth != 0) {
+                throw MalformedPersistenceException(
+                    "Invalid terminal combination: state.base.health must be zero for DEFEAT",
+                )
+            }
+
+            null -> Unit
+        }
         val state = try {
             PlayableBattleState(
-                stageId = PersistenceWire.contentId(fields, "state.stageId"),
-                phase = decodePlayablePhase(fields),
+                stageId = stateStageId,
+                phase = statePhase,
                 base = PlayableBattleBaseState(
-                    id = PersistenceWire.contentId(fields, "state.base.id"),
-                    health = PersistenceWire.int(fields, "state.base.health"),
-                    maxHealth = PersistenceWire.int(fields, "state.base.maxHealth"),
-                    positionTicks = PersistenceWire.int(fields, "state.base.positionTicks"),
+                    id = baseId,
+                    health = baseHealth,
+                    maxHealth = baseMaxHealth,
+                    positionTicks = basePositionTicks,
                 ),
-                resource = PersistenceWire.int(fields, "state.resource"),
-                resourceCap = PersistenceWire.int(fields, "state.resourceCap"),
-                incomePerSecond = PersistenceWire.int(fields, "state.incomePerSecond"),
-                incomeRemainderTicks = PersistenceWire.int(fields, "state.incomeRemainderTicks"),
+                resource = resource,
+                resourceCap = resourceCap,
+                incomePerSecond = incomePerSecond,
+                incomeRemainderTicks = incomeRemainderTicks,
                 slots = slots,
                 enemies = enemies,
-                towerId = PersistenceWire.contentId(fields, "state.towerId"),
-                buildCost = PersistenceWire.int(fields, "state.buildCost"),
-                towerBaseDamage = PersistenceWire.int(fields, "state.towerBaseDamage"),
-                towerBaseCooldownTicks = PersistenceWire.int(fields, "state.towerBaseCooldownTicks"),
-                towerUpgradeBaseCost = PersistenceWire.int(fields, "state.towerUpgradeBaseCost"),
-                towerUpgradeCostStep = PersistenceWire.int(fields, "state.towerUpgradeCostStep"),
-                towerDamageStep = PersistenceWire.int(fields, "state.towerDamageStep"),
-                towerCooldownStep = PersistenceWire.int(fields, "state.towerCooldownStep"),
-                towerMinCooldownTicks = PersistenceWire.int(fields, "state.towerMinCooldownTicks"),
+                towerId = towerId,
+                buildCost = buildCost,
+                towerBaseDamage = towerBaseDamage,
+                towerBaseCooldownTicks = towerBaseCooldownTicks,
+                towerUpgradeBaseCost = towerUpgradeBaseCost,
+                towerUpgradeCostStep = towerUpgradeCostStep,
+                towerDamageStep = towerDamageStep,
+                towerCooldownStep = towerCooldownStep,
+                towerMinCooldownTicks = towerMinCooldownTicks,
                 terminalResult = terminal,
-                waveId = PersistenceWire.contentId(fields, "state.waveId"),
-                enemyFamilyId = PersistenceWire.contentId(fields, "state.enemyFamilyId"),
-                enemyHealth = PersistenceWire.int(fields, "state.enemyHealth"),
-                enemySpeedTicks = PersistenceWire.int(fields, "state.enemySpeedTicks"),
-                waveSpawnCount = PersistenceWire.int(fields, "state.waveSpawnCount"),
-                waveSpawnedCount = PersistenceWire.int(fields, "state.waveSpawnedCount"),
-                waveElapsedTicks = PersistenceWire.int(fields, "state.waveElapsedTicks"),
-                waveSpawnIntervalTicks = PersistenceWire.int(fields, "state.waveSpawnIntervalTicks"),
-                towerRangeTicks = PersistenceWire.int(fields, "state.towerRangeTicks"),
-                baseLeakDamage = PersistenceWire.int(fields, "state.baseLeakDamage"),
+                waveId = waveId,
+                enemyFamilyId = enemyFamilyId,
+                enemyHealth = enemyHealth,
+                enemySpeedTicks = enemySpeedTicks,
+                waveSpawnCount = waveSpawnCount,
+                waveSpawnedCount = waveSpawnedCount,
+                waveElapsedTicks = waveElapsedTicks,
+                waveSpawnIntervalTicks = waveSpawnIntervalTicks,
+                towerRangeTicks = towerRangeTicks,
+                baseLeakDamage = baseLeakDamage,
             )
         } catch (error: PersistenceException) {
             throw error

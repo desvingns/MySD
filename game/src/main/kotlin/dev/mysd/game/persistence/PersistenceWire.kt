@@ -103,6 +103,15 @@ internal object PersistenceWire {
         required(fields, key).toIntOrNull()
             ?: throw MalformedPersistenceException("Malformed integer in persistence field: $key")
 
+    fun nonNegativeInt(fields: Map<String, String>, key: String): Int =
+        int(fields, key).also { requireNonNegative(it, key) }
+
+    fun atLeastInt(fields: Map<String, String>, key: String, minimum: Int): Int =
+        int(fields, key).also { requireAtLeast(it, minimum, key) }
+
+    fun intInRange(fields: Map<String, String>, key: String, range: IntRange): Int =
+        int(fields, key).also { requireInRange(it, range, key) }
+
     fun long(fields: Map<String, String>, key: String): Long =
         required(fields, key).toLongOrNull()
             ?: throw MalformedPersistenceException("Malformed long in persistence field: $key")
