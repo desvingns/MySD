@@ -60,6 +60,21 @@ class PersistenceCodecTest {
     }
 
     @Test
+    fun legacyInactiveContourWithoutTerminalRemainsReadable() {
+        val migratedRun = RunSaveCodec.decode(
+            legacyRunPayload(version = 2, active = false, terminalResult = null),
+        )
+
+        assertLegacyRun(
+            migratedRun,
+            simulationVersion = 7,
+            active = false,
+            terminalResult = null,
+        )
+        assertEquals(null, migratedRun.playableBattleState)
+    }
+
+    @Test
     fun profileDuplicateSetEntriesAreRejectedBeforeSetConversion() {
         val encoded = ProfileStoreCodec.encode(sampleProfile())
         assertFailsWith<MalformedPersistenceException> {

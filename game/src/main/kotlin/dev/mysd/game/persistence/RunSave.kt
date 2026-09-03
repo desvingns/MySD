@@ -610,9 +610,6 @@ object RunSaveCodec {
         if (value.active && value.terminalResult != null) {
             throw MalformedPersistenceException("Active run cannot have a terminal result")
         }
-        if (!value.active && value.terminalResult == null) {
-            throw MalformedPersistenceException("Inactive run must have a terminal result")
-        }
         value.playableBattleState?.let { state ->
             if (state.stageId.value != value.stageId) {
                 throw MalformedPersistenceException(
