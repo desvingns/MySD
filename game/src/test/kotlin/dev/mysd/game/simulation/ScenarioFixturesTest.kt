@@ -84,6 +84,25 @@ class ScenarioFixturesTest {
     }
 
     @Test
+    fun terminalScenarioFixturesArePositivePlayableVictoryAndDefeatOutcomes() {
+        val fixtures = ScenarioFixtures.catalog(seed = 23L).fixtures
+            .filter { it.terminalClassification.isTerminal }
+
+        assertEquals(
+            setOf(ScenarioFixtureKind.VICTORY, ScenarioFixtureKind.DEFEAT),
+            fixtures.map(ScenarioFixture::kind).toSet(),
+        )
+        assertTrue(fixtures.all { it.playability == ScenarioPlayability.PLAYABLE })
+        assertEquals(
+            mapOf(
+                "fixture_safe_victory" to ScenarioTerminalClassification.VICTORY,
+                "fixture_defeat_blocker" to ScenarioTerminalClassification.DEFEAT,
+            ),
+            fixtures.associate { it.id to it.terminalClassification },
+        )
+    }
+
+    @Test
     fun scenarioFixturesRemainAndroidFree() {
         val sourceRoot = sequenceOf(
             Path("src/main/kotlin/dev/mysd/game/simulation"),

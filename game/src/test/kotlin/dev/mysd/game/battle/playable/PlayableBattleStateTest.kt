@@ -37,6 +37,13 @@ class PlayableBattleStateTest {
         assertEquals(state.slots, state.buildSlots)
         assertTrue(state.slots.all { it.isEmpty && it.occupiedTowerId == null })
         assertTrue(state.slots.all { it.towerLevel == 0 && it.towerDamage == null })
+        assertEquals(state.waveSpawnCount - state.waveSpawnedCount, state.pendingEnemiesCount)
+        assertEquals(state.pendingEnemiesCount, state.pendingEnemyCount)
+        assertEquals(state.enemies.size, state.livingEnemiesCount)
+        assertEquals(state.waveSpawnCount, state.waveTotalCount)
+        assertEquals(state.waveSpawnedCount, state.spawnedEnemiesCount)
+        assertEquals(state.baseLeakDamage, state.leakDamage)
+        assertEquals(state.baseLeakDamage, state.enemyBaseDamage)
     }
 
     @Test
@@ -91,6 +98,39 @@ class PlayableBattleStateTest {
         assertFailsWith<IllegalArgumentException> {
             valid.copy(enemies = listOf(valid.enemies[0], valid.enemies[0].copy(id = valid.enemies[0].id)))
         }
+        assertFailsWith<IllegalArgumentException> { valid.copy(enemyHealth = -1) }
+        assertFailsWith<IllegalArgumentException> { valid.copy(enemySpeedTicks = -1) }
+        assertFailsWith<IllegalArgumentException> { valid.copy(waveSpawnCount = 7) }
+        assertFailsWith<IllegalArgumentException> { valid.copy(waveSpawnCount = 11) }
+        assertFailsWith<IllegalArgumentException> { valid.copy(waveSpawnedCount = -1) }
+        assertFailsWith<IllegalArgumentException> { valid.copy(waveSpawnedCount = 10) }
+        assertFailsWith<IllegalArgumentException> { valid.copy(waveElapsedTicks = -1) }
+        assertFailsWith<IllegalArgumentException> { valid.copy(waveSpawnIntervalTicks = 0) }
+        assertFailsWith<IllegalArgumentException> { valid.copy(towerRangeTicks = -1) }
+        assertFailsWith<IllegalArgumentException> { valid.copy(baseLeakDamage = -1) }
+        assertFailsWith<IllegalArgumentException> {
+            valid.copy(enemies = listOf(valid.enemies.single().copy(health = -1)))
+        }
+        assertFailsWith<IllegalArgumentException> {
+            valid.copy(enemies = listOf(valid.enemies.single().copy(positionTicks = -1)))
+        }
+        assertFailsWith<IllegalArgumentException> {
+            valid.copy(enemies = listOf(valid.enemies.single().copy(speedTicks = -1)))
+        }
+        assertFailsWith<IllegalArgumentException> {
+            valid.copy(terminalResult = PlayableBattleTerminal.VICTORY)
+        }
+        assertFailsWith<IllegalArgumentException> {
+            valid.copy(
+                enemies = emptyList(),
+                waveSpawnedCount = valid.waveSpawnCount,
+                base = valid.base.copy(health = 0),
+                terminalResult = PlayableBattleTerminal.VICTORY,
+            )
+        }
+        assertFailsWith<IllegalArgumentException> {
+            valid.copy(terminalResult = PlayableBattleTerminal.DEFEAT)
+        }
     }
 
     @Test
@@ -142,5 +182,23 @@ class PlayableBattleStateTest {
         assertNotEquals(hash(upgraded), hash(maxed))
         assertNotEquals(hash(upgraded), hash(upgraded.copy(towerDamageStep = upgraded.towerDamageStep + 1)))
         assertNotEquals(hash(upgraded), hash(upgraded.copy(towerCooldownStep = upgraded.towerCooldownStep + 1)))
+    }
+
+    @Test
+    fun stateHashIncludesWaveProgressAndTerminalResult() {
+        val active = PlayableBattleEngine.initialState()
+        val waveAdvanced = active.copy(waveElapsedTicks = active.waveElapsedTicks + 1)
+        val victory = active.copy(
+            enemies = emptyList(),
+            waveSpawnedCount = active.waveSpawnCount,
+            terminalResult = PlayableBattleTerminal.VICTORY,
+        )
+
+        fun hash(state: PlayableBattleState): String = stableHashOf { state.appendHash(this) }
+
+        assertNotEquals(hash(active), hash(waveAdvanced))
+        assertNotEquals(hash(active), hash(victory))
+        assertTrue(victory.isTerminal)
+        assertEquals(PlayableBattleTerminal.VICTORY, victory.terminal)
     }
 }

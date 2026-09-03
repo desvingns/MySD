@@ -51,8 +51,9 @@ class PlayableBattleCombatTest {
             initialResource = 100,
             incomePerSecond = 0,
             enemies = listOf(
-                enemy(level, "enemy-z", positionTicks = 40),
+                enemy(level, "enemy-far", positionTicks = 50),
                 enemy(level, "enemy-a", positionTicks = 20),
+                enemy(level, "enemy-z", positionTicks = 40),
             ),
             waveSpawnedCount = 8,
         )
@@ -62,6 +63,7 @@ class PlayableBattleCombatTest {
 
         assertEquals(2, afterHit.enemies.single { it.id == "enemy-a" }.health)
         assertEquals(3, afterHit.enemies.single { it.id == "enemy-z" }.health)
+        assertEquals(3, afterHit.enemies.single { it.id == "enemy-far" }.health)
         assertEquals(10, afterHit.slots.first().towerCooldownRemainingTicks)
     }
 
@@ -121,6 +123,11 @@ class PlayableBattleCombatTest {
         assertEquals(8, afterContact.enemies.single().health)
         assertEquals(30, afterContact.enemies.single().positionTicks)
         assertEquals(null, afterContact.terminalResult)
+
+        val afterContactMovement = PlayableBattleEngine.tick(afterContact)
+
+        assertEquals(32, afterContactMovement.enemies.single().positionTicks)
+        assertTrue(afterContactMovement.slots.first().isEmpty)
     }
 
     @Test
@@ -145,6 +152,96 @@ class PlayableBattleCombatTest {
         assertTrue(defeated.enemies.isEmpty())
         assertEquals(PlayableBattleTerminal.DEFEAT, defeated.terminalResult)
         assertEquals(PlayableBattleTerminal.DEFEAT, defeated.terminal)
+    }
+
+    @Test
+    fun baseLeakAppliesConfiguredDamageAndLeavesPendingWaveNonTerminal() {
+        val level = combatLevel(
+            waveCount = 8,
+            baseHealth = 30,
+            baseDamage = 7,
+            enemySpeedTicks = 1,
+        )
+        val initial = PlayableBattleEngine.initialState(
+            level = level,
+            initialResource = 0,
+            incomePerSecond = 0,
+            enemies = listOf(enemy(level, "enemy-a", positionTicks = 119)),
+            waveSpawnedCount = 1,
+        )
+
+        val afterLeak = PlayableBattleEngine.tick(initial)
+
+        assertEquals(23, afterLeak.base.health)
+        assertEquals(7, initial.baseLeakDamage)
+        assertEquals(7, afterLeak.baseLeakDamage)
+        assertTrue(afterLeak.enemies.isEmpty())
+        assertEquals(7, afterLeak.pendingEnemiesCount)
+        assertEquals(null, afterLeak.terminalResult)
+    }
+
+    @Test
+    fun killingLastLivingEnemyDoesNotWinWhilePendingEnemiesRemain() {
+        val level = combatLevel(
+            waveCount = 8,
+            towerDamage = 8,
+            towerCooldownTicks = 1,
+            towerRangeTicks = 100,
+            enemyHealth = 8,
+            enemySpeedTicks = 0,
+        )
+        val initial = PlayableBattleEngine.initialState(
+            level = level,
+            initialResource = 100,
+            incomePerSecond = 0,
+            enemies = listOf(enemy(level, "enemy-a", positionTicks = 0)),
+            waveSpawnedCount = 1,
+        )
+        val built = PlayableBattleEngine.buildTower(initial, initial.slots.first().id).state
+
+        val afterKill = PlayableBattleEngine.tick(built)
+
+        assertTrue(afterKill.enemies.isEmpty())
+        assertEquals(1, afterKill.waveSpawnedCount)
+        assertEquals(7, afterKill.pendingEnemiesCount)
+        assertEquals(null, afterKill.terminalResult)
+    }
+
+    @Test
+    fun baseDefeatWinsWhenAnotherEnemyDiesToATowerOnTheSameTick() {
+        val foundation = OriginalContentFixtures.foundationPlayableLevel()
+        val level = combatLevel(
+            waveCount = 8,
+            baseHealth = 12,
+            baseDamage = 12,
+            towerDamage = 8,
+            towerCooldownTicks = 1,
+            towerRangeTicks = 1,
+            enemyHealth = 8,
+            enemySpeedTicks = 0,
+        ).copy(
+            buildSlots = foundation.buildSlots.mapIndexed { index, slot ->
+                if (index == 0) slot.copy(positionTicks = 31) else slot
+            },
+        )
+        val initial = PlayableBattleEngine.initialState(
+            level = level,
+            initialResource = 100,
+            incomePerSecond = 0,
+            enemies = listOf(
+                enemy(level, "enemy-killed", positionTicks = 30),
+                enemy(level, "enemy-leaked", positionTicks = 119).copy(speedTicks = 1),
+            ),
+            waveSpawnedCount = 8,
+        )
+        val built = PlayableBattleEngine.buildTower(initial, initial.slots.first().id).state
+
+        val defeated = PlayableBattleEngine.tick(built)
+
+        assertEquals(0, defeated.base.health)
+        assertTrue(defeated.enemies.isEmpty())
+        assertEquals(PlayableBattleTerminal.DEFEAT, defeated.terminalResult)
+        assertEquals(0, defeated.pendingEnemiesCount)
     }
 
     @Test
@@ -217,6 +314,54 @@ class PlayableBattleCombatTest {
     }
 
     @Test
+    fun defeatTerminalRejectsEveryMutationAndFreezesTheWholeSession() {
+        val level = combatLevel(
+            waveCount = 8,
+            baseHealth = 12,
+            baseDamage = 12,
+            enemySpeedTicks = 1,
+        )
+        val initial = PlayableBattleEngine.initialState(
+            level = level,
+            initialResource = 100,
+            incomePerSecond = 0,
+            enemies = listOf(enemy(level, "enemy-a", positionTicks = 119)),
+            waveSpawnedCount = 8,
+        )
+        val defeated = PlayableBattleEngine.tick(initial)
+        assertEquals(PlayableBattleTerminal.DEFEAT, defeated.terminalResult)
+
+        assertSame(defeated, PlayableBattleEngine.advance(defeated, 100))
+        assertSame(defeated, PlayableBattleEngine.pause(defeated))
+        assertSame(defeated, PlayableBattleEngine.resume(defeated))
+        assertEquals(
+            PlayableBattleSpendRejection.BATTLE_TERMINAL,
+            PlayableBattleEngine.spend(defeated, null, cost = 0).rejection,
+        )
+        assertEquals(
+            PlayableBattleSpendRejection.BATTLE_TERMINAL,
+            PlayableBattleEngine.buildTower(defeated, defeated.slots.first().id).rejection,
+        )
+        assertEquals(
+            PlayableBattleSpendRejection.BATTLE_TERMINAL,
+            PlayableBattleEngine.upgradeTower(defeated, defeated.slots.first().id).rejection,
+        )
+        assertFalse(PlayableBattleEngine.reduce(defeated, PlayableBattleCommand.Resume).accepted)
+
+        val session = SimulationSession.playableBattle(seed = 7L, initialState = defeated)
+        val before = session.snapshot()
+
+        assertTrue(session.advance(5_000).isEmpty())
+        assertEquals(before, session.snapshot())
+        assertEquals(before, session.pause())
+        assertEquals(before, session.resume())
+        assertEquals(before, session.spend(null, cost = 0))
+        assertEquals(before, session.buildTower(defeated.slots.first().id))
+        assertEquals(before, session.upgradeTower(defeated.slots.first().id))
+        assertEquals(before, session.snapshot())
+    }
+
+    @Test
     fun sameSeedAndCommandsProduceIdenticalTerminalReplayTrajectory() {
         val level = combatLevel(
             waveCount = 8,
@@ -257,6 +402,7 @@ class PlayableBattleCombatTest {
         towerRangeTicks: Int = 35,
         enemyHealth: Int = 8,
         enemySpeedTicks: Int = 2,
+        spawnIntervalTicks: Int = 20,
     ): PlayableLevelContent {
         val foundation = OriginalContentFixtures.foundationPlayableLevel()
         return foundation.copy(
@@ -271,7 +417,10 @@ class PlayableBattleCombatTest {
                 speedTicks = enemySpeedTicks,
                 baseDamage = baseDamage,
             ),
-            wave = foundation.wave.copy(spawnCount = waveCount),
+            wave = foundation.wave.copy(
+                spawnCount = waveCount,
+                spawnIntervalTicks = spawnIntervalTicks,
+            ),
         )
     }
 
