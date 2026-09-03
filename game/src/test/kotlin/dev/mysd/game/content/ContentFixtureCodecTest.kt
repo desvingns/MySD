@@ -3,6 +3,7 @@ package dev.mysd.game.content
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class ContentFixtureCodecTest {
@@ -16,7 +17,14 @@ class ContentFixtureCodecTest {
         assertEquals(encoded, ContentFixtureCodec.encode(ContentFixtureCodec.decode(encoded)))
         assertTrue(encoded.contains("schemaVersion=2"))
         assertTrue(encoded.contains("contentVersion=2"))
+        assertEquals(2, OriginalContentFixtures.CONTENT_VERSION)
+        assertEquals(ContentFixtureCodec.CURRENT_CONTENT_VERSION, OriginalContentFixtures.CONTENT_VERSION)
         assertEquals(1, catalog.stageIds.size)
+        assertEquals(1, catalog.buildingIds.size)
+        assertEquals(1, catalog.enemyIds.size)
+        assertEquals(OriginalContentIds.FOUNDATION_BASE, catalog.playableLevel.base.id)
+        assertEquals(OriginalContentIds.FOUNDATION_TOWER, catalog.playableLevel.tower.id)
+        assertEquals(OriginalContentIds.FOUNDATION_ENEMY_FAMILY, catalog.playableLevel.enemyFamily.id)
         assertEquals(3, catalog.playableLevel.buildSlots.size)
         assertEquals(9, catalog.playableLevel.wave.spawnCount)
         assertEquals(catalog.playableLevel.enemyFamily.id, catalog.playableLevel.wave.enemyFamilyId)
@@ -32,6 +40,23 @@ class ContentFixtureCodecTest {
             catalog.playableLevel.wave.id,
         ) + catalog.playableLevel.buildSlots.map { it.id }
         assertTrue(stableIds.all { it.value == it.value.lowercase() })
+    }
+
+    @Test
+    fun canonicalEncodingIsIndependentOfSetInsertionOrderAndPresentationFields() {
+        val catalog = OriginalContentFixtures.foundationCatalog()
+        val reordered = catalog.copy(
+            enhancementIds = linkedSetOf(
+                OriginalContentIds.FOUNDATION_ENHANCEMENT_EMBER_WARD,
+                OriginalContentIds.FOUNDATION_ENHANCEMENT,
+            ),
+        )
+
+        val encoded = ContentFixtureCodec.encode(catalog)
+
+        assertEquals(encoded, ContentFixtureCodec.encode(reordered))
+        assertFalse(encoded.contains("display"))
+        assertFalse(encoded.contains("asset"))
     }
 
     @Test
@@ -64,7 +89,8 @@ class ContentFixtureCodecTest {
 
     @Test
     fun futureSchemaAndContentVersionsFailExplicitly() {
-        val encoded = ContentFixtureCodec.encode(OriginalContentFixtures.foundationCatalog())
+        val catalog = OriginalContentFixtures.foundationCatalog()
+        val encoded = ContentFixtureCodec.encode(catalog)
 
         val futureSchema = encoded.replace("schemaVersion=2", "schemaVersion=3")
         val schemaError = assertFailsWith<FutureContentSchemaVersionException> {
@@ -77,6 +103,10 @@ class ContentFixtureCodecTest {
             ContentFixtureCodec.decode(futureContent)
         }
         assertEquals(3, contentError.version)
+
+        assertFailsWith<FutureContentVersionException> {
+            ContentFixtureCodec.encode(catalog.copy(contentVersion = 3))
+        }
     }
 
     @Test
@@ -132,11 +162,36 @@ class ContentFixtureCodecTest {
     fun levelFixtureRejectsNegativeValuesWithFieldPath() {
         val encoded = ContentFixtureCodec.encode(OriginalContentFixtures.foundationCatalog())
 
-        val error = assertFailsWith<MalformedContentFixtureException> {
-            ContentFixtureCodec.decode(encoded.replace("level.base.health=120", "level.base.health=-1"))
-        }
+        val numericFields = listOf(
+            "level.base.health" to 120,
+            "level.base.positionTicks" to 120,
+            "level.slot.0.positionTicks" to 30,
+            "level.slot.1.positionTicks" to 60,
+            "level.slot.2.positionTicks" to 90,
+            "level.tower.buildCost" to 40,
+            "level.tower.damage" to 3,
+            "level.tower.cooldownTicks" to 10,
+            "level.tower.rangeTicks" to 35,
+            "level.tower.upgradeBaseCost" to 30,
+            "level.tower.upgradeCostStep" to 20,
+            "level.tower.damageStep" to 1,
+            "level.tower.cooldownStep" to 2,
+            "level.tower.minCooldownTicks" to 4,
+            "level.enemy.health" to 8,
+            "level.enemy.speedTicks" to 2,
+            "level.enemy.baseDamage" to 12,
+            "level.wave.spawnCount" to 9,
+            "level.wave.spawnIntervalTicks" to 20,
+        )
 
-        assertEquals("level.base.health", error.fieldPath)
+        numericFields.forEach { (fieldPath, currentValue) ->
+            val error = assertFailsWith<MalformedContentFixtureException> {
+                ContentFixtureCodec.decode(
+                    fixtureWithField(encoded, fieldPath, "-1", currentValue.toString()),
+                )
+            }
+            assertEquals(fieldPath, error.fieldPath)
+        }
     }
 
     @Test
@@ -145,16 +200,92 @@ class ContentFixtureCodecTest {
         val withoutThirdSlot = encoded.lineSequence()
             .filterNot { it.startsWith("level.slot.2.") }
             .joinToString("\n")
-        val wrongSlotCount = withoutThirdSlot.replace("level.slotCount=3", "level.slotCount=2")
 
-        val slotError = assertFailsWith<MalformedContentFixtureException> {
-            ContentFixtureCodec.decode(wrongSlotCount)
+        listOf(
+            withoutThirdSlot.replace("level.slotCount=3", "level.slotCount=2"),
+            encoded.replace("level.slotCount=3", "level.slotCount=4"),
+        ).forEach { fixture ->
+            val slotError = assertFailsWith<MalformedContentFixtureException> {
+                ContentFixtureCodec.decode(fixture)
+            }
+            assertEquals("level.slotCount", slotError.fieldPath)
         }
-        assertEquals("level.slotCount", slotError.fieldPath)
 
-        val waveError = assertFailsWith<MalformedContentFixtureException> {
-            ContentFixtureCodec.decode(encoded.replace("level.wave.spawnCount=9", "level.wave.spawnCount=11"))
+        listOf(7, 11).forEach { invalidCount ->
+            val waveError = assertFailsWith<MalformedContentFixtureException> {
+                ContentFixtureCodec.decode(
+                    fixtureWithField(encoded, "level.wave.spawnCount", invalidCount.toString(), "9"),
+                )
+            }
+            assertEquals("level.wave.spawnCount", waveError.fieldPath)
         }
-        assertEquals("level.wave.spawnCount", waveError.fieldPath)
+    }
+
+    @Test
+    fun finiteWaveAcceptsBothConfiguredBoundaryCounts() {
+        val encoded = ContentFixtureCodec.encode(OriginalContentFixtures.foundationCatalog())
+
+        listOf(8, 10).forEach { spawnCount ->
+            val decoded = ContentFixtureCodec.decode(
+                fixtureWithField(encoded, "level.wave.spawnCount", spawnCount.toString(), "9"),
+            )
+            assertEquals(spawnCount, decoded.playableLevel.wave.spawnCount)
+        }
+    }
+
+    @Test
+    fun levelFixtureRejectsBlankAndInvalidIdsWithFieldPaths() {
+        val encoded = ContentFixtureCodec.encode(OriginalContentFixtures.foundationCatalog())
+        val invalidIds = listOf(
+            "stage.0" to "",
+            "building.0" to "Building One",
+            "unit.0" to "unit_bright_mote",
+            "enemy.0" to "enemy/ash-sprout",
+            "enhancement.0" to "enhancement ember ward",
+            "level.stageId" to "stage/ember-path",
+            "level.base.id" to "Base",
+            "level.slot.0.id" to "",
+            "level.tower.id" to "tower id",
+            "level.enemy.id" to "enemy_id",
+            "level.wave.id" to "wave/id",
+            "level.wave.enemyFamilyId" to "Enemy Family",
+        )
+
+        invalidIds.forEach { (fieldPath, invalidValue) ->
+            val error = assertFailsWith<MalformedContentFixtureException> {
+                ContentFixtureCodec.decode(fixtureWithField(encoded, fieldPath, invalidValue))
+            }
+            assertEquals(fieldPath, error.fieldPath)
+        }
+    }
+
+    @Test
+    fun fixtureRejectsUnknownAndMissingNestedFieldsDeterministically() {
+        val encoded = ContentFixtureCodec.encode(OriginalContentFixtures.foundationCatalog())
+
+        val missing = encoded.lineSequence()
+            .filterNot { it.startsWith("level.tower.damage=") }
+            .joinToString("\n")
+        val missingError = assertFailsWith<MalformedContentFixtureException> {
+            ContentFixtureCodec.decode(missing)
+        }
+        assertEquals("level.tower.damage", missingError.fieldPath)
+
+        val unknownError = assertFailsWith<MalformedContentFixtureException> {
+            ContentFixtureCodec.decode("$encoded\nlevel.base.displayName=forbidden")
+        }
+        assertEquals("level.base.displayName", unknownError.fieldPath)
+    }
+
+    private fun fixtureWithField(
+        encoded: String,
+        fieldPath: String,
+        replacement: String,
+        expectedValue: String? = null,
+    ): String {
+        val currentValue = expectedValue ?: encoded.lineSequence()
+            .first { it.startsWith("$fieldPath=") }
+            .substringAfter('=')
+        return encoded.replace("$fieldPath=$currentValue", "$fieldPath=$replacement")
     }
 }
