@@ -9,6 +9,7 @@ import dev.myengine.core.SeededRandom
 import dev.myengine.core.StableHash
 import dev.myengine.core.TextCommand
 import dev.myengine.core.Tick
+import java.util.Base64
 import kotlin.io.path.Path
 import kotlin.io.path.exists
 import kotlin.io.path.isDirectory
@@ -56,6 +57,98 @@ class SimulationSessionTest {
         assertEquals(60, first.state().resource)
         assertEquals(0, first.state().incomeRemainderTicks)
         assertEquals(40, first.state().enemies.first().positionTicks)
+    }
+
+    @Test
+    fun `canonical playable session queues build tower until the next fixed tick`() {
+        val initial = PlayableBattleEngine.initialState(
+            initialResource = 100,
+            incomePerSecond = 0,
+        )
+        val session = SimulationSession.playableBattle(seed = 42L, initialState = initial)
+        val target = initial.slots[1].id
+
+        val queued = session.buildTower(target)
+
+        assertEquals(0L, queued.tick)
+        assertEquals(initial, queued.state)
+        assertTrue(session.state().slots[1].isEmpty)
+        assertTrue(session.advance(49).isEmpty())
+        assertEquals(49L, session.pendingMillis)
+        assertTrue(session.state().slots[1].isEmpty)
+
+        val tickResults = session.advance(1)
+
+        assertEquals(listOf(1L), tickResults.map { it.tick })
+        assertEquals(1, tickResults.single().commandsProcessed)
+        assertEquals(1L, session.currentTick)
+        assertEquals(0L, session.pendingMillis)
+        assertEquals(initial.towerId, session.state().slots[1].towerId)
+        assertEquals(initial.resource - initial.buildCost, session.state().resource)
+    }
+
+    @Test
+    fun `fixed-slot build command uses canonical encoding and stable input hashes`() {
+        val initial = PlayableBattleEngine.initialState(
+            initialResource = 100,
+            incomePerSecond = 0,
+        )
+        val first = SimulationSession.playableBattle(seed = 42L, initialState = initial)
+        val second = SimulationSession.playableBattle(seed = 42L, initialState = initial)
+        val differentTarget = SimulationSession.playableBattle(seed = 42L, initialState = initial)
+        val target = initial.slots[1].id
+
+        first.buildTower(target)
+        second.buildTower(target)
+        differentTarget.buildTower(initial.slots[2].id)
+
+        val encoded = first.canonicalCommandEncoding()
+        val encodedType = Base64.getEncoder().encodeToString(
+            "playable-battle.build-tower".toByteArray(),
+        )
+        val encodedPayload = Base64.getEncoder().encodeToString(target.value.toByteArray())
+
+        assertTrue(encoded.startsWith("mysd.command-log|commands\nschemaVersion=1\ncommandCount=1"))
+        assertTrue(encoded.contains("command.0.id=0"))
+        assertTrue(encoded.contains("command.0.scheduledTick=0"))
+        assertTrue(encoded.contains("command.0.type=$encodedType"))
+        assertTrue(encoded.contains("command.0.actorPresent=0\ncommand.0.actorId="))
+        assertTrue(encoded.contains("command.0.payload=$encodedPayload"))
+        assertEquals(encoded, second.canonicalCommandEncoding())
+        assertEquals(first.inputHash(), second.inputHash())
+        assertEquals(first.replayHashChain(), second.replayHashChain())
+        assertTrue(first.inputHash().isNotBlank())
+        assertTrue(first.replayHashChain().isNotBlank())
+        assertNotEquals(first.canonicalCommandEncoding(), differentTarget.canonicalCommandEncoding())
+        assertNotEquals(first.inputHash(), differentTarget.inputHash())
+        assertNotEquals(first.replayHashChain(), differentTarget.replayHashChain())
+    }
+
+    @Test
+    fun `same seed and queued build command produce replay-equivalent trajectory`() {
+        val initial = PlayableBattleEngine.initialState(
+            initialResource = 100,
+            incomePerSecond = 13,
+        )
+        val first = SimulationSession.playableBattle(seed = 42L, initialState = initial)
+        val second = SimulationSession.playableBattle(seed = 42L, initialState = initial)
+        val target = initial.slots[2].id
+
+        first.buildTower(target)
+        second.buildTower(target)
+
+        val firstTrajectory = first.advance(1_000)
+        val secondTrajectory = second.advance(1_000)
+        val verification = ReplayVerification.compare(firstTrajectory, secondTrajectory)
+
+        assertEquals((1L..20L).toList(), firstTrajectory.map { it.tick })
+        assertEquals(firstTrajectory, secondTrajectory)
+        assertTrue(firstTrajectory.all { it.stateHash.isNotBlank() })
+        assertTrue(verification.passed)
+        assertEquals(initial.towerId, first.state().slots[2].towerId)
+        assertEquals(initial.resource - initial.buildCost + 13, first.state().resource)
+        assertEquals(first.snapshot(), second.snapshot())
+        assertEquals(first.snapshot().stateHash, second.snapshot().stateHash)
     }
 
     @Test

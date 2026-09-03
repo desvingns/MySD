@@ -152,6 +152,100 @@ class PlayableBattleEngineTest {
     }
 
     @Test
+    fun `build tower on affordable empty slot places configured tower and deducts exact cost`() {
+        val initial = PlayableBattleEngine.initialState(
+            initialResource = 100,
+            incomePerSecond = 0,
+        )
+        val target = initial.slots[1].id
+
+        val result = PlayableBattleEngine.buildTower(initial, target)
+
+        assertTrue(result.accepted)
+        assertTrue(result.successful)
+        assertEquals(target, result.targetSlotId)
+        assertEquals(null, result.rejection)
+        assertEquals(initial.resource - initial.buildCost, result.resource)
+        assertEquals(initial.towerId, result.state.slots[1].towerId)
+        assertEquals(1, result.state.slots.count { !it.isEmpty })
+        assertTrue(result.state.slots.filter { it.id != target }.all { it.isEmpty })
+    }
+
+    @Test
+    fun `build tower rejects unknown slot without partial mutation`() {
+        val initial = PlayableBattleEngine.initialState(
+            initialResource = 100,
+            incomePerSecond = 0,
+        )
+        val unknownSlot = ContentId.of("build-slot-unknown")
+
+        val result = PlayableBattleEngine.buildTower(initial, unknownSlot)
+
+        assertFalse(result.accepted)
+        assertEquals(PlayableBattleSpendRejection.UNKNOWN_SLOT, result.rejection)
+        assertSame(initial, result.state)
+        assertEquals(100, result.resource)
+        assertTrue(result.state.slots.all { it.isEmpty })
+    }
+
+    @Test
+    fun `build tower rejects occupied slot without partial mutation`() {
+        val initial = PlayableBattleEngine.initialState(
+            initialResource = 100,
+            incomePerSecond = 0,
+        )
+        val target = initial.slots[0].id
+        val occupied = initial.copy(
+            slots = initial.slots.map { slot ->
+                if (slot.id == target) slot.copy(towerId = initial.towerId) else slot
+            },
+        )
+
+        val result = PlayableBattleEngine.buildTower(occupied, target)
+
+        assertFalse(result.accepted)
+        assertEquals(PlayableBattleSpendRejection.TARGET_SLOT_OCCUPIED, result.rejection)
+        assertSame(occupied, result.state)
+        assertEquals(100, result.resource)
+        assertEquals(initial.towerId, result.state.slots.first { it.id == target }.towerId)
+    }
+
+    @Test
+    fun `build tower rejects unaffordable empty slot without partial mutation`() {
+        val initial = PlayableBattleEngine.initialState(
+            initialResource = 0,
+            incomePerSecond = 0,
+        )
+        val target = initial.slots[2].id
+
+        val result = PlayableBattleEngine.buildTower(initial, target)
+
+        assertFalse(result.accepted)
+        assertEquals(PlayableBattleSpendRejection.INSUFFICIENT_RESOURCE, result.rejection)
+        assertSame(initial, result.state)
+        assertEquals(0, result.resource)
+        assertTrue(result.state.slots.all { it.isEmpty })
+    }
+
+    @Test
+    fun `build tower rejects paused battle without partial mutation`() {
+        val initial = PlayableBattleEngine.initialState(
+            initialResource = 100,
+            incomePerSecond = 0,
+            phase = PlayableBattlePhase.PAUSED,
+        )
+        val target = initial.slots[1].id
+
+        val result = PlayableBattleEngine.buildTower(initial, target)
+
+        assertFalse(result.accepted)
+        assertEquals(PlayableBattleSpendRejection.BATTLE_PAUSED, result.rejection)
+        assertSame(initial, result.state)
+        assertEquals(100, result.resource)
+        assertTrue(result.state.slots.all { it.isEmpty })
+    }
+
+    @Test
     fun invalidEconomyAndTickInputsAreRejected() {
         val initial = PlayableBattleEngine.initialState()
 
@@ -246,12 +340,16 @@ class PlayableBattleEngineTest {
         second.buildTower(target)
 
         assertTrue(first.state().slots[1].isEmpty)
+        assertTrue(first.advance(49).isEmpty())
+        assertTrue(second.advance(49).isEmpty())
+        assertEquals(49L, first.pendingMillis)
+        assertEquals(49L, second.pendingMillis)
         assertEquals(first.canonicalCommandEncoding(), second.canonicalCommandEncoding())
         assertEquals(first.inputHash(), second.inputHash())
         assertEquals(first.replayHashChain(), second.replayHashChain())
 
-        val firstTick = first.advance(50)
-        val secondTick = second.advance(50)
+        val firstTick = first.advance(1)
+        val secondTick = second.advance(1)
         val firstSnapshot = first.snapshot()
         val secondSnapshot = second.snapshot()
 
