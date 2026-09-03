@@ -1,5 +1,13 @@
 package dev.mysd.game.persistence
 
+import dev.mysd.game.battle.playable.PlayableBattleBaseState
+import dev.mysd.game.battle.playable.PlayableBattleEnemyState
+import dev.mysd.game.battle.playable.PlayableBattlePhase
+import dev.mysd.game.battle.playable.PlayableBattleSlotState
+import dev.mysd.game.battle.playable.PlayableBattleState
+import dev.mysd.game.battle.playable.PlayableBattleTerminal
+import dev.mysd.game.content.ContentId
+
 data class PendingCommand(
     val id: Long,
     val scheduledTick: Long,
@@ -35,12 +43,20 @@ data class RunSave(
     val pendingCommands: List<PendingCommand>,
     val modifiers: List<String>,
     val terminalResult: RunTerminalResult?,
-)
+    /** Android-free authoritative state; null is an explicit legacy contour-only save. */
+    val playableBattleState: PlayableBattleState? = null,
+) {
+    /** Short alias for callers that refer to the payload as the playable state. */
+    val playableState: PlayableBattleState?
+        get() = playableBattleState
+}
 
 object RunSaveCodec {
-    const val CURRENT_SCHEMA_VERSION: Int = 3
+    const val CURRENT_SCHEMA_VERSION: Int = 4
     private const val BOUNDARY = "run-save"
     private const val LEGACY_SCHEMA_VERSION_WITH_SIMULATION: Int = 2
+    private const val COMMAND_METADATA_SCHEMA_VERSION: Int = 3
+    private const val PLAYABLE_STATE_SCHEMA_VERSION: Int = 4
 
     fun encode(value: RunSave): String {
         validate(value)
@@ -69,6 +85,8 @@ object RunSaveCodec {
         }
         fields["terminalPresent"] = if (value.terminalResult == null) "0" else "1"
         fields["terminalResult"] = value.terminalResult?.name ?: ""
+        fields["playableStatePresent"] = if (value.playableBattleState == null) "0" else "1"
+        value.playableBattleState?.let { encodePlayableState(fields, it) }
         return PersistenceWire.document(BOUNDARY, CURRENT_SCHEMA_VERSION, fields)
     }
 
@@ -77,6 +95,21 @@ object RunSaveCodec {
         val fields = document.fields
         val commandCount = PersistenceWire.count(fields, "commandCount")
         val modifierCount = PersistenceWire.count(fields, "modifierCount")
+        val statePresent = if (document.version >= PLAYABLE_STATE_SCHEMA_VERSION) {
+            PersistenceWire.flag(fields, "playableStatePresent")
+        } else {
+            false
+        }
+        val stateSlotCount = if (statePresent) {
+            PersistenceWire.count(fields, "state.slotCount")
+        } else {
+            0
+        }
+        val stateEnemyCount = if (statePresent) {
+            PersistenceWire.count(fields, "state.enemyCount")
+        } else {
+            0
+        }
         val fixedKeys = buildSet {
             addAll(
                 setOf(
@@ -86,7 +119,7 @@ object RunSaveCodec {
             )
             if (document.version >= LEGACY_SCHEMA_VERSION_WITH_SIMULATION) add("simulationVersion")
             repeat(commandCount) {
-                if (document.version >= CURRENT_SCHEMA_VERSION) {
+                if (document.version >= COMMAND_METADATA_SCHEMA_VERSION) {
                     add("command.$it.id")
                     add("command.$it.scheduledTick")
                     add("command.$it.type")
@@ -100,12 +133,37 @@ object RunSaveCodec {
                 }
             }
             repeat(modifierCount) { add("modifier.$it") }
+            if (document.version >= PLAYABLE_STATE_SCHEMA_VERSION) {
+                add("playableStatePresent")
+                if (statePresent) {
+                    addAll(playableStateFixedKeys())
+                    repeat(stateSlotCount) { index ->
+                        add("state.slot.$index.id")
+                        add("state.slot.$index.positionTicks")
+                        add("state.slot.$index.towerPresent")
+                        add("state.slot.$index.towerId")
+                        add("state.slot.$index.towerLevel")
+                        add("state.slot.$index.towerDamagePresent")
+                        add("state.slot.$index.towerDamage")
+                        add("state.slot.$index.towerCooldownPresent")
+                        add("state.slot.$index.towerCooldownTicks")
+                        add("state.slot.$index.towerCooldownRemainingTicks")
+                    }
+                    repeat(stateEnemyCount) { index ->
+                        add("state.enemy.$index.id")
+                        add("state.enemy.$index.familyId")
+                        add("state.enemy.$index.health")
+                        add("state.enemy.$index.positionTicks")
+                        add("state.enemy.$index.speedTicks")
+                    }
+                }
+            }
         }
         PersistenceWire.requireExactKeys(document, fixedKeys)
 
         val simulationVersion = if (document.version == 1) 1 else PersistenceWire.int(fields, "simulationVersion")
         val decodedCommands = (0 until commandCount).map { index ->
-            if (document.version >= CURRENT_SCHEMA_VERSION) {
+            if (document.version >= COMMAND_METADATA_SCHEMA_VERSION) {
                 val actorPresent = PersistenceWire.flag(fields, "command.$index.actorPresent")
                 val actorRaw = PersistenceWire.required(fields, "command.$index.actorId")
                 val actorId = if (actorPresent) {
@@ -134,7 +192,7 @@ object RunSaveCodec {
                 )
             }
         }
-        val commands = if (document.version >= CURRENT_SCHEMA_VERSION) {
+        val commands = if (document.version >= COMMAND_METADATA_SCHEMA_VERSION) {
             canonicalCommands(decodedCommands)
         } else {
             decodedCommands
@@ -144,14 +202,10 @@ object RunSaveCodec {
         }
         val terminalPresent = PersistenceWire.flag(fields, "terminalPresent")
         val terminalRaw = PersistenceWire.required(fields, "terminalResult")
-        val terminalResult = if (terminalPresent) {
-            try {
-                RunTerminalResult.valueOf(terminalRaw)
-            } catch (_: IllegalArgumentException) {
-                throw MalformedPersistenceException("Malformed run terminal result")
-            }
+        val terminalResult = decodeRunTerminal(terminalPresent, terminalRaw)
+        val playableBattleState = if (statePresent) {
+            decodePlayableState(fields, stateSlotCount, stateEnemyCount)
         } else {
-            if (terminalRaw.isNotEmpty()) throw MalformedPersistenceException("Unexpected run terminal result")
             null
         }
         val result = RunSave(
@@ -166,9 +220,240 @@ object RunSaveCodec {
             pendingCommands = commands,
             modifiers = modifiers,
             terminalResult = terminalResult,
+            playableBattleState = playableBattleState,
         )
         validate(result)
         return result
+    }
+
+    private fun encodePlayableState(
+        fields: MutableMap<String, String>,
+        state: PlayableBattleState,
+    ) {
+        fields["state.stageId"] = PersistenceWire.encodeText(state.stageId.value)
+        fields["state.phase"] = state.phase.name
+        fields["state.terminalPresent"] = if (state.terminalResult == null) "0" else "1"
+        fields["state.terminalResult"] = state.terminalResult?.name ?: ""
+        fields["state.base.id"] = PersistenceWire.encodeText(state.base.id.value)
+        fields["state.base.health"] = state.base.health.toString()
+        fields["state.base.maxHealth"] = state.base.maxHealth.toString()
+        fields["state.base.positionTicks"] = state.base.positionTicks.toString()
+        fields["state.resource"] = state.resource.toString()
+        fields["state.resourceCap"] = state.resourceCap.toString()
+        fields["state.incomePerSecond"] = state.incomePerSecond.toString()
+        fields["state.incomeRemainderTicks"] = state.incomeRemainderTicks.toString()
+        fields["state.towerId"] = PersistenceWire.encodeText(state.towerId.value)
+        fields["state.buildCost"] = state.buildCost.toString()
+        fields["state.towerBaseDamage"] = state.towerBaseDamage.toString()
+        fields["state.towerBaseCooldownTicks"] = state.towerBaseCooldownTicks.toString()
+        fields["state.towerUpgradeBaseCost"] = state.towerUpgradeBaseCost.toString()
+        fields["state.towerUpgradeCostStep"] = state.towerUpgradeCostStep.toString()
+        fields["state.towerDamageStep"] = state.towerDamageStep.toString()
+        fields["state.towerCooldownStep"] = state.towerCooldownStep.toString()
+        fields["state.towerMinCooldownTicks"] = state.towerMinCooldownTicks.toString()
+        fields["state.waveId"] = PersistenceWire.encodeText(state.waveId.value)
+        fields["state.enemyFamilyId"] = PersistenceWire.encodeText(state.enemyFamilyId.value)
+        fields["state.enemyHealth"] = state.enemyHealth.toString()
+        fields["state.enemySpeedTicks"] = state.enemySpeedTicks.toString()
+        fields["state.waveSpawnCount"] = state.waveSpawnCount.toString()
+        fields["state.waveSpawnedCount"] = state.waveSpawnedCount.toString()
+        fields["state.waveElapsedTicks"] = state.waveElapsedTicks.toString()
+        fields["state.waveSpawnIntervalTicks"] = state.waveSpawnIntervalTicks.toString()
+        fields["state.towerRangeTicks"] = state.towerRangeTicks.toString()
+        fields["state.baseLeakDamage"] = state.baseLeakDamage.toString()
+        fields["state.slotCount"] = state.slots.size.toString()
+        state.slots.sortedBy { it.id.value }.forEachIndexed { index, slot ->
+            fields["state.slot.$index.id"] = PersistenceWire.encodeText(slot.id.value)
+            fields["state.slot.$index.positionTicks"] = slot.positionTicks.toString()
+            fields["state.slot.$index.towerPresent"] = if (slot.towerId == null) "0" else "1"
+            fields["state.slot.$index.towerId"] = slot.towerId?.let { PersistenceWire.encodeText(it.value) } ?: ""
+            fields["state.slot.$index.towerLevel"] = slot.towerLevel.toString()
+            fields["state.slot.$index.towerDamagePresent"] = if (slot.towerDamage == null) "0" else "1"
+            fields["state.slot.$index.towerDamage"] = slot.towerDamage?.toString() ?: ""
+            fields["state.slot.$index.towerCooldownPresent"] = if (slot.towerCooldownTicks == null) "0" else "1"
+            fields["state.slot.$index.towerCooldownTicks"] = slot.towerCooldownTicks?.toString() ?: ""
+            fields["state.slot.$index.towerCooldownRemainingTicks"] = slot.towerCooldownRemainingTicks.toString()
+        }
+        fields["state.enemyCount"] = state.enemies.size.toString()
+        state.enemies.sortedBy { it.id }.forEachIndexed { index, enemy ->
+            fields["state.enemy.$index.id"] = PersistenceWire.encodeText(enemy.id)
+            fields["state.enemy.$index.familyId"] = PersistenceWire.encodeText(enemy.familyId.value)
+            fields["state.enemy.$index.health"] = enemy.health.toString()
+            fields["state.enemy.$index.positionTicks"] = enemy.positionTicks.toString()
+            fields["state.enemy.$index.speedTicks"] = enemy.speedTicks.toString()
+        }
+    }
+
+    private fun decodePlayableState(
+        fields: Map<String, String>,
+        slotCount: Int,
+        enemyCount: Int,
+    ): PlayableBattleState {
+        val terminalPresent = PersistenceWire.flag(fields, "state.terminalPresent")
+        val terminalRaw = PersistenceWire.required(fields, "state.terminalResult")
+        val terminal = decodePlayableTerminal(terminalPresent, terminalRaw)
+        val slots = try {
+            (0 until slotCount).map { index ->
+                val prefix = "state.slot.$index"
+                val towerPresent = PersistenceWire.flag(fields, "$prefix.towerPresent")
+                val towerRaw = PersistenceWire.required(fields, "$prefix.towerId")
+                val towerId = decodeOptionalContentId(towerPresent, "$prefix.towerId", towerRaw, fields)
+                val towerDamagePresent = PersistenceWire.flag(fields, "$prefix.towerDamagePresent")
+                val towerDamageRaw = PersistenceWire.required(fields, "$prefix.towerDamage")
+                val towerCooldownPresent = PersistenceWire.flag(fields, "$prefix.towerCooldownPresent")
+                val towerCooldownRaw = PersistenceWire.required(fields, "$prefix.towerCooldownTicks")
+                PlayableBattleSlotState(
+                    id = PersistenceWire.contentId(fields, "$prefix.id"),
+                    positionTicks = PersistenceWire.int(fields, "$prefix.positionTicks"),
+                    towerId = towerId,
+                    towerLevel = PersistenceWire.int(fields, "$prefix.towerLevel"),
+                    towerDamage = decodeOptionalInt(
+                        towerDamagePresent,
+                        "$prefix.towerDamage",
+                        towerDamageRaw,
+                        fields,
+                    ),
+                    towerCooldownTicks = decodeOptionalInt(
+                        towerCooldownPresent,
+                        "$prefix.towerCooldownTicks",
+                        towerCooldownRaw,
+                        fields,
+                    ),
+                    towerCooldownRemainingTicks = PersistenceWire.int(
+                        fields,
+                        "$prefix.towerCooldownRemainingTicks",
+                    ),
+                )
+            }
+        } catch (error: PersistenceException) {
+            throw error
+        } catch (error: IllegalArgumentException) {
+            throw MalformedPersistenceException(
+                "Invalid playable state slot: ${error.message ?: "state invariant violation"}",
+            )
+        }
+        val enemies = try {
+            (0 until enemyCount).map { index ->
+                val prefix = "state.enemy.$index"
+                PlayableBattleEnemyState(
+                    id = PersistenceWire.decodeText(fields, "$prefix.id"),
+                    familyId = PersistenceWire.contentId(fields, "$prefix.familyId"),
+                    health = PersistenceWire.int(fields, "$prefix.health"),
+                    positionTicks = PersistenceWire.int(fields, "$prefix.positionTicks"),
+                    speedTicks = PersistenceWire.int(fields, "$prefix.speedTicks"),
+                )
+            }
+        } catch (error: PersistenceException) {
+            throw error
+        } catch (error: IllegalArgumentException) {
+            throw MalformedPersistenceException(
+                "Invalid playable state enemy: ${error.message ?: "state invariant violation"}",
+            )
+        }
+        val state = try {
+            PlayableBattleState(
+                stageId = PersistenceWire.contentId(fields, "state.stageId"),
+                phase = decodePlayablePhase(fields),
+                base = PlayableBattleBaseState(
+                    id = PersistenceWire.contentId(fields, "state.base.id"),
+                    health = PersistenceWire.int(fields, "state.base.health"),
+                    maxHealth = PersistenceWire.int(fields, "state.base.maxHealth"),
+                    positionTicks = PersistenceWire.int(fields, "state.base.positionTicks"),
+                ),
+                resource = PersistenceWire.int(fields, "state.resource"),
+                resourceCap = PersistenceWire.int(fields, "state.resourceCap"),
+                incomePerSecond = PersistenceWire.int(fields, "state.incomePerSecond"),
+                incomeRemainderTicks = PersistenceWire.int(fields, "state.incomeRemainderTicks"),
+                slots = slots,
+                enemies = enemies,
+                towerId = PersistenceWire.contentId(fields, "state.towerId"),
+                buildCost = PersistenceWire.int(fields, "state.buildCost"),
+                towerBaseDamage = PersistenceWire.int(fields, "state.towerBaseDamage"),
+                towerBaseCooldownTicks = PersistenceWire.int(fields, "state.towerBaseCooldownTicks"),
+                towerUpgradeBaseCost = PersistenceWire.int(fields, "state.towerUpgradeBaseCost"),
+                towerUpgradeCostStep = PersistenceWire.int(fields, "state.towerUpgradeCostStep"),
+                towerDamageStep = PersistenceWire.int(fields, "state.towerDamageStep"),
+                towerCooldownStep = PersistenceWire.int(fields, "state.towerCooldownStep"),
+                towerMinCooldownTicks = PersistenceWire.int(fields, "state.towerMinCooldownTicks"),
+                terminalResult = terminal,
+                waveId = PersistenceWire.contentId(fields, "state.waveId"),
+                enemyFamilyId = PersistenceWire.contentId(fields, "state.enemyFamilyId"),
+                enemyHealth = PersistenceWire.int(fields, "state.enemyHealth"),
+                enemySpeedTicks = PersistenceWire.int(fields, "state.enemySpeedTicks"),
+                waveSpawnCount = PersistenceWire.int(fields, "state.waveSpawnCount"),
+                waveSpawnedCount = PersistenceWire.int(fields, "state.waveSpawnedCount"),
+                waveElapsedTicks = PersistenceWire.int(fields, "state.waveElapsedTicks"),
+                waveSpawnIntervalTicks = PersistenceWire.int(fields, "state.waveSpawnIntervalTicks"),
+                towerRangeTicks = PersistenceWire.int(fields, "state.towerRangeTicks"),
+                baseLeakDamage = PersistenceWire.int(fields, "state.baseLeakDamage"),
+            )
+        } catch (error: PersistenceException) {
+            throw error
+        } catch (error: IllegalArgumentException) {
+            throw MalformedPersistenceException(
+                "Invalid playable state: ${error.message ?: "state invariant violation"}",
+            )
+        }
+        validatePlayableState(state)
+        return state
+    }
+
+    private fun decodePlayablePhase(fields: Map<String, String>): PlayableBattlePhase = try {
+        PlayableBattlePhase.valueOf(PersistenceWire.required(fields, "state.phase"))
+    } catch (_: IllegalArgumentException) {
+        throw MalformedPersistenceException("Malformed enum in persistence field: state.phase")
+    }
+
+    private fun decodeRunTerminal(present: Boolean, raw: String): RunTerminalResult? {
+        if (!present) {
+            if (raw.isNotEmpty()) throw MalformedPersistenceException("Unexpected run terminal result")
+            return null
+        }
+        return try {
+            RunTerminalResult.valueOf(raw)
+        } catch (_: IllegalArgumentException) {
+            throw MalformedPersistenceException("Malformed enum in persistence field: terminalResult")
+        }
+    }
+
+    private fun decodePlayableTerminal(present: Boolean, raw: String): PlayableBattleTerminal? {
+        if (!present) {
+            if (raw.isNotEmpty()) throw MalformedPersistenceException("Unexpected playable terminal result")
+            return null
+        }
+        return try {
+            PlayableBattleTerminal.valueOf(raw)
+        } catch (_: IllegalArgumentException) {
+            throw MalformedPersistenceException(
+                "Malformed enum in persistence field: state.terminalResult",
+            )
+        }
+    }
+
+    private fun decodeOptionalContentId(
+        present: Boolean,
+        valueKey: String,
+        raw: String,
+        fields: Map<String, String>,
+    ): ContentId? {
+        if (present) return PersistenceWire.contentId(fields, valueKey)
+        if (raw.isNotEmpty()) {
+            throw MalformedPersistenceException("Unexpected value in persistence field: $valueKey")
+        }
+        return null
+    }
+
+    private fun decodeOptionalInt(
+        present: Boolean,
+        valueKey: String,
+        raw: String,
+        fields: Map<String, String>,
+    ): Int? {
+        if (present) return PersistenceWire.int(fields, valueKey)
+        if (raw.isNotEmpty()) {
+            throw MalformedPersistenceException("Unexpected value in persistence field: $valueKey")
+        }
+        return null
     }
 
     private fun validate(value: RunSave) {
@@ -190,7 +475,177 @@ object RunSaveCodec {
         if (value.active && value.terminalResult != null) {
             throw MalformedPersistenceException("Active run cannot have a terminal result")
         }
+        if (!value.active && value.terminalResult == null) {
+            throw MalformedPersistenceException("Inactive run must have a terminal result")
+        }
+        value.playableBattleState?.let { state ->
+            if (state.stageId.value != value.stageId) {
+                throw MalformedPersistenceException(
+                    "Playable state stage does not match persistence field: stageId",
+                )
+            }
+            validatePlayableState(state)
+            val stateTerminal = state.terminalResult?.let(::toRunTerminal)
+            if (stateTerminal != value.terminalResult) {
+                throw MalformedPersistenceException(
+                    "Playable state terminal does not match run terminal result",
+                )
+            }
+            if (state.isTerminal == value.active) {
+                throw MalformedPersistenceException(
+                    "Playable state active flag does not match run active flag",
+                )
+            }
+        }
     }
+
+    private fun validatePlayableState(state: PlayableBattleState) {
+        PersistenceWire.requireNonBlank(state.stageId.value, "state.stageId")
+        PersistenceWire.requireNonNegative(state.base.maxHealth, "state.base.maxHealth")
+        PersistenceWire.requireInRange(
+            state.base.health,
+            0..state.base.maxHealth,
+            "state.base.health",
+        )
+        PersistenceWire.requireNonNegative(state.base.positionTicks, "state.base.positionTicks")
+        PersistenceWire.requireNonNegative(state.resourceCap, "state.resourceCap")
+        PersistenceWire.requireInRange(state.resource, 0..state.resourceCap, "state.resource")
+        PersistenceWire.requireNonNegative(state.incomePerSecond, "state.incomePerSecond")
+        PersistenceWire.requireInRange(
+            state.incomeRemainderTicks,
+            0 until PlayableBattleState.TICKS_PER_SECOND,
+            "state.incomeRemainderTicks",
+        )
+        PersistenceWire.requireInRange(state.waveSpawnCount, 8..10, "state.waveSpawnCount")
+        PersistenceWire.requireInRange(
+            state.waveSpawnedCount,
+            0..state.waveSpawnCount,
+            "state.waveSpawnedCount",
+        )
+        PersistenceWire.requireNonNegative(state.waveElapsedTicks, "state.waveElapsedTicks")
+        PersistenceWire.requireAtLeast(
+            state.waveSpawnIntervalTicks,
+            1,
+            "state.waveSpawnIntervalTicks",
+        )
+        PersistenceWire.requireAtLeast(
+            state.towerBaseCooldownTicks,
+            1,
+            "state.towerBaseCooldownTicks",
+        )
+        PersistenceWire.requireAtLeast(
+            state.towerMinCooldownTicks,
+            1,
+            "state.towerMinCooldownTicks",
+        )
+        val slotIds = mutableSetOf<ContentId>()
+        state.slots.forEachIndexed { index, slot ->
+            if (!slotIds.add(slot.id)) {
+                throw MalformedPersistenceException(
+                    "Duplicate playable state slot id: state.slot.$index.id",
+                )
+            }
+            PersistenceWire.requireNonNegative(slot.positionTicks, "state.slot.$index.positionTicks")
+            PersistenceWire.requireInRange(
+                slot.towerLevel,
+                0..PlayableBattleState.MAX_TOWER_LEVEL,
+                "state.slot.$index.towerLevel",
+            )
+            slot.towerDamage?.let {
+                PersistenceWire.requireNonNegative(it, "state.slot.$index.towerDamage")
+            }
+            slot.towerCooldownTicks?.let {
+                PersistenceWire.requireAtLeast(it, 1, "state.slot.$index.towerCooldownTicks")
+            }
+            PersistenceWire.requireNonNegative(
+                slot.towerCooldownRemainingTicks,
+                "state.slot.$index.towerCooldownRemainingTicks",
+            )
+        }
+        val enemyIds = mutableSetOf<String>()
+        state.enemies.forEachIndexed { index, enemy ->
+            if (!enemyIds.add(enemy.id)) {
+                throw MalformedPersistenceException(
+                    "Duplicate playable state enemy id: state.enemy.$index.id",
+                )
+            }
+            PersistenceWire.requireNonBlank(enemy.id, "state.enemy.$index.id")
+            PersistenceWire.requireNonNegative(enemy.health, "state.enemy.$index.health")
+            PersistenceWire.requireNonNegative(enemy.positionTicks, "state.enemy.$index.positionTicks")
+            PersistenceWire.requireNonNegative(enemy.speedTicks, "state.enemy.$index.speedTicks")
+        }
+        if (state.enemies.size > state.waveSpawnedCount) {
+            throw MalformedPersistenceException("Living enemies exceed state.waveSpawnedCount")
+        }
+        when (state.terminalResult) {
+            PlayableBattleTerminal.VICTORY -> {
+                if (state.base.health <= 0) {
+                    throw MalformedPersistenceException(
+                        "Invalid terminal combination: state.terminalResult=VICTORY requires state.base.health>0",
+                    )
+                }
+                if (state.waveSpawnedCount != state.waveSpawnCount) {
+                    throw MalformedPersistenceException(
+                        "Invalid terminal combination: state.terminalResult=VICTORY requires state.waveSpawnedCount=state.waveSpawnCount",
+                    )
+                }
+                if (state.enemies.isNotEmpty()) {
+                    throw MalformedPersistenceException(
+                        "Invalid terminal combination: state.terminalResult=VICTORY requires no living enemies",
+                    )
+                }
+            }
+
+            PlayableBattleTerminal.DEFEAT -> if (state.base.health != 0) {
+                throw MalformedPersistenceException(
+                    "Invalid terminal combination: state.terminalResult=DEFEAT requires state.base.health=0",
+                )
+            }
+
+            null -> Unit
+        }
+    }
+
+    private fun toRunTerminal(terminal: PlayableBattleTerminal): RunTerminalResult = when (terminal) {
+        PlayableBattleTerminal.VICTORY -> RunTerminalResult.VICTORY
+        PlayableBattleTerminal.DEFEAT -> RunTerminalResult.DEFEAT
+    }
+
+    private fun playableStateFixedKeys(): Set<String> = setOf(
+        "state.stageId",
+        "state.phase",
+        "state.terminalPresent",
+        "state.terminalResult",
+        "state.base.id",
+        "state.base.health",
+        "state.base.maxHealth",
+        "state.base.positionTicks",
+        "state.resource",
+        "state.resourceCap",
+        "state.incomePerSecond",
+        "state.incomeRemainderTicks",
+        "state.towerId",
+        "state.buildCost",
+        "state.towerBaseDamage",
+        "state.towerBaseCooldownTicks",
+        "state.towerUpgradeBaseCost",
+        "state.towerUpgradeCostStep",
+        "state.towerDamageStep",
+        "state.towerCooldownStep",
+        "state.towerMinCooldownTicks",
+        "state.waveId",
+        "state.enemyFamilyId",
+        "state.enemyHealth",
+        "state.enemySpeedTicks",
+        "state.waveSpawnCount",
+        "state.waveSpawnedCount",
+        "state.waveElapsedTicks",
+        "state.waveSpawnIntervalTicks",
+        "state.towerRangeTicks",
+        "state.baseLeakDamage",
+        "state.slotCount",
+        "state.enemyCount",
+    )
 
     private fun canonicalCommands(commands: List<PendingCommand>): List<PendingCommand> = commands
         .sortedWith(

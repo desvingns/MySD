@@ -1,5 +1,6 @@
 package dev.mysd.game.persistence
 
+import dev.mysd.game.content.ContentId
 import java.nio.ByteBuffer
 import java.nio.charset.CodingErrorAction
 import java.nio.charset.StandardCharsets
@@ -106,6 +107,15 @@ internal object PersistenceWire {
         required(fields, key).toLongOrNull()
             ?: throw MalformedPersistenceException("Malformed long in persistence field: $key")
 
+    fun contentId(fields: Map<String, String>, key: String): ContentId {
+        val raw = decodeText(fields, key)
+        return try {
+            ContentId.of(raw)
+        } catch (_: IllegalArgumentException) {
+            throw MalformedPersistenceException("Malformed content id in persistence field: $key")
+        }
+    }
+
     fun count(fields: Map<String, String>, key: String): Int {
         val count = int(fields, key)
         if (count !in 0..MAX_ITEMS) {
@@ -130,5 +140,23 @@ internal object PersistenceWire {
 
     fun requireNonBlank(value: String, field: String) {
         if (value.isBlank()) throw MalformedPersistenceException("Blank value in persistence field: $field")
+    }
+
+    fun requireAtLeast(value: Int, minimum: Int, field: String) {
+        if (value < minimum) {
+            throw MalformedPersistenceException("Value below minimum in persistence field: $field")
+        }
+    }
+
+    fun requireAtMost(value: Int, maximum: Int, field: String) {
+        if (value > maximum) {
+            throw MalformedPersistenceException("Value above maximum in persistence field: $field")
+        }
+    }
+
+    fun requireInRange(value: Int, range: IntRange, field: String) {
+        if (value !in range) {
+            throw MalformedPersistenceException("Value outside range in persistence field: $field")
+        }
     }
 }
