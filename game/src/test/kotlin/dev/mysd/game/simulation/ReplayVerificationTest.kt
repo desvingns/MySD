@@ -1,5 +1,9 @@
 package dev.mysd.game.simulation
 
+import dev.mysd.game.battle.playable.PlayableBattleEngine
+import dev.mysd.game.persistence.PendingCommand
+import dev.mysd.game.persistence.RunSave
+import dev.mysd.game.persistence.RunSaveCodec
 import kotlin.io.path.Path
 import kotlin.io.path.exists
 import kotlin.io.path.isDirectory
@@ -108,6 +112,91 @@ class ReplayVerificationTest {
         assertContains(failure.message.orEmpty(), "index=1")
         assertContains(failure.message.orEmpty(), "expected=hash-2")
         assertContains(failure.message.orEmpty(), "actual=hash-9")
+    }
+
+    @Test
+    fun activePlayablePayloadRestoresStateAndContinuesTheSameHashTrajectory() {
+        val initial = PlayableBattleEngine.initialState(
+            initialResource = 100,
+            incomePerSecond = 13,
+        )
+        val targetSlot = initial.slots.first().id
+        val uninterrupted = SimulationSession.playableBattle(seed = 73L, initialState = initial)
+
+        uninterrupted.buildTower(targetSlot)
+        uninterrupted.advance(7 * SimulationClock.TICK_DURATION_MILLIS)
+        uninterrupted.upgradeTower(targetSlot)
+
+        val saved = RunSave(
+            runId = "playable-run-001",
+            stageId = uninterrupted.state().stageId.value,
+            contentVersion = 2,
+            simulationVersion = 1,
+            seed = uninterrupted.seed,
+            rngState = uninterrupted.rngState,
+            tick = uninterrupted.currentTick,
+            active = true,
+            pendingCommands = listOf(
+                PendingCommand(
+                    id = 1L,
+                    scheduledTick = uninterrupted.currentTick,
+                    type = "playable-battle.upgrade-tower",
+                    actorId = null,
+                    payload = targetSlot.value,
+                ),
+            ),
+            modifiers = emptyList(),
+            terminalResult = null,
+            playableBattleState = uninterrupted.state(),
+        )
+        val payload = RunSaveCodec.encode(saved)
+
+        val outcome = SimulationSession.restorePlayableBattle(payload)
+        assertEquals(PlayableBattleRestoreStatus.RESTORED, outcome.status)
+        val restored = when (outcome) {
+            is PlayableBattleRestoreResult.Restored -> outcome.session
+            PlayableBattleRestoreResult.UnsupportedLegacy -> error("Full playable payload was not restored")
+        }
+
+        assertEquals(saved.playableBattleState, restored.state())
+        assertEquals(uninterrupted.snapshot(), restored.snapshot())
+        assertEquals(saved.tick, restored.currentTick)
+        assertEquals(saved.rngState, restored.rngState)
+
+        uninterrupted.spend(targetSlotId = null, cost = 0)
+        restored.spend(targetSlotId = null, cost = 0)
+        val uninterruptedTrajectory = uninterrupted.advance(5 * SimulationClock.TICK_DURATION_MILLIS)
+        val restoredTrajectory = restored.advance(5 * SimulationClock.TICK_DURATION_MILLIS)
+
+        ReplayVerification.requireMatch(uninterruptedTrajectory, restoredTrajectory)
+        assertEquals(uninterrupted.snapshot(), restored.snapshot())
+        assertEquals(1, restored.state().slots.first().towerLevel)
+        assertTrue(restored.state().enemies.isNotEmpty())
+    }
+
+    @Test
+    fun contourOnlyRunSaveReturnsExplicitLegacyOutcomeWithoutPlayableState() {
+        val legacy = RunSave(
+            runId = "legacy-run",
+            stageId = "stage-alpha",
+            contentVersion = 3,
+            simulationVersion = 7,
+            seed = -42L,
+            rngState = -7L,
+            tick = 12L,
+            active = true,
+            pendingCommands = listOf(PendingCommand(4L, 0L, "place", null, "tower-a")),
+            modifiers = listOf("legacy-contour"),
+            terminalResult = null,
+        )
+
+        val outcome = SimulationSession.restorePlayableBattle(legacy)
+
+        assertEquals(PlayableBattleRestoreStatus.UNSUPPORTED_LEGACY, outcome.status)
+        when (outcome) {
+            is PlayableBattleRestoreResult.Restored -> error("Legacy contour must not create playable state")
+            PlayableBattleRestoreResult.UnsupportedLegacy -> Unit
+        }
     }
 
     @Test

@@ -2,6 +2,10 @@ package dev.mysd.game.battle.playable
 
 import dev.mysd.game.content.OriginalContentFixtures
 import dev.mysd.game.content.PlayableLevelContent
+import dev.mysd.game.persistence.RunSave
+import dev.mysd.game.persistence.RunSaveCodec
+import dev.mysd.game.persistence.RunTerminalResult
+import dev.mysd.game.simulation.PlayableBattleRestoreResult
 import dev.mysd.game.simulation.ReplayVerification
 import dev.mysd.game.simulation.SimulationSession
 import kotlin.test.Test
@@ -359,6 +363,60 @@ class PlayableBattleCombatTest {
         assertEquals(before, session.buildTower(defeated.slots.first().id))
         assertEquals(before, session.upgradeTower(defeated.slots.first().id))
         assertEquals(before, session.snapshot())
+    }
+
+    @Test
+    fun restoredDefeatRejectsEveryMutationAndRemainsTerminalFrozen() {
+        val level = combatLevel(
+            waveCount = 8,
+            baseHealth = 12,
+            baseDamage = 12,
+            enemySpeedTicks = 1,
+        )
+        val initial = PlayableBattleEngine.initialState(
+            level = level,
+            initialResource = 100,
+            incomePerSecond = 0,
+            enemies = listOf(enemy(level, "enemy-a", positionTicks = 119)),
+            waveSpawnedCount = 8,
+        )
+        val uninterrupted = SimulationSession.playableBattle(seed = 7L, initialState = initial)
+        uninterrupted.advance(50)
+        assertEquals(PlayableBattleTerminal.DEFEAT, uninterrupted.state().terminalResult)
+
+        val saved = RunSave(
+            runId = "defeated-playable-run",
+            stageId = uninterrupted.state().stageId.value,
+            contentVersion = 2,
+            simulationVersion = 1,
+            seed = uninterrupted.seed,
+            rngState = uninterrupted.rngState,
+            tick = uninterrupted.currentTick,
+            active = false,
+            pendingCommands = emptyList(),
+            modifiers = emptyList(),
+            terminalResult = RunTerminalResult.DEFEAT,
+            playableBattleState = uninterrupted.state(),
+        )
+        val outcome = SimulationSession.restorePlayableBattle(RunSaveCodec.encode(saved))
+        val restored = when (outcome) {
+            is PlayableBattleRestoreResult.Restored -> outcome.session
+            PlayableBattleRestoreResult.UnsupportedLegacy -> error("Full playable payload was not restored")
+        }
+
+        assertEquals(PlayableBattleTerminal.DEFEAT, restored.snapshot().terminalResult)
+        assertEquals(uninterrupted.snapshot(), restored.snapshot())
+        val frozen = restored.snapshot()
+
+        assertTrue(restored.advance(5_000).isEmpty())
+        assertEquals(frozen, restored.snapshot())
+        assertEquals(frozen, restored.pause())
+        assertEquals(frozen, restored.resume())
+        assertEquals(frozen, restored.submit(PlayableBattleCommand.Pause))
+        assertEquals(frozen, restored.spend(targetSlotId = null, cost = 0))
+        assertEquals(frozen, restored.buildTower(initial.slots.first().id))
+        assertEquals(frozen, restored.upgradeTower(initial.slots.first().id))
+        assertEquals(frozen, restored.snapshot())
     }
 
     @Test

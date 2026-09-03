@@ -8,6 +8,7 @@ import dev.myengine.core.HashableState
 import dev.myengine.core.StableHash
 import dev.myengine.core.TextCommand
 import dev.myengine.core.Tick
+import dev.myengine.core.stableHashOf
 import dev.mysd.game.battle.playable.PlayableBattleCommand
 import dev.mysd.game.battle.playable.PlayableBattleCommandCodec
 import dev.mysd.game.battle.playable.PlayableBattleEngine
@@ -15,6 +16,9 @@ import dev.mysd.game.battle.playable.PlayableBattlePhase
 import dev.mysd.game.battle.playable.PlayableBattleState
 import dev.mysd.game.battle.playable.PlayableBattleTerminal
 import dev.mysd.game.content.ContentId
+import dev.mysd.game.persistence.PendingCommand
+import dev.mysd.game.persistence.RunSave
+import dev.mysd.game.persistence.RunSaveCodec
 
 /** One authoritative result emitted after a fixed simulation tick. */
 data class SimulationTickResult(
@@ -42,7 +46,15 @@ class SimulationSession<S : HashableState>(
     initialState: S,
     systems: List<EngineSystem<S>>,
     private val clock: SimulationClock = SimulationClock(),
+    private val initialTick: Long = 0L,
 ) {
+    init {
+        require(initialTick >= 0L) { "initialTick must be non-negative." }
+        require(initialTick <= Long.MAX_VALUE - Int.MAX_VALUE) {
+            "initialTick is too close to the maximum supported tick."
+        }
+    }
+
     private val orderedSystems: List<EngineSystem<S>> = systems
         .onEach { require(it.id.isNotBlank()) { "Simulation system id must not be blank." } }
         .also { require(it.map(EngineSystem<S>::id).toSet().size == it.size) { "Simulation system ids must be unique." } }
@@ -61,7 +73,7 @@ class SimulationSession<S : HashableState>(
     val systemOrder: List<String> = orderedSystems.map { it.id }
 
     val currentTick: Long
-        get() = engine.currentTick.value
+        get() = logicalTick(engine.currentTick.value)
 
     val pendingMillis: Long
         get() = clock.pendingMillis
@@ -69,7 +81,7 @@ class SimulationSession<S : HashableState>(
     fun submit(command: EngineCommand) {
         commandLog.append(command)
         pendingCommands[command.id] = command
-        engine.submit(command)
+        engine.submit(command.forEngineTimeline())
     }
 
     /** Submits a text command with an id allocated by the session's command log. */
@@ -113,20 +125,55 @@ class SimulationSession<S : HashableState>(
         val ticks = clock.consume(elapsedMillis)
         return engine.step(ticks).map { result ->
             pendingCommands.entries.removeIf { (_, command) ->
-                command.scheduledTick.value <= result.tick.value
+                command.scheduledTick.value <= logicalTick(result.tick.value)
             }
             SimulationTickResult(
-                tick = result.tick.value,
+                tick = logicalTick(result.tick.value),
                 commandsProcessed = result.commandsProcessed,
-                stateHash = result.stateHash,
+                stateHash = stateHashAt(logicalTick(result.tick.value)),
             )
         }
     }
 
     fun snapshot(): SimulationSnapshot = SimulationSnapshot(
         tick = currentTick,
-        stateHash = engine.stateHash(),
+        stateHash = stateHashAt(currentTick),
     )
+
+    private fun logicalTick(engineTick: Long): Long = Math.addExact(initialTick, engineTick)
+
+    /** Recomputes the engine hash with the saved logical tick instead of its relative restore tick. */
+    private fun stateHashAt(tick: Long): String = stableHashOf {
+        add(tick)
+        engine.state.appendHash(this)
+    }
+
+    /** Schedules restored commands on the relative engine timeline while retaining canonical input metadata. */
+    private fun EngineCommand.forEngineTimeline(): EngineCommand {
+        if (initialTick == 0L) return this
+        val relativeTick = if (scheduledTick.value <= initialTick) {
+            0L
+        } else {
+            scheduledTick.value - initialTick
+        }
+        return RelativeScheduledCommand(this, Tick(relativeTick))
+    }
+
+    private data class RelativeScheduledCommand(
+        private val source: EngineCommand,
+        override val scheduledTick: Tick,
+    ) : EngineCommand {
+        override val id: CommandId
+            get() = source.id
+
+        override val actorId: Long?
+            get() = source.actorId
+
+        override val type: String
+            get() = source.type
+
+        override fun stablePayload(): String = source.stablePayload()
+    }
 
     companion object {
         /** Builds the Android-free fixed-step session for the first playable battle. */
@@ -135,8 +182,51 @@ class SimulationSession<S : HashableState>(
             initialState: PlayableBattleState,
             clock: SimulationClock = SimulationClock(),
         ): PlayableBattleSession = PlayableBattleSession(seed, initialState, clock)
+
+        /** Restores only a full playable payload; legacy contour-only saves have no session result. */
+        fun restorePlayableBattle(
+            runSave: RunSave,
+            clock: SimulationClock = SimulationClock(),
+        ): PlayableBattleRestoreResult = PlayableBattleSession.restore(runSave, clock)
+
+        /** Decodes the existing RunSave document before entering the same restore seam. */
+        fun restorePlayableBattle(
+            payload: String,
+            clock: SimulationClock = SimulationClock(),
+        ): PlayableBattleRestoreResult = restorePlayableBattle(RunSaveCodec.decode(payload), clock)
+
+        /** Alias emphasizing that the result is a newly constructed playable session. */
+        fun restorePlayableBattleSession(
+            runSave: RunSave,
+            clock: SimulationClock = SimulationClock(),
+        ): PlayableBattleRestoreResult = restorePlayableBattle(runSave, clock)
     }
 }
+
+enum class PlayableBattleRestoreStatus {
+    RESTORED,
+    UNSUPPORTED_LEGACY,
+}
+
+/** Explicit result boundary for full-state restore versus legacy contour-only absence. */
+sealed interface PlayableBattleRestoreResult {
+    val status: PlayableBattleRestoreStatus
+
+    data class Restored(
+        val session: PlayableBattleSession,
+    ) : PlayableBattleRestoreResult {
+        override val status: PlayableBattleRestoreStatus = PlayableBattleRestoreStatus.RESTORED
+
+        val value: PlayableBattleSession
+            get() = session
+    }
+
+    data object UnsupportedLegacy : PlayableBattleRestoreResult {
+        override val status: PlayableBattleRestoreStatus = PlayableBattleRestoreStatus.UNSUPPORTED_LEGACY
+    }
+}
+
+typealias PlayableBattleRestoreOutcome = PlayableBattleRestoreResult
 
 /** Immutable read boundary for a playable battle plus simulation timing metadata. */
 data class PlayableBattleSnapshot(
@@ -188,20 +278,51 @@ data class PlayableBattleSnapshot(
  * The adapter owns no Android concerns. It refuses to feed elapsed wall time into the clock while
  * paused, so both the simulation tick and the clock remainder remain frozen until resume.
  */
-class PlayableBattleSession(
-    seed: Long,
+class PlayableBattleSession private constructor(
+    val seed: Long,
     initialState: PlayableBattleState,
-    clock: SimulationClock = SimulationClock(),
+    clock: SimulationClock,
+    initialTick: Long,
+    val rngState: Long,
+    val simulationVersion: Int,
+    pendingCommands: List<PendingCommand>,
 ) {
+    constructor(
+        seed: Long,
+        initialState: PlayableBattleState,
+        clock: SimulationClock = SimulationClock(),
+    ) : this(
+        seed = seed,
+        initialState = initialState,
+        clock = clock,
+        initialTick = 0L,
+        rngState = 0L,
+        simulationVersion = CURRENT_SIMULATION_VERSION,
+        pendingCommands = emptyList(),
+    )
+
     private val stateBox = PlayableBattleStateBox(initialState, seed)
     private val simulation = SimulationSession(
         seed,
         stateBox,
         listOf(PlayableBattleSystem),
         clock,
+        initialTick,
     )
 
-    val seed: Long = seed
+    init {
+        pendingCommands.forEach { command ->
+            simulation.submit(
+                TextCommand(
+                    id = CommandId(command.id),
+                    scheduledTick = Tick(command.scheduledTick),
+                    type = command.type,
+                    payload = command.payload,
+                    actorId = command.actorId,
+                ),
+            )
+        }
+    }
 
     val currentTick: Long
         get() = simulation.currentTick
@@ -280,6 +401,44 @@ class PlayableBattleSession(
     fun inputHash(): String = simulation.inputHash()
 
     fun replayHashChain(): String = simulation.replayHashChain()
+
+    companion object {
+        private const val CURRENT_SIMULATION_VERSION: Int = 1
+
+        /** Restores from the existing full RunSave payload without reconstructing legacy state. */
+        fun restore(
+            runSave: RunSave,
+            clock: SimulationClock = SimulationClock(),
+        ): PlayableBattleRestoreResult {
+            val state = runSave.playableBattleState ?: return PlayableBattleRestoreResult.UnsupportedLegacy
+
+            // SPEC-06 remains the single validation and wire-contract owner for RunSave. Encoding
+            // here validates direct in-memory values too, without introducing another payload format.
+            RunSaveCodec.encode(runSave)
+
+            return PlayableBattleRestoreResult.Restored(
+                PlayableBattleSession(
+                    seed = runSave.seed,
+                    initialState = state,
+                    clock = clock,
+                    initialTick = runSave.tick,
+                    rngState = runSave.rngState,
+                    simulationVersion = runSave.simulationVersion,
+                    pendingCommands = runSave.pendingCommands,
+                ),
+            )
+        }
+
+        fun restore(
+            payload: String,
+            clock: SimulationClock = SimulationClock(),
+        ): PlayableBattleRestoreResult = restore(RunSaveCodec.decode(payload), clock)
+
+        fun fromRunSave(
+            runSave: RunSave,
+            clock: SimulationClock = SimulationClock(),
+        ): PlayableBattleRestoreResult = restore(runSave, clock)
+    }
 
     private class PlayableBattleStateBox(
         var value: PlayableBattleState,
