@@ -11,6 +11,7 @@ import dev.mysd.game.battle.playable.PlayableBattleCommand
 import dev.mysd.game.battle.playable.PlayableBattleEngine
 import dev.mysd.game.battle.playable.PlayableBattlePhase
 import dev.mysd.game.battle.playable.PlayableBattleState
+import dev.mysd.game.content.ContentId
 
 /** One authoritative result emitted after a fixed simulation tick. */
 data class SimulationTickResult(
@@ -158,6 +159,7 @@ class PlayableBattleSession(
     clock: SimulationClock = SimulationClock(),
 ) {
     private val stateBox = PlayableBattleStateBox(initialState, seed)
+    private val playableCommandLog = CommandLog()
     private val simulation = SimulationSession(
         seed,
         stateBox,
@@ -197,14 +199,56 @@ class PlayableBattleSession(
 
     fun submit(command: PlayableBattleCommand): PlayableBattleSnapshot {
         stateBox.value = PlayableBattleEngine.reduceState(stateBox.value, command)
+        record(command)
         return snapshot()
     }
 
+    fun buildTower(targetSlotId: ContentId): PlayableBattleSnapshot =
+        submit(PlayableBattleCommand.BuildTower(targetSlotId))
+
     fun spend(
-        targetSlotId: dev.mysd.game.content.ContentId?,
+        targetSlotId: ContentId?,
         cost: Int,
     ) = PlayableBattleEngine.spend(stateBox.value, targetSlotId, cost).also { result ->
         stateBox.value = result.state
+        record(PlayableBattleCommand.SpendResource(targetSlotId, cost))
+    }
+
+    fun canonicalCommandEncoding(): String = playableCommandLog.canonicalEncoding()
+
+    fun inputHash(): String = playableCommandLog.inputHash()
+
+    fun replayHashChain(): String = playableCommandLog.replayHashChain()
+
+    private fun record(command: PlayableBattleCommand) {
+        val type: String
+        val payload: String
+        when (command) {
+            PlayableBattleCommand.Pause -> {
+                type = "playable-battle.pause"
+                payload = ""
+            }
+
+            PlayableBattleCommand.Resume -> {
+                type = "playable-battle.resume"
+                payload = ""
+            }
+
+            is PlayableBattleCommand.SpendResource -> {
+                type = "playable-battle.spend-resource"
+                payload = listOf(command.targetSlotId?.value ?: "", command.cost).joinToString("|")
+            }
+
+            is PlayableBattleCommand.BuildTower -> {
+                type = "playable-battle.build-tower"
+                payload = command.targetSlotId.value
+            }
+        }
+        playableCommandLog.submit(
+            scheduledTick = Tick(currentTick),
+            type = type,
+            payload = payload,
+        )
     }
 
     private class PlayableBattleStateBox(

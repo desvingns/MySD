@@ -3,6 +3,7 @@ package dev.mysd.game.battle.playable
 import dev.myengine.core.HashableState
 import dev.myengine.core.StableHash
 import dev.mysd.game.content.ContentId
+import dev.mysd.game.content.OriginalContentFixtures
 
 /** The only phases in scope for the first playable runtime. */
 enum class PlayableBattlePhase {
@@ -27,7 +28,7 @@ data class PlayableBattleBaseState(
         get() = health
 }
 
-/** Immutable snapshot of one fixed build location. Occupancy is reserved for the next SPEC. */
+/** Immutable snapshot of one content-defined fixed build location. */
 data class PlayableBattleSlotState(
     val id: ContentId,
     val positionTicks: Int,
@@ -79,6 +80,8 @@ data class PlayableBattleState(
     val incomeRemainderTicks: Int,
     val slots: List<PlayableBattleSlotState>,
     val enemies: List<PlayableBattleEnemyState>,
+    val towerId: ContentId = OriginalContentFixtures.foundationPlayableLevel().tower.id,
+    val buildCost: Int = OriginalContentFixtures.foundationPlayableLevel().tower.buildCost,
 ) : HashableState {
     init {
         require(resourceCap >= 0) { "Resource cap must be non-negative." }
@@ -87,6 +90,7 @@ data class PlayableBattleState(
         require(incomeRemainderTicks in 0 until TICKS_PER_SECOND) {
             "Income remainder must be within one fixed second."
         }
+        require(buildCost >= 0) { "Tower build cost must be non-negative." }
         require(slots.map { it.id }.toSet().size == slots.size) {
             "Build slot ids must be unique."
         }
@@ -105,6 +109,15 @@ data class PlayableBattleState(
     val buildSlots: List<PlayableBattleSlotState>
         get() = slots
 
+    val configuredTowerId: ContentId
+        get() = towerId
+
+    val configuredBuildCost: Int
+        get() = buildCost
+
+    val towerBuildCost: Int
+        get() = buildCost
+
     override fun appendHash(hash: StableHash) {
         hash.add("mysd.playable-battle-state.v1")
             .add(stageId.value)
@@ -113,6 +126,8 @@ data class PlayableBattleState(
             .add(resourceCap)
             .add(incomePerSecond)
             .add(incomeRemainderTicks)
+            .add(towerId.value)
+            .add(buildCost)
             .add(base.id.value)
             .add(base.health)
             .add(base.maxHealth)

@@ -2,6 +2,7 @@ package dev.mysd.game.battle.playable
 
 import dev.mysd.game.content.OriginalContentFixtures
 import dev.mysd.game.content.PlayableLevelContent
+import dev.mysd.game.content.ContentId
 import dev.mysd.game.simulation.SimulationClock
 import kotlin.math.min
 
@@ -39,18 +40,6 @@ data class PlayableBattleSpendResult(
         get() = accepted
 }
 
-/** Small command set used by the domain seam; placement and upgrades remain future SPECs. */
-sealed interface PlayableBattleCommand {
-    data object Pause : PlayableBattleCommand
-
-    data object Resume : PlayableBattleCommand
-
-    data class SpendResource(
-        val targetSlotId: dev.mysd.game.content.ContentId?,
-        val cost: Int,
-    ) : PlayableBattleCommand
-}
-
 /** Pure fixed-step reducer for the first playable battle. */
 object PlayableBattleEngine {
     const val TICKS_PER_SECOND: Int = SimulationClock.TICK_RATE_HZ
@@ -86,6 +75,8 @@ object PlayableBattleEngine {
             )
         },
         enemies = enemies,
+        towerId = level.tower.id,
+        buildCost = level.tower.buildCost,
     )
 
     fun createInitialState(
@@ -223,9 +214,36 @@ object PlayableBattleEngine {
 
     fun trySpend(
         state: PlayableBattleState,
-        targetSlotId: dev.mysd.game.content.ContentId?,
+        targetSlotId: ContentId?,
         cost: Int,
     ): PlayableBattleSpendResult = spend(state, targetSlotId, cost)
+
+    /** Places the configured tower only after the complete atomic spend has been accepted. */
+    fun buildTower(
+        state: PlayableBattleState,
+        targetSlotId: ContentId,
+    ): PlayableBattleSpendResult {
+        val spendResult = spend(
+            state = state,
+            targetSlotId = targetSlotId,
+            cost = state.buildCost,
+        )
+        if (!spendResult.accepted) {
+            return spendResult
+        }
+
+        val placedState = spendResult.state.copy(
+            slots = spendResult.state.slots.map { slot ->
+                if (slot.id == targetSlotId) slot.copy(towerId = state.towerId) else slot
+            },
+        )
+        return spendResult.copy(state = placedState)
+    }
+
+    fun tryBuildTower(
+        state: PlayableBattleState,
+        targetSlotId: ContentId,
+    ): PlayableBattleSpendResult = buildTower(state, targetSlotId)
 
     fun reduce(
         state: PlayableBattleState,
@@ -247,6 +265,11 @@ object PlayableBattleEngine {
             state = state,
             targetSlotId = command.targetSlotId,
             cost = command.cost,
+        )
+
+        is PlayableBattleCommand.BuildTower -> buildTower(
+            state = state,
+            targetSlotId = command.targetSlotId,
         )
     }
 
