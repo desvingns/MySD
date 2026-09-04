@@ -35,6 +35,23 @@ val BattleEnemy = IndigoPink40
 val BattleOnBackground = LaunchOnBackground
 val BattleOnHud = LaunchOnPanel
 
+// Semantic tokens for the playable battlefield extension. These cover the fixed build tiles,
+// original tower/projectile shapes, command popups, guarded actions, and terminal outcomes
+// without changing the established battle palette above.
+val BattleTile = Color(0xFF1B3B52)
+val BattleTileBorder = Color(0xFF4F9AA0)
+val BattleTileSelected = Color(0xFF285D6A)
+val BattleTower = Color(0xFFFFCF5C)
+val BattleProjectile = Color(0xFF6DE3D7)
+val BattlePopup = Color(0xF01B3855)
+val BattlePopupBorder = Color(0x6676E0D3)
+val BattleOnPopup = Color(0xFFF6F8FF)
+val BattleGuarded = Color(0xFFFFB4AB)
+val BattleGuardedSurface = Color(0xFF4A2630)
+val BattleVictory = Color(0xFF76E0D3)
+val BattleDefeat = Color(0xFFFF8A80)
+val BattleTerminalScrim = Color(0xCC030B1A)
+
 // Semantic tokens for the original campaign-selection shell. These remain isolated from
 // launch and battle call sites so campaign composition can evolve without coupling routes.
 val CampaignBackground = Color(0xFF0B1935)
