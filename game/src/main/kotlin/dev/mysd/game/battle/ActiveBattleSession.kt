@@ -2,6 +2,8 @@ package dev.mysd.game.battle
 
 import dev.mysd.game.campaign.BattleSetupChoice
 import dev.mysd.game.campaign.CampaignStageId
+import dev.mysd.game.battle.playable.PlayableBattleState
+import dev.mysd.game.battle.playable.PlayableBattlePhase
 import dev.mysd.game.simulation.ScenarioFixtureKind
 
 enum class ActiveBattleSpeedIndicator {
@@ -32,7 +34,9 @@ data class ActiveBattleSnapshot(
             "Active battle must use the accepted active-wave fixture."
         }
         require(waveActive) { "Active battle must expose wave activity." }
-        require(enemyEntityIds.isNotEmpty()) { "Active battle requires a visible enemy contour." }
+        require(enemyEntitiesVisible == enemyEntityIds.isNotEmpty()) {
+            "Enemy visibility must match the projected enemy entities."
+        }
     }
 }
 
@@ -81,6 +85,29 @@ class ActiveBattleSession(
     fun snapshot(): ActiveBattleSnapshot = state.copy(
         enemyEntityIds = state.enemyEntityIds.toList(),
     )
+
+    /**
+     * Rebuilds every active-battle field represented by the authoritative playable state.
+     *
+     * Speed, build, and enhancement fields intentionally remain contour-owned because they are
+     * not part of the playable payload. The canonical state owns stage identity, wave/base and
+     * enemy visibility, enemy identities, and pause phase.
+     */
+    fun synchronizeWithPlayableState(playableState: PlayableBattleState): ActiveBattleSnapshot {
+        require(!playableState.isTerminal) {
+            "A terminal playable state cannot be projected as an active battle."
+        }
+        val enemyEntityIds = playableState.enemies.map { it.id }
+        state = state.copy(
+            stageId = CampaignStageId.of(playableState.stageId.value),
+            waveActive = playableState.terminalResult == null,
+            baseVisible = playableState.base.id.value.isNotBlank(),
+            enemyEntitiesVisible = enemyEntityIds.isNotEmpty(),
+            enemyEntityIds = enemyEntityIds,
+            paused = playableState.phase == PlayableBattlePhase.PAUSED,
+        )
+        return snapshot()
+    }
 
     fun submit(intent: ActiveBattleIntent): ActiveBattleSnapshot {
         state = when (intent) {

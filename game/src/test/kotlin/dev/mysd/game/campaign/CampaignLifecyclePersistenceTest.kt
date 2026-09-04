@@ -170,6 +170,54 @@ class CampaignLifecyclePersistenceTest {
     }
 
     @Test
+    fun `active projection follows every canonical battle field after restore input and advance`() {
+        val initial = PlayableBattleEngine.initialState(
+            phase = PlayableBattlePhase.ACTIVE,
+            enemies = listOf(
+                PlayableBattleEngine.initialState().enemies.single().copy(
+                    id = "restored-enemy",
+                    positionTicks = 0,
+                ),
+            ),
+            waveSpawnedCount = 1,
+        )
+        val saved = RunSave(
+            runId = "active-playable-projection-run",
+            stageId = AcceptedCampaignFixture.STAGE_ID.value,
+            contentVersion = 1,
+            simulationVersion = 1,
+            seed = 19L,
+            rngState = 23L,
+            tick = 41L,
+            active = true,
+            pendingCommands = emptyList(),
+            modifiers = emptyList(),
+            terminalResult = null,
+            playableBattleState = initial,
+        )
+
+        val restored = restore(saved)
+        fun assertProjectionMatchesCanonical() {
+            val canonical = assertNotNull(restored.playableBattleState())
+            val projection = assertNotNull(restored.activeBattleSnapshot())
+            assertEquals(canonical.stageId.value, projection.stageId.value)
+            assertEquals(!canonical.isTerminal, projection.waveActive)
+            assertEquals(canonical.base.id.value.isNotBlank(), projection.baseVisible)
+            assertEquals(canonical.enemies.isNotEmpty(), projection.enemyEntitiesVisible)
+            assertEquals(canonical.enemies.map { it.id }, projection.enemyEntityIds)
+            assertEquals(canonical.phase == PlayableBattlePhase.PAUSED, projection.paused)
+        }
+
+        assertProjectionMatchesCanonical()
+        restored.submit(ActiveBattleIntent.PauseOrResume)
+        assertProjectionMatchesCanonical()
+        restored.submit(ActiveBattleIntent.PauseOrResume)
+        restored.advance(1_000L)
+        assertProjectionMatchesCanonical()
+        assertTrue(restored.playableBattleState()?.enemies.orEmpty().size >= 2)
+    }
+
+    @Test
     fun `restored terminal run ignores an independently supplied unfinished run`() {
         val defeated = defeatedRunSave()
         val restored = CampaignSession(
@@ -247,8 +295,32 @@ class CampaignLifecyclePersistenceTest {
                 towerId = ContentId.of("tower-unknown"),
             ),
         )
+        val mismatchedOccupiedTower = RunSave(
+            runId = "mismatched-occupied-tower-run",
+            stageId = AcceptedCampaignFixture.STAGE_ID.value,
+            contentVersion = 1,
+            simulationVersion = 1,
+            seed = 19L,
+            rngState = 23L,
+            tick = 41L,
+            active = true,
+            pendingCommands = emptyList(),
+            modifiers = emptyList(),
+            terminalResult = null,
+            playableBattleState = playableState.copy(
+                slots = playableState.slots.mapIndexed { index, slot ->
+                    if (index == 0) slot.copy(towerId = ContentId.of("tower-unknown")) else slot
+                },
+            ),
+        )
 
-        listOf(malformed, unsupported, mismatchedState, mismatchedContent).forEach { persistedRun ->
+        listOf(
+            malformed,
+            unsupported,
+            mismatchedState,
+            mismatchedContent,
+            mismatchedOccupiedTower,
+        ).forEach { persistedRun ->
             val session = AcceptedCampaignFixture.createSession(persistedRun)
 
             assertEquals(CampaignRoute.CLEAN_LAUNCH, session.snapshot().route)
@@ -257,6 +329,29 @@ class CampaignLifecyclePersistenceTest {
             assertFalse(session.submit(CampaignIntent.EnterCampaign).unfinishedRunPromptVisible)
             assertNull(session.activeBattleSnapshot())
         }
+    }
+
+    @Test
+    fun `legacy terminal envelope without playable defeat state is ignored`() {
+        val unsupportedDefeat = RunSave(
+            runId = "legacy-defeat-without-state",
+            stageId = AcceptedCampaignFixture.STAGE_ID.value,
+            contentVersion = 1,
+            simulationVersion = 1,
+            seed = 19L,
+            rngState = 23L,
+            tick = 41L,
+            active = false,
+            pendingCommands = emptyList(),
+            modifiers = emptyList(),
+            terminalResult = RunTerminalResult.DEFEAT,
+        )
+
+        val session = AcceptedCampaignFixture.createSession(unsupportedDefeat)
+
+        assertNull(session.runSave())
+        assertFalse(session.submit(CampaignIntent.EnterCampaign).unfinishedRunPromptVisible)
+        assertNull(session.playableBattleState())
     }
 
     @Test

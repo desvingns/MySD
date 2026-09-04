@@ -734,7 +734,11 @@ object RunSaveCodec {
                 )
             }
 
-            null -> Unit
+            null -> if (state.base.health == 0) {
+                throw MalformedPersistenceException(
+                    "Invalid terminal combination: state.terminalResult=null requires state.base.health>0",
+                )
+            }
         }
     }
 

@@ -160,41 +160,46 @@ class CampaignSession(
         restoreSavedRun(supportedRunSave)
     }
 
+    @Synchronized
     fun snapshot(): CampaignSnapshot = state
 
     /** Immutable authoritative playable-battle snapshot after a supported run is started or restored. */
+    @Synchronized
     fun playableBattleSnapshot(): PlayableBattleSnapshot? = playableBattleSession?.snapshot()
 
     /** Direct read boundary for the canonical full state owned by the campaign session. */
+    @Synchronized
     fun playableBattleState(): PlayableBattleState? = playableBattleSession?.state()
 
     /** Immutable setup snapshot for the selected stage, if level setup has been opened. */
+    @Synchronized
     fun battleSetupSnapshot(): BattleSetupSnapshot? = battleSetupSession?.snapshot()
 
     /** Immutable active-battle projection derived from the canonical playable state when present. */
+    @Synchronized
     fun activeBattleSnapshot(): ActiveBattleSnapshot? {
         val active = activeBattleSession ?: return null
+        if (victorySession != null) return null
         val playableState = playableBattleSession?.state()
         if (playableState?.isTerminal == true) return null
-        val snapshot = active.snapshot()
-        val authoritativePaused = playableState?.phase == PlayableBattlePhase.PAUSED
-        return if (playableState == null || snapshot.paused == authoritativePaused) {
-            snapshot
-        } else {
-            snapshot.copy(paused = authoritativePaused)
-        }
+        if (playableState != null) syncActiveBattleProjection()
+        return active.snapshot()
     }
 
     /** Immutable enhancement snapshot after the enhancement-choice surface is opened, if any. */
+    @Synchronized
     fun enhancementSnapshot(): EnhancementSnapshot? = enhancementSession?.snapshot()
 
     /** Immutable victory/reward-panel snapshot after the deterministic local handoff, if resolved. */
+    @Synchronized
     fun victorySnapshot(): VictorySnapshot? = victorySession?.snapshot()
 
     /** Immutable roster/settings snapshot after the accepted troops route is opened, if any. */
+    @Synchronized
     fun rosterSnapshot(): RosterSnapshot? = rosterSession?.snapshot()
 
     /** Immutable Arena service-shaped snapshot after the accepted local route is opened, if any. */
+    @Synchronized
     fun arenaSnapshot(): ArenaSnapshot? = arenaState
 
     /**
@@ -203,6 +208,7 @@ class CampaignSession(
      * The contour markers use the existing RunSave modifiers list as namespaced, presentation
      * restoration metadata. They do not add mechanics or alter the deterministic simulation.
      */
+    @Synchronized
     fun runSave(): RunSave? {
         val playableSession = playableBattleSession
         val playableState = playableSession?.state()
@@ -230,7 +236,13 @@ class CampaignSession(
             }
         }
 
-        val activeSnapshot = activeBattleSnapshot() ?: return null
+        val activeSnapshot = if (victorySession != null) {
+            // Victory remains a contour-only compatibility surface; no active projection is
+            // exposed there because legacy saves cannot reconstruct canonical battle entities.
+            activeBattle.snapshot()
+        } else {
+            activeBattleSnapshot() ?: return null
+        }
         val phase = when {
             victorySession != null -> PersistedContourPhase.VICTORY
             enhancementSession?.snapshot()?.returnToBattle == false -> PersistedContourPhase.ENHANCEMENT
@@ -283,11 +295,15 @@ class CampaignSession(
     }
 
     /** Routes touch-to-command input to the authoritative active-battle session. */
+    @Synchronized
     fun submit(intent: ActiveBattleIntent): ActiveBattleSnapshot? {
         val activeBattleSession = activeBattleSession ?: return null
-        if (victorySession != null) return activeBattleSession.snapshot()
+        if (victorySession != null) {
+            syncActiveBattleProjection()
+            return activeBattleSession.snapshot()
+        }
         val wasEnhancementChoiceVisible = activeBattleSession.snapshot().enhancementChoiceVisible
-        val activeBattle = if (intent == ActiveBattleIntent.PauseOrResume && playableBattleSession != null) {
+        if (intent == ActiveBattleIntent.PauseOrResume && playableBattleSession != null) {
             val playable = requireNotNull(playableBattleSession)
             if (playable.state().phase == PlayableBattlePhase.ACTIVE) {
                 playable.pause()
@@ -297,11 +313,11 @@ class CampaignSession(
             // The existing contour is synchronous. Apply the queued canonical command at the
             // next fixed tick before publishing the projection and lifecycle save.
             playable.advance(SimulationClock.TICK_DURATION_MILLIS)
-            syncActiveBattleProjection()
-            activeBattleSession.snapshot()
         } else {
             activeBattleSession.submit(intent)
         }
+        syncActiveBattleProjection()
+        val activeBattle = activeBattleSession.snapshot()
         if (
             intent == ActiveBattleIntent.OpenEnhancement &&
             !wasEnhancementChoiceVisible &&
@@ -325,10 +341,11 @@ class CampaignSession(
                 )
             }
         }
-        return activeBattle
+        return activeBattleSession.snapshot()
     }
 
     /** Advances the authoritative playable session and republishes its projection. */
+    @Synchronized
     fun advance(elapsedMillis: Long): PlayableBattleSnapshot? {
         val playable = playableBattleSession ?: return null
         playable.advance(elapsedMillis)
@@ -343,22 +360,26 @@ class CampaignSession(
     }
 
     /** Routes enhancement input into :game and returns to active battle after selection. */
+    @Synchronized
     fun submit(intent: EnhancementIntent): EnhancementSnapshot? {
         val enhancement = enhancementSession ?: return null
         val snapshot = enhancement.submit(intent)
         if (snapshot.returnToBattle) {
             selectedEnhancementId = snapshot.selectedOfferId
             activeBattleSession?.returnToBattle()
+            syncActiveBattleProjection()
         }
         return snapshot
     }
 
     /** Routes roster and local-settings input into the Android-free roster session. */
+    @Synchronized
     fun submit(intent: RosterIntent): RosterSnapshot? {
         if (!state.rosterOpen) return rosterSession?.snapshot()
         return rosterSession?.submit(intent)
     }
 
+    @Synchronized
     fun submit(intent: CampaignIntent): CampaignSnapshot {
         when (intent) {
             is CampaignIntent.SelectInitialOption -> {
@@ -447,10 +468,7 @@ class CampaignSession(
         val active = activeBattleSession ?: return
         val playableState = playableBattleSession?.state() ?: return
         if (playableState.isTerminal) return
-        val shouldBePaused = playableState.phase == PlayableBattlePhase.PAUSED
-        if (active.snapshot().paused != shouldBePaused) {
-            active.submit(ActiveBattleIntent.PauseOrResume)
-        }
+        active.synchronizeWithPlayableState(playableState)
     }
 
     private fun playableLevelFor(stageId: CampaignStageId): PlayableLevelContent? =
@@ -556,6 +574,7 @@ class CampaignSession(
             null,
             -> Unit
         }
+        syncActiveBattleProjection()
     }
 
     private fun restorePlayableVictory(
@@ -736,7 +755,8 @@ class CampaignSession(
         stages.firstOrNull { it.value == runSave.stageId }?.let { stageId ->
             val playableState = runSave.playableBattleState
             val playableLevel = playableLevelFor(stageId)
-            (playableState == null || playableLevel != null && playableState.matches(playableLevel)) &&
+            runSave.hasSupportedEnvelope() &&
+                (playableState == null || playableLevel != null && playableState.matches(playableLevel)) &&
                 runCatching { RunSaveCodec.encode(runSave) }.isSuccess
         } == true
 
@@ -754,6 +774,19 @@ class CampaignSession(
             }
             ?.let { UnfinishedCampaignRun(CampaignStageId.of(it.stageId)) }
     }
+}
+
+private fun RunSave.hasSupportedEnvelope(): Boolean {
+    val state = playableBattleState ?: return when {
+        active -> terminalResult == null
+        else -> terminalResult == RunTerminalResult.VICTORY
+    }
+    val stateTerminal = when (state.terminalResult) {
+        PlayableBattleTerminal.VICTORY -> RunTerminalResult.VICTORY
+        PlayableBattleTerminal.DEFEAT -> RunTerminalResult.DEFEAT
+        null -> null
+    }
+    return terminalResult == stateTerminal && active == !state.isTerminal
 }
 
 /** Original, balance-free fixture used by the first Android vertical slice. */
@@ -782,6 +815,7 @@ object AcceptedCampaignFixture {
 
 private fun isSupportedRunSave(runSave: RunSave, stageId: CampaignStageId): Boolean =
     runSave.stageId == stageId.value &&
+        runSave.hasSupportedEnvelope() &&
         (runSave.playableBattleState == null ||
             runSave.playableBattleState.matches(OriginalContentFixtures.foundationPlayableLevel())) &&
         runCatching { RunSaveCodec.encode(runSave) }.isSuccess
@@ -809,6 +843,9 @@ private fun PlayableBattleState.matches(level: PlayableLevelContent): Boolean =
         waveSpawnIntervalTicks == level.wave.spawnIntervalTicks &&
         towerRangeTicks == level.tower.rangeTicks &&
         baseLeakDamage == level.enemyFamily.baseDamage &&
+        slots.all { slot ->
+            slot.towerId == null || slot.towerId == towerId
+        } &&
         enemies.all {
             it.familyId == level.enemyFamily.id &&
                 it.speedTicks == level.enemyFamily.speedTicks

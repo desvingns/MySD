@@ -71,7 +71,10 @@ class LifecyclePersistenceUiTest {
         try {
             scenario.moveToState(Lifecycle.State.CREATED)
 
-            assertDefeatPlayableSave(requireStoredRunSave())
+            val encoded = requireStoredEncodedSave()
+            val saved = RunSaveCodec.decode(encoded)
+            assertDefeatPlayableSave(saved)
+            assertEquals(encoded, RunSaveCodec.encode(saved))
         } finally {
             scenario.close()
         }
@@ -209,6 +212,34 @@ class LifecyclePersistenceUiTest {
                     300L,
                 ),
             )
+        } finally {
+            scenario.close()
+        }
+    }
+
+    @Test
+    fun unsupportedPlayableContentStoredRunSaveFallsBackToCleanCampaign() = withCleanRunSave {
+        val scenario = run {
+            seedRunSave(unsupportedPlayableContentRun())
+            ActivityScenario.launch(MainActivity::class.java)
+        }
+        try {
+            assertDefeatRestoredUi()
+        } finally {
+            scenario.close()
+        }
+    }
+
+    @Test
+    fun malformedPlayableEnvelopeFallsBackToCleanCampaign() = withCleanRunSave {
+        val scenario = run {
+            val malformed = RunSaveCodec.encode(defeatRun())
+                .replace("\nactive=0\n", "\nactive=1\n")
+            seedEncodedSave(malformed)
+            ActivityScenario.launch(MainActivity::class.java)
+        }
+        try {
+            assertDefeatRestoredUi()
         } finally {
             scenario.close()
         }
@@ -418,6 +449,29 @@ class LifecyclePersistenceUiTest {
         modifiers = emptyList(),
         terminalResult = null,
     )
+
+    private fun unsupportedPlayableContentRun(): RunSave {
+        val initial = PlayableBattleEngine.initialState()
+        val state = initial.copy(
+            slots = initial.slots.mapIndexed { index, slot ->
+                if (index == 0) slot.copy(towerId = dev.mysd.game.content.ContentId.of("tower-unknown")) else slot
+            },
+        )
+        return RunSave(
+            runId = "unsupported-playable-content-run",
+            stageId = "stage-ember-path",
+            contentVersion = 1,
+            simulationVersion = 1,
+            seed = 19L,
+            rngState = 23L,
+            tick = 41L,
+            active = true,
+            pendingCommands = emptyList(),
+            modifiers = emptyList(),
+            terminalResult = null,
+            playableBattleState = state,
+        )
+    }
 
     private fun legacyContourPayload(save: RunSave): String =
         RunSaveCodec.encode(save)
