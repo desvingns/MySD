@@ -31,6 +31,7 @@ import dev.mysd.game.service.OfflineServiceAdapters
 import dev.mysd.game.simulation.PlayableBattleRestoreResult
 import dev.mysd.game.simulation.PlayableBattleSession
 import dev.mysd.game.simulation.PlayableBattleSnapshot
+import dev.mysd.game.simulation.SimulationClock
 import dev.mysd.game.simulation.SimulationSession
 
 @JvmInline
@@ -107,11 +108,12 @@ sealed interface CampaignIntent {
  */
 class CampaignSession(
     acceptedStageIds: List<CampaignStageId>,
-    private val unfinishedRun: UnfinishedCampaignRun?,
+    unfinishedRun: UnfinishedCampaignRun?,
     private val arenaService: ArenaService = OfflineServiceAdapters.foundation().arenaService,
     restoredRunSave: RunSave? = null,
 ) {
     private val stages = acceptedStageIds.toList()
+    private val unfinishedRun: UnfinishedCampaignRun?
     private var lifecycleRunSave: RunSave? = null
     private var persistContourMetadata = true
 
@@ -147,6 +149,11 @@ class CampaignSession(
             "An unfinished run must reference an accepted campaign stage."
         }
         val supportedRunSave = restoredRunSave?.takeIf(::isSupportedRunSave)
+        this.unfinishedRun = normalizeUnfinishedRun(
+            requested = unfinishedRun,
+            restoredRunSave = restoredRunSave,
+            supportedRunSave = supportedRunSave,
+        )
         lifecycleRunSave = supportedRunSave
         persistContourMetadata = supportedRunSave?.playableBattleState == null ||
             supportedRunSave.modifiers.any { it.startsWith(CONTOUR_MARKER_PREFIX) }
@@ -164,8 +171,19 @@ class CampaignSession(
     /** Immutable setup snapshot for the selected stage, if level setup has been opened. */
     fun battleSetupSnapshot(): BattleSetupSnapshot? = battleSetupSession?.snapshot()
 
-    /** Immutable active-battle snapshot after the deterministic setup handoff, if started. */
-    fun activeBattleSnapshot(): ActiveBattleSnapshot? = activeBattleSession?.snapshot()
+    /** Immutable active-battle projection derived from the canonical playable state when present. */
+    fun activeBattleSnapshot(): ActiveBattleSnapshot? {
+        val active = activeBattleSession ?: return null
+        val playableState = playableBattleSession?.state()
+        if (playableState?.isTerminal == true) return null
+        val snapshot = active.snapshot()
+        val authoritativePaused = playableState?.phase == PlayableBattlePhase.PAUSED
+        return if (playableState == null || snapshot.paused == authoritativePaused) {
+            snapshot
+        } else {
+            snapshot.copy(paused = authoritativePaused)
+        }
+    }
 
     /** Immutable enhancement snapshot after the enhancement-choice surface is opened, if any. */
     fun enhancementSnapshot(): EnhancementSnapshot? = enhancementSession?.snapshot()
@@ -186,6 +204,22 @@ class CampaignSession(
      * restoration metadata. They do not add mechanics or alter the deterministic simulation.
      */
     fun runSave(): RunSave? {
+        val playableSession = playableBattleSession
+        val playableState = playableSession?.state()
+        if (playableState?.terminalResult == PlayableBattleTerminal.DEFEAT) {
+            val base = lifecycleRunSave ?: newRunSave(CampaignStageId.of(playableState.stageId.value))
+            return base.copy(
+                stageId = playableState.stageId.value,
+                simulationVersion = playableSession.simulationVersion,
+                seed = playableSession.seed,
+                rngState = playableSession.rngState,
+                tick = playableSession.currentTick,
+                active = false,
+                pendingCommands = playableSession.pendingCommands(),
+                terminalResult = RunTerminalResult.DEFEAT,
+                playableBattleState = playableState,
+            )
+        }
         val activeBattle = activeBattleSession
         if (activeBattle == null) {
             // No active contour is projected. A terminal playable save (for example a defeat) is
@@ -196,7 +230,7 @@ class CampaignSession(
             }
         }
 
-        val activeSnapshot = activeBattle.snapshot()
+        val activeSnapshot = activeBattleSnapshot() ?: return null
         val phase = when {
             victorySession != null -> PersistedContourPhase.VICTORY
             enhancementSession?.snapshot()?.returnToBattle == false -> PersistedContourPhase.ENHANCEMENT
@@ -213,7 +247,14 @@ class CampaignSession(
         val playableBattleState = if (phase == PersistedContourPhase.VICTORY) {
             null
         } else {
-            playableBattleSession?.state()
+            playableState
+        }
+        val canonicalPlayableMetadata = playableSession?.let {
+            Triple(
+                it.currentTick,
+                it.pendingCommands(),
+                it.simulationVersion,
+            )
         }
         val modifiers = if (persistContourMetadata) {
             contourModifiers(
@@ -229,8 +270,12 @@ class CampaignSession(
         }
         return base.copy(
             stageId = activeSnapshot.stageId.value,
+            simulationVersion = canonicalPlayableMetadata?.third ?: base.simulationVersion,
+            seed = playableSession?.seed ?: base.seed,
+            rngState = playableSession?.rngState ?: base.rngState,
+            tick = canonicalPlayableMetadata?.first ?: base.tick,
             active = terminalResult == null,
-            pendingCommands = base.pendingCommands.toList(),
+            pendingCommands = canonicalPlayableMetadata?.second ?: base.pendingCommands.toList(),
             modifiers = modifiers,
             terminalResult = terminalResult,
             playableBattleState = playableBattleState,
@@ -242,7 +287,21 @@ class CampaignSession(
         val activeBattleSession = activeBattleSession ?: return null
         if (victorySession != null) return activeBattleSession.snapshot()
         val wasEnhancementChoiceVisible = activeBattleSession.snapshot().enhancementChoiceVisible
-        val activeBattle = activeBattleSession.submit(intent)
+        val activeBattle = if (intent == ActiveBattleIntent.PauseOrResume && playableBattleSession != null) {
+            val playable = requireNotNull(playableBattleSession)
+            if (playable.state().phase == PlayableBattlePhase.ACTIVE) {
+                playable.pause()
+            } else {
+                playable.resume()
+            }
+            // The existing contour is synchronous. Apply the queued canonical command at the
+            // next fixed tick before publishing the projection and lifecycle save.
+            playable.advance(SimulationClock.TICK_DURATION_MILLIS)
+            syncActiveBattleProjection()
+            activeBattleSession.snapshot()
+        } else {
+            activeBattleSession.submit(intent)
+        }
         if (
             intent == ActiveBattleIntent.OpenEnhancement &&
             !wasEnhancementChoiceVisible &&
@@ -267,6 +326,20 @@ class CampaignSession(
             }
         }
         return activeBattle
+    }
+
+    /** Advances the authoritative playable session and republishes its projection. */
+    fun advance(elapsedMillis: Long): PlayableBattleSnapshot? {
+        val playable = playableBattleSession ?: return null
+        playable.advance(elapsedMillis)
+        syncActiveBattleProjection()
+        if (playable.state().terminalResult == PlayableBattleTerminal.DEFEAT) {
+            activeBattleSession = null
+            enhancementSession = null
+            victorySession = null
+            selectedEnhancementId = null
+        }
+        return playable.snapshot()
     }
 
     /** Routes enhancement input into :game and returns to active battle after selection. */
@@ -345,20 +418,21 @@ class CampaignSession(
             return
         }
 
+        val stageId = requireNotNull(state.selectedStageId)
+        // Do not publish an active contour unless its canonical playable owner exists.
+        val playable = startPlayableSession(stageId) ?: return
         state = state.copy(
             battleStart = BattleStartTransition(
-                stageId = requireNotNull(state.selectedStageId),
+                stageId = stageId,
                 selectedChoice = setup.selectedChoice,
             ),
         )
-        val stageId = requireNotNull(state.selectedStageId)
+        playableBattleSession = playable
         activeBattleSession = ActiveBattleSession(
             stageId = stageId,
             selectedSetupChoice = setup.selectedChoice,
         )
-        // The active battle rises from the authoritative playable simulation for the stage. The
-        // contour above stays a presentation projection over this canonical state.
-        playableBattleSession = startPlayableSession(stageId)
+        syncActiveBattleProjection()
     }
 
     private fun startPlayableSession(stageId: CampaignStageId): PlayableBattleSession? =
@@ -368,6 +442,16 @@ class CampaignSession(
                 initialState = PlayableBattleEngine.initialState(level),
             )
         }
+
+    private fun syncActiveBattleProjection() {
+        val active = activeBattleSession ?: return
+        val playableState = playableBattleSession?.state() ?: return
+        if (playableState.isTerminal) return
+        val shouldBePaused = playableState.phase == PlayableBattlePhase.PAUSED
+        if (active.snapshot().paused != shouldBePaused) {
+            active.submit(ActiveBattleIntent.PauseOrResume)
+        }
+    }
 
     private fun playableLevelFor(stageId: CampaignStageId): PlayableLevelContent? =
         OriginalContentFixtures.foundationPlayableLevel()
@@ -380,7 +464,7 @@ class CampaignSession(
      * contour-only saves keep the existing compatibility fallback, especially victory.
      */
     private fun restoreSavedRun(runSave: RunSave?) {
-        val restored = runSave?.takeIf { it.stageId in stages.map(CampaignStageId::value) } ?: return
+        val restored = runSave?.takeIf(::isSupportedRunSave) ?: return
         val playableState = restored.playableBattleState
         if (playableState != null) {
             restorePlayableRun(restored, playableState)
@@ -416,14 +500,13 @@ class CampaignSession(
             }
 
             null -> {
-                restorePlayableActive(stageId, playableState, contour)
+                restorePlayableActive(stageId, contour)
             }
         }
     }
 
     private fun restorePlayableActive(
         stageId: CampaignStageId,
-        playableState: PlayableBattleState,
         contour: RestoredContour?,
     ) {
         val selectedSetupChoice = contour?.selectedSetupChoice
@@ -440,12 +523,9 @@ class CampaignSession(
             stageId = stageId,
             selectedSetupChoice = selectedSetupChoice,
         )
-        if (
-            playableState.phase == PlayableBattlePhase.PAUSED ||
-            contour?.paused == true
-        ) {
-            activeBattleSession?.submit(ActiveBattleIntent.PauseOrResume)
-        }
+        // The full payload owns represented phase. A contour paused marker is only legacy
+        // presentation metadata and is ignored when it conflicts with playableState.phase.
+        syncActiveBattleProjection()
         if (contour?.speedIndicator == ActiveBattleSpeedIndicator.ALTERNATE) {
             activeBattleSession?.submit(ActiveBattleIntent.ChangeSpeed)
         }
@@ -653,9 +733,27 @@ class CampaignSession(
     )
 
     private fun isSupportedRunSave(runSave: RunSave): Boolean =
-        runSave.stageId in stages.map(CampaignStageId::value) && runCatching {
-            RunSaveCodec.encode(runSave)
-        }.isSuccess
+        stages.firstOrNull { it.value == runSave.stageId }?.let { stageId ->
+            val playableState = runSave.playableBattleState
+            val playableLevel = playableLevelFor(stageId)
+            (playableState == null || playableLevel != null && playableState.matches(playableLevel)) &&
+                runCatching { RunSaveCodec.encode(runSave) }.isSuccess
+        } == true
+
+    private fun normalizeUnfinishedRun(
+        requested: UnfinishedCampaignRun?,
+        restoredRunSave: RunSave?,
+        supportedRunSave: RunSave?,
+    ): UnfinishedCampaignRun? {
+        if (restoredRunSave == null) return requested
+        return supportedRunSave
+            ?.takeIf {
+                it.active &&
+                    it.terminalResult == null &&
+                    it.playableBattleState?.isTerminal != true
+            }
+            ?.let { UnfinishedCampaignRun(CampaignStageId.of(it.stageId)) }
+    }
 }
 
 /** Original, balance-free fixture used by the first Android vertical slice. */
@@ -683,9 +781,38 @@ object AcceptedCampaignFixture {
 }
 
 private fun isSupportedRunSave(runSave: RunSave, stageId: CampaignStageId): Boolean =
-    runSave.stageId == stageId.value && runCatching {
-        RunSaveCodec.encode(runSave)
-    }.isSuccess
+    runSave.stageId == stageId.value &&
+        (runSave.playableBattleState == null ||
+            runSave.playableBattleState.matches(OriginalContentFixtures.foundationPlayableLevel())) &&
+        runCatching { RunSaveCodec.encode(runSave) }.isSuccess
+
+private fun PlayableBattleState.matches(level: PlayableLevelContent): Boolean =
+    stageId == level.stageId &&
+        base.id == level.base.id &&
+        base.maxHealth == level.base.health &&
+        base.positionTicks == level.base.positionTicks &&
+        slots.map { it.id to it.positionTicks } == level.buildSlots.map { it.id to it.positionTicks } &&
+        towerId == level.tower.id &&
+        buildCost == level.tower.buildCost &&
+        towerBaseDamage == level.tower.damage &&
+        towerBaseCooldownTicks == level.tower.cooldownTicks &&
+        towerUpgradeBaseCost == level.tower.upgradeBaseCost &&
+        towerUpgradeCostStep == level.tower.upgradeCostStep &&
+        towerDamageStep == level.tower.damageStep &&
+        towerCooldownStep == level.tower.cooldownStep &&
+        towerMinCooldownTicks == level.tower.minCooldownTicks &&
+        waveId == level.wave.id &&
+        enemyFamilyId == level.enemyFamily.id &&
+        enemyHealth == level.enemyFamily.health &&
+        enemySpeedTicks == level.enemyFamily.speedTicks &&
+        waveSpawnCount == level.wave.spawnCount &&
+        waveSpawnIntervalTicks == level.wave.spawnIntervalTicks &&
+        towerRangeTicks == level.tower.rangeTicks &&
+        baseLeakDamage == level.enemyFamily.baseDamage &&
+        enemies.all {
+            it.familyId == level.enemyFamily.id &&
+                it.speedTicks == level.enemyFamily.speedTicks
+        }
 
 private enum class PersistedContourPhase {
     ACTIVE,

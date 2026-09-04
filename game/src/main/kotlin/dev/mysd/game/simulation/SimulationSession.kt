@@ -115,6 +115,18 @@ class SimulationSession<S : HashableState>(
 
     internal fun hasPendingCommand(type: String): Boolean = pendingCommands.values.any { it.type == type }
 
+    /** Returns the pending command metadata on the logical (persisted) timeline. */
+    internal fun pendingCommands(): List<PendingCommand> = pendingCommands.values
+        .map { command ->
+            PendingCommand(
+                id = command.id.value,
+                scheduledTick = command.scheduledTick.value,
+                type = command.type,
+                actorId = command.actorId,
+                payload = command.stablePayload(),
+            )
+        }
+
     /**
      * Accumulates elapsed time and advances only complete 50 ms steps.
      *
@@ -361,6 +373,9 @@ class PlayableBattleSession private constructor(
     }
 
     fun state(): PlayableBattleState = stateBox.value
+
+    /** Returns pending commands using the same metadata shape as RunSave. */
+    fun pendingCommands(): List<PendingCommand> = simulation.pendingCommands()
 
     fun snapshot(): PlayableBattleSnapshot = PlayableBattleSnapshot(
         tick = currentTick,

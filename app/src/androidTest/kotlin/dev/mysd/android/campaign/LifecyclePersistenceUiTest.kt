@@ -19,12 +19,19 @@ import dev.mysd.game.persistence.RunSave
 import dev.mysd.game.persistence.RunSaveCodec
 import dev.mysd.game.persistence.RunTerminalResult
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** Connected-device lifecycle coverage for playable active/defeat and legacy victory saves. */
+/**
+ * Connected-device lifecycle coverage for playable active/defeat and legacy victory saves.
+ *
+ * Coverage exception: this project has no instrumentation process-kill harness. The relaunch
+ * tests close ActivityScenario and launch a fresh Activity in the same instrumentation process;
+ * they verify the durable storage boundary but do not claim OS process-death coverage.
+ */
 @RunWith(AndroidJUnit4::class)
 class LifecyclePersistenceUiTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -37,7 +44,10 @@ class LifecyclePersistenceUiTest {
         try {
             scenario.moveToState(Lifecycle.State.CREATED)
 
-            assertActivePlayableSave(requireStoredRunSave())
+            val encoded = requireStoredEncodedSave()
+            val saved = RunSaveCodec.decode(encoded)
+            assertActivePlayableSave(saved)
+            assertEquals(encoded, RunSaveCodec.encode(saved))
         } finally {
             scenario.close()
         }
@@ -96,7 +106,7 @@ class LifecyclePersistenceUiTest {
         val scenario = launchDefeatRun()
         try {
             scenario.recreate()
-            waitForText(R.string.campaign_enter_action)
+            assertDefeatRestoredUi()
             assertDefeatPlayableSave(requireStoredRunSave())
         } finally {
             scenario.close()
@@ -104,13 +114,13 @@ class LifecyclePersistenceUiTest {
     }
 
     @Test
-    fun processDeathRestoresActivePlayableRun() = withCleanRunSave {
+    fun relaunchRestoresActivePlayableRunFromDurableStorage() = withCleanRunSave {
         var scenario: ActivityScenario<MainActivity>? = launchActiveContour()
         var relaunched: ActivityScenario<MainActivity>? = null
         try {
             checkNotNull(scenario).moveToState(Lifecycle.State.CREATED)
             assertActivePlayableSave(requireStoredRunSave())
-            checkNotNull(scenario).close()
+            closeScenarioForRelaunch(checkNotNull(scenario))
             scenario = null
 
             relaunched = ActivityScenario.launch(MainActivity::class.java)
@@ -123,13 +133,13 @@ class LifecyclePersistenceUiTest {
     }
 
     @Test
-    fun processDeathRestoresVictoryContour() = withCleanRunSave {
+    fun relaunchRestoresVictoryContourFromDurableStorage() = withCleanRunSave {
         var scenario: ActivityScenario<MainActivity>? = launchVictoryContour()
         var relaunched: ActivityScenario<MainActivity>? = null
         try {
             checkNotNull(scenario).moveToState(Lifecycle.State.CREATED)
             assertVictoryContourSave(requireStoredRunSave())
-            checkNotNull(scenario).close()
+            closeScenarioForRelaunch(checkNotNull(scenario))
             scenario = null
 
             relaunched = ActivityScenario.launch(MainActivity::class.java)
@@ -142,18 +152,82 @@ class LifecyclePersistenceUiTest {
     }
 
     @Test
-    fun processDeathRestoresDefeatPlayableRunWithoutResumePrompt() = withCleanRunSave {
+    fun relaunchRestoresDefeatPlayableRunWithoutResumePrompt() = withCleanRunSave {
         var scenario: ActivityScenario<MainActivity>? = launchDefeatRun()
         var relaunched: ActivityScenario<MainActivity>? = null
         try {
             checkNotNull(scenario).moveToState(Lifecycle.State.CREATED)
             assertDefeatPlayableSave(requireStoredRunSave())
-            checkNotNull(scenario).close()
+            closeScenarioForRelaunch(checkNotNull(scenario))
             scenario = null
 
             relaunched = ActivityScenario.launch(MainActivity::class.java)
-            waitForText(R.string.campaign_enter_action)
+            assertDefeatRestoredUi()
             assertDefeatPlayableSave(requireStoredRunSave())
+        } finally {
+            scenario?.close()
+            relaunched?.close()
+        }
+    }
+
+    @Test
+    fun malformedStoredRunSaveFallsBackToCleanCampaign() = withCleanRunSave {
+        val scenario = run {
+            seedEncodedSave("not-a-run-save")
+            ActivityScenario.launch(MainActivity::class.java)
+        }
+        try {
+            waitForText(R.string.campaign_enter_action)
+            click(R.string.campaign_enter_action)
+            waitForText(R.string.campaign_selection_title)
+            assertFalse(
+                "Malformed storage must not create a resume prompt",
+                device.wait(
+                    Until.hasObject(By.text(context.getString(R.string.campaign_unfinished_title))),
+                    300L,
+                ),
+            )
+        } finally {
+            scenario.close()
+        }
+    }
+
+    @Test
+    fun unsupportedStageStoredRunSaveFallsBackToCleanCampaign() = withCleanRunSave {
+        val scenario = run {
+            seedRunSave(unsupportedStageRun())
+            ActivityScenario.launch(MainActivity::class.java)
+        }
+        try {
+            waitForText(R.string.campaign_enter_action)
+            click(R.string.campaign_enter_action)
+            waitForText(R.string.campaign_selection_title)
+            assertFalse(
+                "An unsupported stage must not create a resume prompt",
+                device.wait(
+                    Until.hasObject(By.text(context.getString(R.string.campaign_unfinished_title))),
+                    300L,
+                ),
+            )
+        } finally {
+            scenario.close()
+        }
+    }
+
+    @Test
+    fun relaunchRestoresHistoricalVictoryContourFromDurableStorage() = withCleanRunSave {
+        var scenario: ActivityScenario<MainActivity>? = launchVictoryContour()
+        var relaunched: ActivityScenario<MainActivity>? = null
+        try {
+            checkNotNull(scenario).moveToState(Lifecycle.State.CREATED)
+            val historicalPayload = legacyContourPayload(requireStoredRunSave())
+            closeScenarioForRelaunch(checkNotNull(scenario))
+            scenario = null
+
+            seedEncodedSave(historicalPayload)
+            relaunched = ActivityScenario.launch(MainActivity::class.java)
+            assertVictoryContourVisible()
+            assertVictoryContourSave(requireStoredRunSave())
         } finally {
             scenario?.close()
             relaunched?.close()
@@ -215,10 +289,31 @@ class LifecyclePersistenceUiTest {
         waitForText(R.string.victory_reward_panel_body)
     }
 
+    private fun assertDefeatRestoredUi() {
+        waitForText(R.string.campaign_enter_action)
+        click(R.string.campaign_enter_action)
+        waitForText(R.string.campaign_selection_title)
+        device.waitForIdle(UI_TIMEOUT_MS)
+        assertFalse(
+            "Defeat restore must not show an unfinished-run prompt",
+            device.hasObject(By.text(context.getString(R.string.campaign_unfinished_title))),
+        )
+        assertFalse(
+            "Defeat restore must not show an active battle surface",
+            device.hasObject(By.text(context.getString(R.string.active_battle_title))),
+        )
+    }
+
     private fun assertActivePlayableSave(saved: RunSave) {
         assertTrue(saved.active)
         assertNull(saved.terminalResult)
         assertTrue("Active lifecycle saves must carry the full playable state", saved.playableBattleState != null)
+        assertEquals(saved.stageId, saved.playableBattleState?.stageId?.value)
+        assertEquals(PlayableBattlePhase.PAUSED, saved.playableBattleState?.phase)
+        assertEquals(50, saved.playableBattleState?.resource)
+        assertEquals(100, saved.playableBattleState?.resourceCap)
+        assertEquals(3, saved.playableBattleState?.slots?.size)
+        assertTrue(saved.playableBattleState?.enemies?.isNotEmpty() == true)
         assertEquals(
             listOf(
                 "mysd.campaign.contour.v1.phase=active",
@@ -242,6 +337,11 @@ class LifecyclePersistenceUiTest {
             saved.playableBattleState?.terminalResult,
         )
         assertEquals(0, saved.playableBattleState?.base?.health)
+        assertEquals(saved.stageId, saved.playableBattleState?.stageId?.value)
+        assertEquals(73, saved.playableBattleState?.resource)
+        assertEquals(17, saved.playableBattleState?.waveElapsedTicks)
+        assertEquals(41L, saved.tick)
+        assertEquals(1, saved.pendingCommands.size)
     }
 
     private fun assertVictoryContourSave(saved: RunSave) {
@@ -275,26 +375,59 @@ class LifecyclePersistenceUiTest {
     }
 
     private fun requireStoredRunSave(): RunSave {
-        val encoded = context.getSharedPreferences(
-            AndroidRunSaveStorage.PREFERENCES_NAME,
-            Context.MODE_PRIVATE,
-        ).getString(AndroidRunSaveStorage.ENCODED_SAVE_KEY, null)
-        return RunSaveCodec.decode(checkNotNull(encoded))
+        return RunSaveCodec.decode(requireStoredEncodedSave())
     }
 
-    private fun seedRunSave(save: RunSave) {
+    private fun requireStoredEncodedSave(): String = checkNotNull(
+        context.getSharedPreferences(
+            AndroidRunSaveStorage.PREFERENCES_NAME,
+            Context.MODE_PRIVATE,
+        ).getString(AndroidRunSaveStorage.ENCODED_SAVE_KEY, null),
+    )
+
+    private fun seedEncodedSave(encodedSave: String) {
         check(
             context.getSharedPreferences(
                 AndroidRunSaveStorage.PREFERENCES_NAME,
                 Context.MODE_PRIVATE,
             ).edit()
-                .putString(
-                    AndroidRunSaveStorage.ENCODED_SAVE_KEY,
-                    RunSaveCodec.encode(save),
-                )
+                .putString(AndroidRunSaveStorage.ENCODED_SAVE_KEY, encodedSave)
                 .commit(),
         )
     }
+
+    private fun seedRunSave(save: RunSave) {
+        seedEncodedSave(RunSaveCodec.encode(save))
+    }
+
+    private fun closeScenarioForRelaunch(scenario: ActivityScenario<MainActivity>) {
+        scenario.moveToState(Lifecycle.State.CREATED)
+        scenario.close()
+    }
+
+    private fun unsupportedStageRun(): RunSave = RunSave(
+        runId = "unsupported-stage-run",
+        stageId = "stage-cinder-fall",
+        contentVersion = 1,
+        simulationVersion = 1,
+        seed = 19L,
+        rngState = 23L,
+        tick = 41L,
+        active = true,
+        pendingCommands = emptyList(),
+        modifiers = emptyList(),
+        terminalResult = null,
+    )
+
+    private fun legacyContourPayload(save: RunSave): String =
+        RunSaveCodec.encode(save)
+            .lineSequence()
+            .filterNot { it.startsWith("playableStatePresent=") }
+            .joinToString("\n")
+            .replaceFirst(
+                "schemaVersion=${RunSaveCodec.CURRENT_SCHEMA_VERSION}",
+                "schemaVersion=3",
+            )
 
     private fun defeatRun(): RunSave {
         val initial = PlayableBattleEngine.initialState(
