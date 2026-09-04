@@ -10,7 +10,9 @@ import dev.mysd.game.battle.EnhancementSnapshot
 import dev.mysd.game.battle.VictorySession
 import dev.mysd.game.battle.VictorySnapshot
 import dev.mysd.game.battle.playable.PlayableBattleEngine
+import dev.mysd.game.battle.playable.PlayableBattlePhase
 import dev.mysd.game.battle.playable.PlayableBattleState
+import dev.mysd.game.battle.playable.PlayableBattleTerminal
 import dev.mysd.game.content.ContentId
 import dev.mysd.game.content.OriginalContentFixtures
 import dev.mysd.game.content.OriginalContentIds
@@ -20,6 +22,7 @@ import dev.mysd.game.meta.RosterSession
 import dev.mysd.game.meta.RosterSnapshot
 import dev.mysd.game.persistence.PendingCommand
 import dev.mysd.game.persistence.RunSave
+import dev.mysd.game.persistence.RunSaveCodec
 import dev.mysd.game.persistence.RunTerminalResult
 import dev.mysd.game.service.ArenaRequest
 import dev.mysd.game.service.ArenaService
@@ -109,7 +112,8 @@ class CampaignSession(
     restoredRunSave: RunSave? = null,
 ) {
     private val stages = acceptedStageIds.toList()
-    private var lifecycleRunSave: RunSave? = restoredRunSave
+    private var lifecycleRunSave: RunSave? = null
+    private var persistContourMetadata = true
 
     private var battleSetupSession: BattleSetupSession? = null
     private var activeBattleSession: ActiveBattleSession? = null
@@ -142,13 +146,20 @@ class CampaignSession(
         require(unfinishedRun == null || unfinishedRun.stageId in stages) {
             "An unfinished run must reference an accepted campaign stage."
         }
-        restoreSavedRun(restoredRunSave)
+        val supportedRunSave = restoredRunSave?.takeIf(::isSupportedRunSave)
+        lifecycleRunSave = supportedRunSave
+        persistContourMetadata = supportedRunSave?.playableBattleState == null ||
+            supportedRunSave.modifiers.any { it.startsWith(CONTOUR_MARKER_PREFIX) }
+        restoreSavedRun(supportedRunSave)
     }
 
     fun snapshot(): CampaignSnapshot = state
 
     /** Immutable authoritative playable-battle snapshot after a supported run is started or restored. */
     fun playableBattleSnapshot(): PlayableBattleSnapshot? = playableBattleSession?.snapshot()
+
+    /** Direct read boundary for the canonical full state owned by the campaign session. */
+    fun playableBattleState(): PlayableBattleState? = playableBattleSession?.state()
 
     /** Immutable setup snapshot for the selected stage, if level setup has been opened. */
     fun battleSetupSnapshot(): BattleSetupSnapshot? = battleSetupSession?.snapshot()
@@ -204,18 +215,23 @@ class CampaignSession(
         } else {
             playableBattleSession?.state()
         }
-        return base.copy(
-            stageId = activeSnapshot.stageId.value,
-            active = terminalResult == null,
-            pendingCommands = base.pendingCommands.toList(),
-            modifiers = contourModifiers(
+        val modifiers = if (persistContourMetadata) {
+            contourModifiers(
                 baseModifiers = base.modifiers,
                 phase = phase,
                 active = activeSnapshot,
                 enhancement = enhancementSession?.snapshot(),
                 selectedEnhancementId = selectedEnhancementId,
                 setupOrigin = state.setupOrigin ?: LevelSetupOrigin.UNFINISHED_RUN,
-            ),
+            )
+        } else {
+            base.modifiers
+        }
+        return base.copy(
+            stageId = activeSnapshot.stageId.value,
+            active = terminalResult == null,
+            pendingCommands = base.pendingCommands.toList(),
+            modifiers = modifiers,
             terminalResult = terminalResult,
             playableBattleState = playableBattleState,
         )
@@ -374,18 +390,115 @@ class CampaignSession(
     }
 
     private fun restorePlayableRun(runSave: RunSave, playableState: PlayableBattleState) {
-        val restore = SimulationSession.restorePlayableBattle(runSave)
-        if (restore is PlayableBattleRestoreResult.Restored) {
-            playableBattleSession = restore.session
-        }
-        if (playableState.isTerminal) {
-            // A terminal playable save (for example a defeat) stays terminal-frozen: no active
-            // contour projection and no unfinished active run are reconstructed.
+        val restoredSession = try {
+            when (val restore = SimulationSession.restorePlayableBattle(runSave)) {
+                is PlayableBattleRestoreResult.Restored -> restore.session
+                PlayableBattleRestoreResult.UnsupportedLegacy -> return
+            }
+        } catch (_: IllegalArgumentException) {
+            // A direct caller may provide an in-memory malformed payload. The Android boundary
+            // already rejects it during decode; this guard keeps the domain seam equally atomic.
             return
         }
-        // A supported active playable save keeps its authoritative state in the restored session
-        // above; the presentation contour is derived from the non-authoritative markers.
-        restoreLegacyContour(runSave)
+        playableBattleSession = restoredSession
+
+        val stageId = CampaignStageId.of(runSave.stageId)
+        val contour = parseContour(runSave)
+        when (playableState.terminalResult) {
+            PlayableBattleTerminal.DEFEAT -> {
+                // A terminal playable save stays frozen in the authoritative session. Do not
+                // create an active contour or an unfinished-run route for a defeated run.
+                return
+            }
+
+            PlayableBattleTerminal.VICTORY -> {
+                restorePlayableVictory(stageId, contour)
+            }
+
+            null -> {
+                restorePlayableActive(stageId, playableState, contour)
+            }
+        }
+    }
+
+    private fun restorePlayableActive(
+        stageId: CampaignStageId,
+        playableState: PlayableBattleState,
+        contour: RestoredContour?,
+    ) {
+        val selectedSetupChoice = contour?.selectedSetupChoice
+        state = state.copy(
+            route = CampaignRoute.LEVEL_SETUP,
+            selectedStageId = stageId,
+            setupOrigin = contour?.setupOrigin ?: LevelSetupOrigin.UNFINISHED_RUN,
+            battleStart = BattleStartTransition(
+                stageId = stageId,
+                selectedChoice = selectedSetupChoice,
+            ),
+        )
+        activeBattleSession = ActiveBattleSession(
+            stageId = stageId,
+            selectedSetupChoice = selectedSetupChoice,
+        )
+        if (
+            playableState.phase == PlayableBattlePhase.PAUSED ||
+            contour?.paused == true
+        ) {
+            activeBattleSession?.submit(ActiveBattleIntent.PauseOrResume)
+        }
+        if (contour?.speedIndicator == ActiveBattleSpeedIndicator.ALTERNATE) {
+            activeBattleSession?.submit(ActiveBattleIntent.ChangeSpeed)
+        }
+        if (contour?.buildSelected == true) {
+            activeBattleSession?.submit(ActiveBattleIntent.SelectBuildAffordance)
+        }
+
+        when (contour?.phase) {
+            PersistedContourPhase.ACTIVE -> {
+                contour.selectedEnhancementId?.let {
+                    selectedEnhancementId = it
+                    activeBattleSession?.returnToBattle()
+                }
+            }
+
+            PersistedContourPhase.ENHANCEMENT -> {
+                activeBattleSession?.submit(ActiveBattleIntent.OpenEnhancement)
+                enhancementSession = EnhancementSession(
+                    stageId = stageId,
+                    selectedSetupChoice = selectedSetupChoice,
+                )
+                repeat(contour.refreshRevision) {
+                    enhancementSession?.submit(EnhancementIntent.RefreshOffers)
+                }
+            }
+
+            PersistedContourPhase.VICTORY,
+            null,
+            -> Unit
+        }
+    }
+
+    private fun restorePlayableVictory(
+        stageId: CampaignStageId,
+        contour: RestoredContour?,
+    ) {
+        val selectedSetupChoice = contour?.selectedSetupChoice
+        state = state.copy(
+            route = CampaignRoute.LEVEL_SETUP,
+            selectedStageId = stageId,
+            setupOrigin = contour?.setupOrigin ?: LevelSetupOrigin.UNFINISHED_RUN,
+            battleStart = BattleStartTransition(
+                stageId = stageId,
+                selectedChoice = selectedSetupChoice,
+            ),
+        )
+        selectedEnhancementId = contour?.selectedEnhancementId
+            ?: OriginalContentIds.FOUNDATION_ENHANCEMENT
+        victorySession = VictorySession(
+            stageId = stageId,
+            selectedSetupChoice = selectedSetupChoice,
+            selectedEnhancementId = requireNotNull(selectedEnhancementId),
+        )
     }
 
     private fun restoreLegacyContour(runSave: RunSave?) {
@@ -538,6 +651,11 @@ class CampaignSession(
         unfinishedRunPromptVisible = false,
         battleStart = null,
     )
+
+    private fun isSupportedRunSave(runSave: RunSave): Boolean =
+        runSave.stageId in stages.map(CampaignStageId::value) && runCatching {
+            RunSaveCodec.encode(runSave)
+        }.isSuccess
 }
 
 /** Original, balance-free fixture used by the first Android vertical slice. */
@@ -547,19 +665,27 @@ object AcceptedCampaignFixture {
     fun createSession(
         runSave: RunSave?,
         arenaService: ArenaService = OfflineServiceAdapters.foundation().arenaService,
-    ): CampaignSession = CampaignSession(
-        acceptedStageIds = listOf(STAGE_ID),
-        unfinishedRun = runSave
+    ): CampaignSession {
+        val supportedRunSave = runSave?.takeIf { isSupportedRunSave(it, STAGE_ID) }
+        return CampaignSession(
+            acceptedStageIds = listOf(STAGE_ID),
+            unfinishedRun = supportedRunSave
             ?.takeIf {
                 it.active &&
                     it.terminalResult == null &&
                     it.stageId == STAGE_ID.value
             }
             ?.let { UnfinishedCampaignRun(stageId = STAGE_ID) },
-        arenaService = arenaService,
-        restoredRunSave = runSave?.takeIf { it.stageId == STAGE_ID.value },
-    )
+            arenaService = arenaService,
+            restoredRunSave = supportedRunSave,
+        )
+    }
 }
+
+private fun isSupportedRunSave(runSave: RunSave, stageId: CampaignStageId): Boolean =
+    runSave.stageId == stageId.value && runCatching {
+        RunSaveCodec.encode(runSave)
+    }.isSuccess
 
 private enum class PersistedContourPhase {
     ACTIVE,
