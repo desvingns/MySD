@@ -9,8 +9,12 @@ import dev.mysd.game.battle.EnhancementSession
 import dev.mysd.game.battle.EnhancementSnapshot
 import dev.mysd.game.battle.VictorySession
 import dev.mysd.game.battle.VictorySnapshot
+import dev.mysd.game.battle.playable.PlayableBattleEngine
+import dev.mysd.game.battle.playable.PlayableBattleState
 import dev.mysd.game.content.ContentId
+import dev.mysd.game.content.OriginalContentFixtures
 import dev.mysd.game.content.OriginalContentIds
+import dev.mysd.game.content.PlayableLevelContent
 import dev.mysd.game.meta.RosterIntent
 import dev.mysd.game.meta.RosterSession
 import dev.mysd.game.meta.RosterSnapshot
@@ -21,6 +25,10 @@ import dev.mysd.game.service.ArenaRequest
 import dev.mysd.game.service.ArenaService
 import dev.mysd.game.service.ArenaSnapshot
 import dev.mysd.game.service.OfflineServiceAdapters
+import dev.mysd.game.simulation.PlayableBattleRestoreResult
+import dev.mysd.game.simulation.PlayableBattleSession
+import dev.mysd.game.simulation.PlayableBattleSnapshot
+import dev.mysd.game.simulation.SimulationSession
 
 @JvmInline
 value class CampaignStageId private constructor(val value: String) {
@@ -105,6 +113,15 @@ class CampaignSession(
 
     private var battleSetupSession: BattleSetupSession? = null
     private var activeBattleSession: ActiveBattleSession? = null
+
+    /**
+     * Authoritative Android-free playable-battle simulation for the current run.
+     *
+     * The session is the canonical owner of the full battle state. The active-battle contour is a
+     * presentation projection derived alongside it; the contour markers are never the authoritative
+     * source for a supported playable save.
+     */
+    private var playableBattleSession: PlayableBattleSession? = null
     private var enhancementSession: EnhancementSession? = null
     private var victorySession: VictorySession? = null
     private var rosterSession: RosterSession? = null
@@ -125,10 +142,13 @@ class CampaignSession(
         require(unfinishedRun == null || unfinishedRun.stageId in stages) {
             "An unfinished run must reference an accepted campaign stage."
         }
-        restoreSavedContour(restoredRunSave)
+        restoreSavedRun(restoredRunSave)
     }
 
     fun snapshot(): CampaignSnapshot = state
+
+    /** Immutable authoritative playable-battle snapshot after a supported run is started or restored. */
+    fun playableBattleSnapshot(): PlayableBattleSnapshot? = playableBattleSession?.snapshot()
 
     /** Immutable setup snapshot for the selected stage, if level setup has been opened. */
     fun battleSetupSnapshot(): BattleSetupSnapshot? = battleSetupSession?.snapshot()
@@ -157,8 +177,11 @@ class CampaignSession(
     fun runSave(): RunSave? {
         val activeBattle = activeBattleSession
         if (activeBattle == null) {
+            // No active contour is projected. A terminal playable save (for example a defeat) is
+            // returned frozen and terminal-guarded so it can never resurface as an unfinished
+            // active run, while a supported non-terminal save is returned as-is.
             return lifecycleRunSave?.takeIf {
-                it.active && it.terminalResult == null
+                it.terminalResult != null || it.active
             }
         }
 
@@ -174,6 +197,13 @@ class CampaignSession(
         } else {
             null
         }
+        // Newly started and active playable runs emit the canonical full playable payload. Existing
+        // victory compatibility remains a legacy contour-only save with no authoritative state.
+        val playableBattleState = if (phase == PersistedContourPhase.VICTORY) {
+            null
+        } else {
+            playableBattleSession?.state()
+        }
         return base.copy(
             stageId = activeSnapshot.stageId.value,
             active = terminalResult == null,
@@ -187,6 +217,7 @@ class CampaignSession(
                 setupOrigin = state.setupOrigin ?: LevelSetupOrigin.UNFINISHED_RUN,
             ),
             terminalResult = terminalResult,
+            playableBattleState = playableBattleState,
         )
     }
 
@@ -260,8 +291,10 @@ class CampaignSession(
                 state = reduce(state, intent)
                 if (intent == CampaignIntent.CancelUnfinishedRun) {
                     lifecycleRunSave = null
+                    playableBattleSession = null
                 } else if (intent is CampaignIntent.SelectLevel) {
                     lifecycleRunSave = null
+                    playableBattleSession = null
                 }
                 if (
                     state.route == CampaignRoute.LEVEL_SETUP &&
@@ -302,13 +335,60 @@ class CampaignSession(
                 selectedChoice = setup.selectedChoice,
             ),
         )
+        val stageId = requireNotNull(state.selectedStageId)
         activeBattleSession = ActiveBattleSession(
-            stageId = requireNotNull(state.selectedStageId),
+            stageId = stageId,
             selectedSetupChoice = setup.selectedChoice,
         )
+        // The active battle rises from the authoritative playable simulation for the stage. The
+        // contour above stays a presentation projection over this canonical state.
+        playableBattleSession = startPlayableSession(stageId)
     }
 
-    private fun restoreSavedContour(runSave: RunSave?) {
+    private fun startPlayableSession(stageId: CampaignStageId): PlayableBattleSession? =
+        playableLevelFor(stageId)?.let { level ->
+            SimulationSession.playableBattle(
+                seed = 0L,
+                initialState = PlayableBattleEngine.initialState(level),
+            )
+        }
+
+    private fun playableLevelFor(stageId: CampaignStageId): PlayableLevelContent? =
+        OriginalContentFixtures.foundationPlayableLevel()
+            .takeIf { it.stageId.value == stageId.value }
+
+    /**
+     * Restores a supported run through the existing Android lifecycle boundary.
+     *
+     * A full playable payload is the canonical restore path for active and defeat saves; legacy
+     * contour-only saves keep the existing compatibility fallback, especially victory.
+     */
+    private fun restoreSavedRun(runSave: RunSave?) {
+        val restored = runSave?.takeIf { it.stageId in stages.map(CampaignStageId::value) } ?: return
+        val playableState = restored.playableBattleState
+        if (playableState != null) {
+            restorePlayableRun(restored, playableState)
+        } else {
+            restoreLegacyContour(restored)
+        }
+    }
+
+    private fun restorePlayableRun(runSave: RunSave, playableState: PlayableBattleState) {
+        val restore = SimulationSession.restorePlayableBattle(runSave)
+        if (restore is PlayableBattleRestoreResult.Restored) {
+            playableBattleSession = restore.session
+        }
+        if (playableState.isTerminal) {
+            // A terminal playable save (for example a defeat) stays terminal-frozen: no active
+            // contour projection and no unfinished active run are reconstructed.
+            return
+        }
+        // A supported active playable save keeps its authoritative state in the restored session
+        // above; the presentation contour is derived from the non-authoritative markers.
+        restoreLegacyContour(runSave)
+    }
+
+    private fun restoreLegacyContour(runSave: RunSave?) {
         val restored = runSave?.takeIf { it.stageId in stages.map(CampaignStageId::value) }
             ?.let(::parseContour)
             ?: return
