@@ -9,6 +9,7 @@ import dev.mysd.game.battle.EnhancementSession
 import dev.mysd.game.battle.EnhancementSnapshot
 import dev.mysd.game.battle.VictorySession
 import dev.mysd.game.battle.VictorySnapshot
+import dev.mysd.game.battle.playable.PlayableBattleCommand
 import dev.mysd.game.battle.playable.PlayableBattleEngine
 import dev.mysd.game.battle.playable.PlayableBattlePhase
 import dev.mysd.game.battle.playable.PlayableBattleState
@@ -343,6 +344,11 @@ class CampaignSession(
         }
         return activeBattleSession.snapshot()
     }
+
+    /** Routes playable-battle commands to the canonical session without exposing mutable state. */
+    @Synchronized
+    fun submit(command: PlayableBattleCommand): PlayableBattleSnapshot? =
+        playableBattleSession?.submit(command)
 
     /** Advances the authoritative playable session and republishes its projection. */
     @Synchronized

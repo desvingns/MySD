@@ -3,10 +3,15 @@ package dev.mysd.android
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
+import dev.mysd.game.battle.playable.PlayableBattleCommand
+import dev.mysd.game.battle.playable.PlayableBattlePhase
 import dev.mysd.android.campaign.CampaignScreen
 import dev.mysd.android.persistence.AndroidRunSaveStorage
 import dev.mysd.android.ui.theme.MySDTheme
@@ -16,6 +21,9 @@ import dev.mysd.game.campaign.AcceptedCampaignFixture
 import dev.mysd.game.meta.RosterIntent
 import dev.mysd.game.persistence.PersistenceException
 import dev.mysd.game.persistence.RunSaveCodec
+import dev.mysd.game.simulation.SimulationClock
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 
 class MainActivity : ComponentActivity() {
     private lateinit var runSaveStorage: AndroidRunSaveStorage
@@ -32,48 +40,71 @@ class MainActivity : ComponentActivity() {
             }
         }
         campaignSession = AcceptedCampaignFixture.createSession(runSave = runSave)
+        val activityLifecycle = lifecycle
         setContent {
             val session = campaignSession
             var snapshot by remember { mutableStateOf(session.snapshot()) }
             var battleSetup by remember { mutableStateOf(session.battleSetupSnapshot()) }
             var activeBattle by remember { mutableStateOf(session.activeBattleSnapshot()) }
+            var playableBattle by remember { mutableStateOf(session.playableBattleSnapshot()) }
             var enhancement by remember { mutableStateOf(session.enhancementSnapshot()) }
             var victory by remember { mutableStateOf(session.victorySnapshot()) }
             var roster by remember { mutableStateOf(session.rosterSnapshot()) }
             var arena by remember { mutableStateOf(session.arenaSnapshot()) }
+
+            fun publishSnapshots() {
+                snapshot = session.snapshot()
+                battleSetup = session.battleSetupSnapshot()
+                activeBattle = session.activeBattleSnapshot()
+                playableBattle = session.playableBattleSnapshot()
+                enhancement = session.enhancementSnapshot()
+                victory = session.victorySnapshot()
+                roster = session.rosterSnapshot()
+                arena = session.arenaSnapshot()
+            }
+
+            LaunchedEffect(session, activityLifecycle) {
+                activityLifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+                    while (isActive) {
+                        val currentPlayableBattle = session.playableBattleSnapshot()
+                        if (
+                            currentPlayableBattle != null &&
+                            currentPlayableBattle.phase == PlayableBattlePhase.ACTIVE &&
+                            currentPlayableBattle.terminalResult == null
+                        ) {
+                            session.advance(SimulationClock.TICK_DURATION_MILLIS)
+                            publishSnapshots()
+                        }
+                        delay(SimulationClock.TICK_DURATION_MILLIS)
+                    }
+                }
+            }
 
             MySDTheme(dynamicColor = false) {
                 CampaignScreen(
                     state = snapshot,
                     battleSetup = battleSetup,
                     activeBattle = activeBattle,
+                    playableBattle = playableBattle,
                     onIntent = { intent ->
                         session.submit(intent)
-                        snapshot = session.snapshot()
-                        battleSetup = session.battleSetupSnapshot()
-                        activeBattle = session.activeBattleSnapshot()
-                        enhancement = session.enhancementSnapshot()
-                        victory = session.victorySnapshot()
-                        roster = session.rosterSnapshot()
-                        arena = session.arenaSnapshot()
+                        publishSnapshots()
                     },
                     onActiveBattleIntent = { intent: ActiveBattleIntent ->
                         session.submit(intent)
-                        snapshot = session.snapshot()
-                        activeBattle = session.activeBattleSnapshot()
-                        enhancement = session.enhancementSnapshot()
-                        victory = session.victorySnapshot()
+                        publishSnapshots()
+                    },
+                    onPlayableBattleCommand = { command: PlayableBattleCommand ->
+                        session.submit(command)
+                        publishSnapshots()
                     },
                     onEnhancementIntent = { intent: EnhancementIntent ->
                         session.submit(intent)
-                        snapshot = session.snapshot()
-                        activeBattle = session.activeBattleSnapshot()
-                        enhancement = session.enhancementSnapshot()
-                        victory = session.victorySnapshot()
+                        publishSnapshots()
                     },
                     onRosterIntent = { intent: RosterIntent ->
                         session.submit(intent)
-                        roster = session.rosterSnapshot()
+                        publishSnapshots()
                     },
                     enhancement = enhancement,
                     victory = victory,

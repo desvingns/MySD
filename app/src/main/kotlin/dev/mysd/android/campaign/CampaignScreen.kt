@@ -3,8 +3,10 @@ package dev.mysd.android.campaign
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -13,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
@@ -30,6 +33,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,6 +47,8 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
@@ -53,12 +59,25 @@ import dev.mysd.android.R
 import dev.mysd.android.ui.theme.BattleAction
 import dev.mysd.android.ui.theme.BattleBackground
 import dev.mysd.android.ui.theme.BattleBase
+import dev.mysd.android.ui.theme.BattleDefeat
 import dev.mysd.android.ui.theme.BattleEnemy
 import dev.mysd.android.ui.theme.BattleFieldMid
 import dev.mysd.android.ui.theme.BattleHorizon
 import dev.mysd.android.ui.theme.BattleHud
 import dev.mysd.android.ui.theme.BattleMetrics
 import dev.mysd.android.ui.theme.BattleOnBackground
+import dev.mysd.android.ui.theme.BattleOnPopup
+import dev.mysd.android.ui.theme.BattlePopup
+import dev.mysd.android.ui.theme.BattlePopupBorder
+import dev.mysd.android.ui.theme.BattleProjectile
+import dev.mysd.android.ui.theme.BattleGuarded
+import dev.mysd.android.ui.theme.BattleGuardedSurface
+import dev.mysd.android.ui.theme.BattleTile
+import dev.mysd.android.ui.theme.BattleTileBorder
+import dev.mysd.android.ui.theme.BattleTileSelected
+import dev.mysd.android.ui.theme.BattleTower
+import dev.mysd.android.ui.theme.BattleTerminalScrim
+import dev.mysd.android.ui.theme.BattleVictory
 import dev.mysd.android.ui.theme.CampaignAccent
 import dev.mysd.android.ui.theme.CampaignBackground
 import dev.mysd.android.ui.theme.CampaignDisabled
@@ -119,6 +138,13 @@ import dev.mysd.game.campaign.BattleSetupChoice
 import dev.mysd.game.campaign.BattleSetupSnapshot
 import dev.mysd.game.campaign.BattleStartTransition
 import dev.mysd.game.campaign.LevelSetupOrigin
+import dev.mysd.game.battle.playable.PlayableBattleCommand
+import dev.mysd.game.battle.playable.PlayableBattleEngine
+import dev.mysd.game.battle.playable.PlayableBattlePhase
+import dev.mysd.game.battle.playable.PlayableBattleSlotState
+import dev.mysd.game.battle.playable.PlayableBattleState
+import dev.mysd.game.battle.playable.PlayableBattleTerminal
+import dev.mysd.game.content.ContentId
 import dev.mysd.game.content.OriginalContentIds
 import dev.mysd.game.meta.RosterIntent
 import dev.mysd.game.meta.RosterSettingId
@@ -128,6 +154,7 @@ import dev.mysd.game.meta.RosterSurface
 import dev.mysd.game.meta.RosterTroopSlot
 import dev.mysd.game.service.ArenaLocalState
 import dev.mysd.game.service.ArenaSnapshot
+import dev.mysd.game.simulation.PlayableBattleSnapshot
 
 @Composable
 fun CampaignScreen(
@@ -143,16 +170,20 @@ fun CampaignScreen(
     victory: VictorySnapshot? = null,
     roster: RosterSnapshot? = null,
     arena: ArenaSnapshot? = null,
+    onPlayableBattleCommand: (PlayableBattleCommand) -> Unit = {},
+    playableBattle: PlayableBattleSnapshot? = null,
 ) {
     CampaignScreenContent(
         state = state,
         onIntent = onIntent,
         onActiveBattleIntent = onActiveBattleIntent,
+        onPlayableBattleCommand = onPlayableBattleCommand,
         onEnhancementIntent = onEnhancementIntent,
         onRosterIntent = onRosterIntent,
         modifier = modifier,
         battleSetup = battleSetup,
         activeBattle = activeBattle,
+        playableBattle = playableBattle,
         enhancement = enhancement,
         victory = victory,
         roster = roster,
@@ -174,10 +205,17 @@ fun CampaignScreenContent(
     victory: VictorySnapshot? = null,
     roster: RosterSnapshot? = null,
     arena: ArenaSnapshot? = null,
+    onPlayableBattleCommand: (PlayableBattleCommand) -> Unit = {},
+    playableBattle: PlayableBattleSnapshot? = null,
 ) {
     val battleStart = state.battleStart
     if (battleStart != null) {
-        if (victory != null) {
+        if (playableBattle?.terminalResult != null) {
+            PlayableBattleTerminalContent(
+                state = playableBattle,
+                modifier = modifier,
+            )
+        } else if (victory != null) {
             VictoryContent(
                 state = victory,
                 modifier = modifier,
@@ -192,6 +230,8 @@ fun CampaignScreenContent(
             ActiveBattleContent(
                 state = activeBattle,
                 onIntent = onActiveBattleIntent,
+                playableBattle = playableBattle,
+                onPlayableBattleCommand = onPlayableBattleCommand,
                 modifier = modifier,
             )
         } else {
@@ -311,25 +351,46 @@ fun ActiveBattleContent(
     state: ActiveBattleSnapshot,
     onIntent: (ActiveBattleIntent) -> Unit,
     modifier: Modifier = Modifier,
+    playableBattle: PlayableBattleSnapshot? = null,
+    onPlayableBattleCommand: (PlayableBattleCommand) -> Unit = {},
 ) {
     val spacing = LocalSpacing.current
+    val selectedSlotId = remember { mutableStateOf<ContentId?>(null) }
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(BattleBackground),
     ) {
-        ActiveBattleFieldBackdrop(
-            state = state,
-            modifier = Modifier.matchParentSize(),
-        )
-        ActiveBattleHud(
-            state = state,
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .fillMaxWidth()
-                .systemBarsPadding()
-                .padding(BattleMetrics.hudInset),
-        )
+        if (playableBattle == null) {
+            ActiveBattleFieldBackdrop(
+                state = state,
+                modifier = Modifier.matchParentSize(),
+            )
+            ActiveBattleHud(
+                state = state,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth()
+                    .systemBarsPadding()
+                    .padding(BattleMetrics.hudInset),
+            )
+        } else {
+            PlayableBattleField(
+                snapshot = playableBattle,
+                selectedSlotId = selectedSlotId.value,
+                onSelectSlot = { slotId -> selectedSlotId.value = slotId },
+                modifier = Modifier.matchParentSize(),
+            )
+            PlayableBattleHud(
+                snapshot = playableBattle,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth()
+                    .systemBarsPadding()
+                    .padding(BattleMetrics.hudInset),
+            )
+        }
+
         ActiveBattleEdgeControls(
             state = state,
             onIntent = onIntent,
@@ -344,6 +405,616 @@ fun ActiveBattleContent(
             buttonHorizontalPadding = spacing.s,
             buttonVerticalPadding = spacing.xs,
         )
+
+        if (playableBattle != null && playableBattle.terminalResult == null) {
+            val selectedSlot = playableBattle.slots.firstOrNull {
+                it.id == selectedSlotId.value
+            }
+            if (selectedSlot != null) {
+                PlayableBattleCommandPopup(
+                    snapshot = playableBattle,
+                    slot = selectedSlot,
+                    onConfirm = { command ->
+                        onPlayableBattleCommand(command)
+                        selectedSlotId.value = null
+                    },
+                    onDismiss = { selectedSlotId.value = null },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlayableBattleHud(
+    snapshot: PlayableBattleSnapshot,
+    modifier: Modifier = Modifier,
+) {
+    val spacing = LocalSpacing.current
+    Surface(
+        modifier = modifier,
+        shape = MaterialTheme.shapes.large,
+        color = BattleHud,
+        contentColor = BattleOnHud,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = spacing.m, vertical = spacing.s),
+            verticalArrangement = Arrangement.spacedBy(spacing.xs),
+        ) {
+            Text(
+                text = stringResource(R.string.active_battle_title),
+                style = MaterialTheme.typography.titleLarge,
+                color = BattleOnHud,
+            )
+            Text(
+                text = stringResource(
+                    R.string.active_battle_stage,
+                    stageTitle(CampaignStageId.of(snapshot.state.stageId.value)),
+                ),
+                style = MaterialTheme.typography.bodyLarge,
+                color = BattleOnHud.copy(alpha = 0.86f),
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(spacing.s),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = stringResource(
+                        R.string.active_battle_resource,
+                        snapshot.resource,
+                        snapshot.state.resourceCap,
+                    ),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = BattleAction,
+                )
+                Text(
+                    text = stringResource(
+                        R.string.active_battle_wave,
+                        snapshot.waveSpawnedCount,
+                        snapshot.waveSpawnCount,
+                    ),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = BattleOnHud.copy(alpha = 0.84f),
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(spacing.s),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = stringResource(
+                        R.string.active_battle_base_health,
+                        snapshot.base.health,
+                        snapshot.base.maxHealth,
+                    ),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = BattleBase,
+                )
+                Text(
+                    text = stringResource(
+                        R.string.active_battle_enemies_state,
+                        snapshot.enemies.size,
+                    ),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = BattleOnHud.copy(alpha = 0.84f),
+                )
+            }
+            if (snapshot.phase == PlayableBattlePhase.PAUSED) {
+                Text(
+                    text = stringResource(R.string.active_battle_paused),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = BattleGuarded,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlayableBattleField(
+    snapshot: PlayableBattleSnapshot,
+    selectedSlotId: ContentId?,
+    onSelectSlot: (ContentId) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val slotDescriptions = snapshot.slots.mapIndexed { index, slot ->
+        if (slot.isEmpty) {
+            stringResource(R.string.active_battle_tile_empty, index + 1)
+        } else {
+            stringResource(
+                R.string.active_battle_tile_occupied,
+                index + 1,
+                slot.level,
+            )
+        }
+    }
+    val fieldDescription = buildList {
+        add(
+            stringResource(
+                R.string.active_battle_base_health,
+                snapshot.base.health,
+                snapshot.base.maxHealth,
+            ),
+        )
+        add(
+            stringResource(
+                R.string.active_battle_resource,
+                snapshot.resource,
+                snapshot.state.resourceCap,
+            ),
+        )
+        add(
+            stringResource(
+                R.string.active_battle_wave,
+                snapshot.waveSpawnedCount,
+                snapshot.waveSpawnCount,
+            ),
+        )
+        addAll(slotDescriptions)
+        add(stringResource(R.string.active_battle_enemies_state, snapshot.enemies.size))
+    }.joinToString(separator = "; ")
+
+    BoxWithConstraints(
+        modifier = modifier.semantics {
+            contentDescription = fieldDescription
+        },
+    ) {
+        PlayableBattleCanvas(
+            snapshot = snapshot,
+            selectedSlotId = selectedSlotId,
+            modifier = Modifier.matchParentSize(),
+        )
+        snapshot.slots.forEachIndexed { index, slot ->
+            val progress = pathProgress(slot.positionTicks, snapshot.base.positionTicks)
+            Box(
+                modifier = Modifier
+                    .offset(
+                        x = maxWidth * pathX(progress) - BattleMetrics.minTouchTarget / 2,
+                        y = maxHeight * pathY(progress) - BattleMetrics.minTouchTarget / 2,
+                    )
+                    .size(BattleMetrics.minTouchTarget)
+                    .semantics {
+                        contentDescription = slotDescriptions[index]
+                        role = Role.Button
+                    }
+                    .clickable(enabled = snapshot.terminalResult == null) {
+                        onSelectSlot(slot.id)
+                    },
+            )
+        }
+    }
+}
+
+@Composable
+private fun PlayableBattleCanvas(
+    snapshot: PlayableBattleSnapshot,
+    selectedSlotId: ContentId?,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier = modifier) {
+        val horizon = size.height * PLAYABLE_HORIZON_FRACTION
+        val pathStart = Offset(size.width * PLAYABLE_PATH_START_X, horizon + size.height * 0.13f)
+        val pathEnd = playablePathPoint(
+            positionTicks = snapshot.base.positionTicks,
+            basePositionTicks = snapshot.base.positionTicks,
+            width = size.width,
+            height = size.height,
+        )
+        val gridStroke = BattleMetrics.controlGap.toPx() * 0.2f
+        drawRect(
+            brush = Brush.verticalGradient(
+                colors = listOf(BattleBackground, BattleFieldMid, BattleHorizon),
+            ),
+            size = size,
+        )
+        drawLine(
+            color = BattleAction.copy(alpha = 0.24f),
+            start = pathStart,
+            end = pathEnd,
+            strokeWidth = gridStroke * 2f,
+            cap = StrokeCap.Round,
+        )
+        for (index in 1..5) {
+            val y = horizon + (size.height - horizon) * index / 6f
+            drawLine(
+                color = BattleOnBackground.copy(alpha = 0.08f),
+                start = Offset(0f, y),
+                end = Offset(size.width, y),
+                strokeWidth = gridStroke,
+            )
+        }
+
+        val tileSize = BattleMetrics.edgeControlSize.toPx()
+        snapshot.slots.forEach { slot ->
+            val center = playablePathPoint(
+                positionTicks = slot.positionTicks,
+                basePositionTicks = snapshot.base.positionTicks,
+                width = size.width,
+                height = size.height,
+            )
+            drawRect(
+                color = if (slot.id == selectedSlotId) BattleTileSelected else BattleTile,
+                topLeft = Offset(center.x - tileSize / 2f, center.y - tileSize / 2f),
+                size = Size(tileSize, tileSize),
+            )
+            drawRect(
+                color = BattleTileBorder,
+                topLeft = Offset(center.x - tileSize / 2f, center.y - tileSize / 2f),
+                size = Size(tileSize, tileSize),
+                style = Stroke(width = gridStroke * 2f),
+            )
+            if (!slot.isEmpty) {
+                drawBattleTower(center = center, size = tileSize, level = slot.level)
+                val target = snapshot.enemies.minByOrNull {
+                    kotlin.math.abs(it.positionTicks - slot.positionTicks)
+                }
+                if (slot.cooldownRemainingTicks > 0 && target != null) {
+                    val targetCenter = playablePathPoint(
+                        positionTicks = target.positionTicks,
+                        basePositionTicks = snapshot.base.positionTicks,
+                        width = size.width,
+                        height = size.height,
+                    )
+                    val projectileCenter = Offset(
+                        x = (center.x + targetCenter.x) / 2f,
+                        y = (center.y + targetCenter.y) / 2f,
+                    )
+                    drawLine(
+                        color = BattleProjectile.copy(alpha = 0.48f),
+                        start = center,
+                        end = projectileCenter,
+                        strokeWidth = gridStroke,
+                        cap = StrokeCap.Round,
+                    )
+                    drawCircle(
+                        color = BattleProjectile,
+                        radius = tileSize * 0.1f,
+                        center = projectileCenter,
+                    )
+                }
+            }
+        }
+
+        snapshot.enemies.forEach { enemy ->
+            val center = playablePathPoint(
+                positionTicks = enemy.positionTicks,
+                basePositionTicks = snapshot.base.positionTicks,
+                width = size.width,
+                height = size.height,
+            )
+            drawBattleEnemy(
+                center = center,
+                radius = size.minDimension * 0.038f,
+                strokeWidth = gridStroke * 2f,
+            )
+            val healthRatio = if (snapshot.state.enemyHealth > 0) {
+                (enemy.health.toFloat() / snapshot.state.enemyHealth).coerceIn(0f, 1f)
+            } else {
+                0f
+            }
+            drawRect(
+                color = BattleProjectile,
+                topLeft = Offset(center.x - tileSize * 0.2f, center.y - tileSize * 0.62f),
+                size = Size(tileSize * 0.4f * healthRatio, gridStroke),
+            )
+        }
+
+        drawBattleBase(
+            center = pathEnd,
+            radius = size.minDimension * 0.12f,
+            strokeWidth = gridStroke * 2.5f,
+        )
+        val baseHealthRatio = if (snapshot.base.maxHealth > 0) {
+            (snapshot.base.health.toFloat() / snapshot.base.maxHealth).coerceIn(0f, 1f)
+        } else {
+            0f
+        }
+        drawRect(
+            color = BattleBase,
+            topLeft = Offset(pathEnd.x - tileSize * 0.42f, pathEnd.y - tileSize * 0.9f),
+            size = Size(tileSize * 0.84f * baseHealthRatio, gridStroke * 1.5f),
+        )
+    }
+}
+
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawBattleTower(
+    center: Offset,
+    size: Float,
+    level: Int,
+) {
+    drawRoundRect(
+        color = BattleTower,
+        topLeft = Offset(center.x - size * 0.23f, center.y - size * 0.25f),
+        size = Size(size * 0.46f, size * 0.5f),
+    )
+    drawCircle(
+        color = BattleOnBackground,
+        radius = size * 0.1f,
+        center = Offset(center.x, center.y - size * 0.25f),
+    )
+    repeat(level) { index ->
+        drawRect(
+            color = BattleProjectile,
+            topLeft = Offset(
+                center.x - size * 0.18f + index * size * 0.15f,
+                center.y + size * 0.32f,
+            ),
+            size = Size(size * 0.1f, size * 0.08f),
+        )
+    }
+}
+
+private fun playablePathPoint(
+    positionTicks: Int,
+    basePositionTicks: Int,
+    width: Float,
+    height: Float,
+): Offset {
+    val progress = pathProgress(positionTicks, basePositionTicks)
+    return Offset(
+        x = width * pathX(progress),
+        y = height * pathY(progress),
+    )
+}
+
+private fun pathProgress(positionTicks: Int, basePositionTicks: Int): Float =
+    (positionTicks.toFloat() / basePositionTicks.coerceAtLeast(1)).coerceIn(0f, 1f)
+
+private fun pathX(progress: Float): Float =
+    PLAYABLE_PATH_START_X + (PLAYABLE_PATH_END_X - PLAYABLE_PATH_START_X) * progress
+
+private fun pathY(progress: Float): Float =
+    PLAYABLE_HORIZON_FRACTION +
+        (1f - PLAYABLE_HORIZON_FRACTION) * (PLAYABLE_PATH_Y - progress * 0.04f)
+
+private const val PLAYABLE_HORIZON_FRACTION = 0.48f
+private const val PLAYABLE_PATH_START_X = 0.82f
+private const val PLAYABLE_PATH_END_X = 0.16f
+private const val PLAYABLE_PATH_Y = 0.62f
+
+@Composable
+private fun PlayableBattleCommandPopup(
+    snapshot: PlayableBattleSnapshot,
+    slot: PlayableBattleSlotState,
+    onConfirm: (PlayableBattleCommand) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val spacing = LocalSpacing.current
+    val upgrade = if (!slot.isEmpty && slot.level < PlayableBattleState.MAX_TOWER_LEVEL) {
+        PlayableBattleEngine.calculateTowerUpgrade(snapshot.state, slot.level)
+    } else {
+        null
+    }
+    val cost = if (slot.isEmpty) snapshot.state.buildCost else upgrade?.cost
+    val guardedMessage = when {
+        snapshot.phase == PlayableBattlePhase.PAUSED -> {
+            stringResource(R.string.active_battle_guard_paused)
+        }
+
+        !slot.isEmpty && slot.level >= PlayableBattleState.MAX_TOWER_LEVEL -> {
+            stringResource(R.string.active_battle_guard_max_level)
+        }
+
+        cost != null && snapshot.resource < cost -> {
+            stringResource(R.string.active_battle_guard_insufficient, cost)
+        }
+
+        else -> null
+    }
+    val canConfirm = guardedMessage == null && cost != null
+    val command = if (slot.isEmpty) {
+        PlayableBattleCommand.BuildTower(slot.id)
+    } else {
+        PlayableBattleCommand.UpgradeTower(slot.id)
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            dismissOnBackPress = true,
+            dismissOnClickOutside = true,
+        ),
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center,
+        ) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(BattleMetrics.hudInset),
+                shape = MaterialTheme.shapes.extraLarge,
+                color = BattlePopup,
+                contentColor = BattleOnPopup,
+                border = BorderStroke(spacing.xxs, BattlePopupBorder),
+            ) {
+                Column(
+                    modifier = Modifier.padding(BattleMetrics.hudInset),
+                    verticalArrangement = Arrangement.spacedBy(spacing.s),
+                ) {
+                    Text(
+                        text = stringResource(
+                            if (slot.isEmpty) {
+                                R.string.active_battle_build_popup_title
+                            } else {
+                                R.string.active_battle_upgrade_popup_title
+                            },
+                        ),
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = BattleOnPopup,
+                    )
+                    Text(
+                        text = if (slot.isEmpty) {
+                            stringResource(
+                                R.string.active_battle_build_popup_body,
+                                snapshot.state.buildCost,
+                            )
+                        } else if (upgrade != null) {
+                            stringResource(
+                                R.string.active_battle_upgrade_popup_body,
+                                upgrade.nextLevel,
+                                upgrade.cost,
+                            )
+                        } else {
+                            stringResource(R.string.active_battle_upgrade_max_body)
+                        },
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = BattleOnPopup.copy(alpha = 0.86f),
+                    )
+                    if (guardedMessage != null) {
+                        Surface(
+                            color = BattleGuardedSurface,
+                            contentColor = BattleGuarded,
+                            shape = MaterialTheme.shapes.small,
+                        ) {
+                            Text(
+                                text = guardedMessage,
+                                modifier = Modifier.padding(spacing.s),
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = BattleGuarded,
+                            )
+                        }
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(spacing.s),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        TextButton(
+                            onClick = onDismiss,
+                            modifier = Modifier
+                                .weight(1f)
+                                .heightIn(min = BattleMetrics.minTouchTarget),
+                        ) {
+                            Text(
+                                text = stringResource(R.string.active_battle_popup_close),
+                                style = MaterialTheme.typography.labelLarge,
+                                color = BattleProjectile,
+                            )
+                        }
+                        Button(
+                            onClick = { onConfirm(command) },
+                            enabled = canConfirm,
+                            modifier = Modifier
+                                .weight(1f)
+                                .heightIn(min = BattleMetrics.minTouchTarget),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = BattleAction,
+                                contentColor = BattleBackground,
+                                disabledContainerColor = BattleGuardedSurface,
+                                disabledContentColor = BattleGuarded,
+                            ),
+                        ) {
+                            Text(
+                                text = stringResource(
+                                    if (slot.isEmpty) {
+                                        R.string.active_battle_build_confirm
+                                    } else {
+                                        R.string.active_battle_upgrade_confirm
+                                    },
+                                ),
+                                style = MaterialTheme.typography.labelLarge,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun PlayableBattleTerminalContent(
+    state: PlayableBattleSnapshot,
+    modifier: Modifier = Modifier,
+) {
+    val spacing = LocalSpacing.current
+    val isVictory = state.terminalResult == PlayableBattleTerminal.VICTORY
+    val outcomeColor = if (isVictory) BattleVictory else BattleDefeat
+    val title = stringResource(
+        if (isVictory) {
+            R.string.active_battle_terminal_victory_title
+        } else {
+            R.string.active_battle_terminal_defeat_title
+        },
+    )
+    val body = stringResource(
+        if (isVictory) {
+            R.string.active_battle_terminal_victory_body
+        } else {
+            R.string.active_battle_terminal_defeat_body
+        },
+    )
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .semantics {
+                contentDescription = "$title. $body"
+            },
+    ) {
+        PlayableBattleCanvas(
+            snapshot = state,
+            selectedSlotId = null,
+            modifier = Modifier.matchParentSize(),
+        )
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .background(BattleTerminalScrim),
+        )
+        Surface(
+            modifier = Modifier
+                .align(Alignment.Center)
+                .fillMaxWidth()
+                .padding(BattleMetrics.hudInset),
+            shape = MaterialTheme.shapes.extraLarge,
+            color = outcomeColor.copy(alpha = 0.16f),
+            contentColor = BattleOnPopup,
+            border = BorderStroke(spacing.xxs, outcomeColor),
+        ) {
+            Column(
+                modifier = Modifier.padding(BattleMetrics.hudInset),
+                verticalArrangement = Arrangement.spacedBy(spacing.s),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.displaySmall,
+                    color = outcomeColor,
+                    textAlign = TextAlign.Center,
+                )
+                Text(
+                    text = body,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = BattleOnPopup,
+                    textAlign = TextAlign.Center,
+                )
+                Text(
+                    text = stringResource(
+                        R.string.active_battle_terminal_wave,
+                        state.waveSpawnedCount,
+                        state.waveSpawnCount,
+                    ),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = BattleOnPopup.copy(alpha = 0.86f),
+                    textAlign = TextAlign.Center,
+                )
+                Text(
+                    text = stringResource(
+                        R.string.active_battle_terminal_resource,
+                        state.resource,
+                    ),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = BattleAction,
+                    textAlign = TextAlign.Center,
+                )
+            }
+        }
     }
 }
 
