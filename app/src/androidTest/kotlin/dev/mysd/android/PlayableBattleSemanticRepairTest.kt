@@ -183,6 +183,7 @@ class PlayableBattleSemanticRepairTest {
     }
 
     @Test
+    // mp-real-io: instrumented Flow cancellation/wake runs on Android's real scheduler with bounded timeouts.
     fun pausedAndTerminalSnapshotsSuspendTickerAndActivePublicationWakesIt() = runBlocking {
         val snapshots = MutableStateFlow<PlayableBattleSnapshot?>(
             activeSnapshot.copy(state = activeState.copy(phase = PlayableBattlePhase.PAUSED)),
