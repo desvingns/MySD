@@ -8,6 +8,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import dev.mysd.game.battle.playable.PlayableBattleCommand
@@ -23,7 +24,34 @@ import dev.mysd.game.persistence.PersistenceException
 import dev.mysd.game.persistence.RunSaveCodec
 import dev.mysd.game.simulation.SimulationClock
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+
+internal suspend fun runPlayableBattleTicker(
+    snapshots: Flow<dev.mysd.game.simulation.PlayableBattleSnapshot?>,
+    awaitNextTick: suspend () -> Unit = {
+        delay(SimulationClock.TICK_DURATION_MILLIS)
+    },
+    onTick: suspend () -> Unit,
+) {
+    snapshots
+        .map { snapshot ->
+            snapshot != null &&
+                snapshot.phase == PlayableBattlePhase.ACTIVE &&
+                snapshot.terminalResult == null
+        }
+        .distinctUntilChanged()
+        .collectLatest { shouldTick ->
+            if (shouldTick) {
+                while (true) {
+                    awaitNextTick()
+                    onTick()
+                }
+            }
+        }
+}
 
 class MainActivity : ComponentActivity() {
     private lateinit var runSaveStorage: AndroidRunSaveStorage
@@ -65,18 +93,20 @@ class MainActivity : ComponentActivity() {
 
             LaunchedEffect(session, activityLifecycle) {
                 activityLifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
-                    while (isActive) {
-                        val currentPlayableBattle = session.playableBattleSnapshot()
-                        if (
-                            currentPlayableBattle != null &&
-                            currentPlayableBattle.phase == PlayableBattlePhase.ACTIVE &&
-                            currentPlayableBattle.terminalResult == null
-                        ) {
-                            session.advance(SimulationClock.TICK_DURATION_MILLIS)
+                    runPlayableBattleTicker(
+                        snapshots = snapshotFlow { playableBattle },
+                        onTick = {
+                            val currentPlayableBattle = session.playableBattleSnapshot()
+                            if (
+                                currentPlayableBattle != null &&
+                                currentPlayableBattle.phase == PlayableBattlePhase.ACTIVE &&
+                                currentPlayableBattle.terminalResult == null
+                            ) {
+                                session.advance(SimulationClock.TICK_DURATION_MILLIS)
+                            }
                             publishSnapshots()
-                        }
-                        delay(SimulationClock.TICK_DURATION_MILLIS)
-                    }
+                        },
+                    )
                 }
             }
 

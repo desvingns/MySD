@@ -209,13 +209,13 @@ fun CampaignScreenContent(
     playableBattle: PlayableBattleSnapshot? = null,
 ) {
     val battleStart = state.battleStart
-    if (battleStart != null) {
-        if (playableBattle?.terminalResult != null) {
-            PlayableBattleTerminalContent(
-                state = playableBattle,
-                modifier = modifier,
-            )
-        } else if (victory != null) {
+    if (playableBattle?.terminalResult != null) {
+        PlayableBattleTerminalContent(
+            state = playableBattle,
+            modifier = modifier,
+        )
+    } else if (battleStart != null) {
+        if (victory != null) {
             VictoryContent(
                 state = victory,
                 modifier = modifier,
@@ -394,6 +394,7 @@ fun ActiveBattleContent(
         ActiveBattleEdgeControls(
             state = state,
             onIntent = onIntent,
+            showLegacyControls = playableBattle == null,
             contentPadding = PaddingValues(
                 horizontal = BattleMetrics.hudInset,
                 vertical = BattleMetrics.hudInset,
@@ -532,31 +533,10 @@ private fun PlayableBattleField(
             )
         }
     }
-    val fieldDescription = buildList {
-        add(
-            stringResource(
-                R.string.active_battle_base_health,
-                snapshot.base.health,
-                snapshot.base.maxHealth,
-            ),
-        )
-        add(
-            stringResource(
-                R.string.active_battle_resource,
-                snapshot.resource,
-                snapshot.state.resourceCap,
-            ),
-        )
-        add(
-            stringResource(
-                R.string.active_battle_wave,
-                snapshot.waveSpawnedCount,
-                snapshot.waveSpawnCount,
-            ),
-        )
-        addAll(slotDescriptions)
-        add(stringResource(R.string.active_battle_enemies_state, snapshot.enemies.size))
-    }.joinToString(separator = "; ")
+    val fieldDescription = playableBattlefieldDescription(
+        snapshot = snapshot,
+        slotDescriptions = slotDescriptions,
+    )
 
     BoxWithConstraints(
         modifier = modifier.semantics {
@@ -588,6 +568,42 @@ private fun PlayableBattleField(
         }
     }
 }
+
+@Composable
+private fun playableBattlefieldDescription(
+    snapshot: PlayableBattleSnapshot,
+    slotDescriptions: List<String> = snapshot.slots.mapIndexed { index, slot ->
+        if (slot.isEmpty) {
+            stringResource(R.string.active_battle_tile_empty, index + 1)
+        } else {
+            stringResource(R.string.active_battle_tile_occupied, index + 1, slot.level)
+        }
+    },
+): String = buildList {
+        add(
+            stringResource(
+                R.string.active_battle_base_health,
+                snapshot.base.health,
+                snapshot.base.maxHealth,
+            ),
+        )
+        add(
+            stringResource(
+                R.string.active_battle_resource,
+                snapshot.resource,
+                snapshot.state.resourceCap,
+            ),
+        )
+        add(
+            stringResource(
+                R.string.active_battle_wave,
+                snapshot.waveSpawnedCount,
+                snapshot.waveSpawnCount,
+            ),
+        )
+        addAll(slotDescriptions)
+        add(stringResource(R.string.active_battle_enemies_state, snapshot.enemies.size))
+    }.joinToString(separator = "; ")
 
 @Composable
 private fun PlayableBattleCanvas(
@@ -950,11 +966,12 @@ fun PlayableBattleTerminalContent(
             R.string.active_battle_terminal_defeat_body
         },
     )
+    val fieldDescription = playableBattlefieldDescription(state)
     Box(
         modifier = modifier
             .fillMaxSize()
             .semantics {
-                contentDescription = "$title. $body"
+                contentDescription = "$title. $body. $fieldDescription"
             },
     ) {
         PlayableBattleCanvas(
@@ -1075,6 +1092,7 @@ private fun ActiveBattleHud(
 private fun ActiveBattleEdgeControls(
     state: ActiveBattleSnapshot,
     onIntent: (ActiveBattleIntent) -> Unit,
+    showLegacyControls: Boolean,
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
     buttonHorizontalPadding: androidx.compose.ui.unit.Dp,
@@ -1088,7 +1106,7 @@ private fun ActiveBattleEdgeControls(
             verticalArrangement = Arrangement.spacedBy(BattleMetrics.controlGap),
             horizontalAlignment = Alignment.Start,
         ) {
-            if (state.speedAffordanceVisible) {
+            if (showLegacyControls && state.speedAffordanceVisible) {
                 BattleEdgeButton(
                     label = stringResource(
                         R.string.active_battle_speed,
@@ -1115,40 +1133,42 @@ private fun ActiveBattleEdgeControls(
             }
         }
 
-        Column(
-            modifier = Modifier.align(Alignment.CenterEnd),
-            verticalArrangement = Arrangement.spacedBy(BattleMetrics.controlGap),
-            horizontalAlignment = Alignment.End,
-        ) {
-            if (state.buildAffordanceVisible) {
-                BattleEdgeButton(
-                    label = stringResource(
-                        if (state.buildAffordanceSelected) {
-                            R.string.active_battle_build_selected
-                        } else {
-                            R.string.active_battle_build_action
-                        },
-                    ),
-                    onClick = { onIntent(ActiveBattleIntent.SelectBuildAffordance) },
-                    horizontalPadding = buttonHorizontalPadding,
-                    verticalPadding = buttonVerticalPadding,
-                )
-            }
-            if (state.enhancementAffordanceVisible && !state.enhancementChoiceVisible) {
-                BattleEdgeButton(
-                    label = stringResource(R.string.active_battle_enhancement_action),
-                    onClick = { onIntent(ActiveBattleIntent.OpenEnhancement) },
-                    horizontalPadding = buttonHorizontalPadding,
-                    verticalPadding = buttonVerticalPadding,
-                )
-            }
-            if (state.victoryResolutionAffordanceVisible && !state.enhancementChoiceVisible) {
-                BattleEdgeButton(
-                    label = stringResource(R.string.active_battle_victory_action),
-                    onClick = { onIntent(ActiveBattleIntent.ResolveVictory) },
-                    horizontalPadding = buttonHorizontalPadding,
-                    verticalPadding = buttonVerticalPadding,
-                )
+        if (showLegacyControls) {
+            Column(
+                modifier = Modifier.align(Alignment.CenterEnd),
+                verticalArrangement = Arrangement.spacedBy(BattleMetrics.controlGap),
+                horizontalAlignment = Alignment.End,
+            ) {
+                if (state.buildAffordanceVisible) {
+                    BattleEdgeButton(
+                        label = stringResource(
+                            if (state.buildAffordanceSelected) {
+                                R.string.active_battle_build_selected
+                            } else {
+                                R.string.active_battle_build_action
+                            },
+                        ),
+                        onClick = { onIntent(ActiveBattleIntent.SelectBuildAffordance) },
+                        horizontalPadding = buttonHorizontalPadding,
+                        verticalPadding = buttonVerticalPadding,
+                    )
+                }
+                if (state.enhancementAffordanceVisible && !state.enhancementChoiceVisible) {
+                    BattleEdgeButton(
+                        label = stringResource(R.string.active_battle_enhancement_action),
+                        onClick = { onIntent(ActiveBattleIntent.OpenEnhancement) },
+                        horizontalPadding = buttonHorizontalPadding,
+                        verticalPadding = buttonVerticalPadding,
+                    )
+                }
+                if (state.victoryResolutionAffordanceVisible && !state.enhancementChoiceVisible) {
+                    BattleEdgeButton(
+                        label = stringResource(R.string.active_battle_victory_action),
+                        onClick = { onIntent(ActiveBattleIntent.ResolveVictory) },
+                        horizontalPadding = buttonHorizontalPadding,
+                        verticalPadding = buttonVerticalPadding,
+                    )
+                }
             }
         }
     }
