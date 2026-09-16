@@ -613,7 +613,12 @@ private fun PlayableBattleCanvas(
 ) {
     Canvas(modifier = modifier) {
         val horizon = size.height * PLAYABLE_HORIZON_FRACTION
-        val pathStart = Offset(size.width * PLAYABLE_PATH_START_X, horizon + size.height * 0.13f)
+        val pathStart = playablePathPoint(
+            positionTicks = 0,
+            basePositionTicks = snapshot.base.positionTicks,
+            width = size.width,
+            height = size.height,
+        )
         val pathEnd = playablePathPoint(
             positionTicks = snapshot.base.positionTicks,
             basePositionTicks = snapshot.base.positionTicks,
@@ -784,13 +789,13 @@ private fun pathX(progress: Float): Float =
     PLAYABLE_PATH_START_X + (PLAYABLE_PATH_END_X - PLAYABLE_PATH_START_X) * progress
 
 private fun pathY(progress: Float): Float =
-    PLAYABLE_HORIZON_FRACTION +
-        (1f - PLAYABLE_HORIZON_FRACTION) * (PLAYABLE_PATH_Y - progress * 0.04f)
+    PLAYABLE_PATH_START_Y + (PLAYABLE_PATH_END_Y - PLAYABLE_PATH_START_Y) * progress
 
 private const val PLAYABLE_HORIZON_FRACTION = 0.48f
-private const val PLAYABLE_PATH_START_X = 0.82f
-private const val PLAYABLE_PATH_END_X = 0.16f
-private const val PLAYABLE_PATH_Y = 0.62f
+private const val PLAYABLE_PATH_START_X = 0.78f
+private const val PLAYABLE_PATH_END_X = 0.50f
+private const val PLAYABLE_PATH_START_Y = 0.29f
+private const val PLAYABLE_PATH_END_Y = 0.85f
 
 @Composable
 private fun PlayableBattleCommandPopup(
