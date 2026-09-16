@@ -109,7 +109,7 @@ class LifecyclePersistenceUiTest {
         val scenario = launchDefeatRun()
         try {
             scenario.recreate()
-            assertDefeatRestoredUi()
+            assertDefeatTerminalVisible()
             assertDefeatPlayableSave(requireStoredRunSave())
         } finally {
             scenario.close()
@@ -165,7 +165,7 @@ class LifecyclePersistenceUiTest {
             scenario = null
 
             relaunched = ActivityScenario.launch(MainActivity::class.java)
-            assertDefeatRestoredUi()
+            assertDefeatTerminalVisible()
             assertDefeatPlayableSave(requireStoredRunSave())
         } finally {
             scenario?.close()
@@ -224,7 +224,7 @@ class LifecyclePersistenceUiTest {
             ActivityScenario.launch(MainActivity::class.java)
         }
         try {
-            assertDefeatRestoredUi()
+            assertCleanCampaignWithoutResumePrompt()
         } finally {
             scenario.close()
         }
@@ -239,7 +239,7 @@ class LifecyclePersistenceUiTest {
             ActivityScenario.launch(MainActivity::class.java)
         }
         try {
-            assertDefeatRestoredUi()
+            assertCleanCampaignWithoutResumePrompt()
         } finally {
             scenario.close()
         }
@@ -298,7 +298,7 @@ class LifecyclePersistenceUiTest {
     private fun launchDefeatRun(): ActivityScenario<MainActivity> {
         seedRunSave(defeatRun())
         val scenario = ActivityScenario.launch(MainActivity::class.java)
-        waitForText(R.string.campaign_enter_action)
+        waitForText(R.string.active_battle_terminal_defeat_title)
         return scenario
     }
 
@@ -320,7 +320,26 @@ class LifecyclePersistenceUiTest {
         waitForText(R.string.victory_reward_panel_body)
     }
 
-    private fun assertDefeatRestoredUi() {
+    private fun assertDefeatTerminalVisible() {
+        waitForText(R.string.active_battle_terminal_defeat_title)
+        waitForText(R.string.active_battle_terminal_defeat_body)
+        device.waitForIdle(UI_TIMEOUT_MS)
+        assertFalse(
+            "Defeat restore must not show the campaign entry action",
+            device.hasObject(By.text(context.getString(R.string.campaign_enter_action))),
+        )
+        assertFalse(
+            "Defeat restore must not expose active battle controls",
+            device.hasObject(By.text(context.getString(R.string.active_battle_pause_action))) ||
+                device.hasObject(By.text(context.getString(R.string.active_battle_resume_action))),
+        )
+        assertFalse(
+            "Defeat restore must not show an unfinished-run prompt",
+            device.hasObject(By.text(context.getString(R.string.campaign_unfinished_title))),
+        )
+    }
+
+    private fun assertCleanCampaignWithoutResumePrompt() {
         waitForText(R.string.campaign_enter_action)
         click(R.string.campaign_enter_action)
         waitForText(R.string.campaign_selection_title)
