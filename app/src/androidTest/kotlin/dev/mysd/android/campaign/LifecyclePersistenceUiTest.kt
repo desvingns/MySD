@@ -26,7 +26,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Connected-device lifecycle coverage for playable active/defeat and legacy victory saves.
+ * Connected-device lifecycle coverage for playable active/terminal and legacy victory saves.
  *
  * Coverage exception: this project has no instrumentation process-kill harness. The relaunch
  * tests close ActivityScenario and launch a fresh Activity in the same instrumentation process;
@@ -40,7 +40,7 @@ class LifecyclePersistenceUiTest {
 
     @Test
     fun backgroundPersistsActivePlayableRun() = withCleanRunSave {
-        val scenario = launchActiveContour()
+        val scenario = launchPausedActiveRun()
         try {
             scenario.moveToState(Lifecycle.State.CREATED)
 
@@ -54,12 +54,15 @@ class LifecyclePersistenceUiTest {
     }
 
     @Test
-    fun backgroundPersistsVictoryContour() = withCleanRunSave {
-        val scenario = launchVictoryContour()
+    fun backgroundPersistsVictoryPlayableRun() = withCleanRunSave {
+        val scenario = launchVictoryRun()
         try {
             scenario.moveToState(Lifecycle.State.CREATED)
 
-            assertVictoryContourSave(requireStoredRunSave())
+            val encoded = requireStoredEncodedSave()
+            val saved = RunSaveCodec.decode(encoded)
+            assertVictoryPlayableSave(saved)
+            assertEquals(encoded, RunSaveCodec.encode(saved))
         } finally {
             scenario.close()
         }
@@ -82,10 +85,10 @@ class LifecyclePersistenceUiTest {
 
     @Test
     fun recreateRestoresActivePlayableRun() = withCleanRunSave {
-        val scenario = launchActiveContour()
+        val scenario = launchPausedActiveRun()
         try {
             scenario.recreate()
-            assertActiveContourVisible()
+            assertPausedActivePlayableVisible()
             assertActivePlayableSave(requireStoredRunSave())
         } finally {
             scenario.close()
@@ -93,12 +96,12 @@ class LifecyclePersistenceUiTest {
     }
 
     @Test
-    fun recreateRestoresVictoryContour() = withCleanRunSave {
-        val scenario = launchVictoryContour()
+    fun recreateRestoresVictoryPlayableRun() = withCleanRunSave {
+        val scenario = launchVictoryRun()
         try {
             scenario.recreate()
-            assertVictoryContourVisible()
-            assertVictoryContourSave(requireStoredRunSave())
+            assertVictoryTerminalVisible()
+            assertVictoryPlayableSave(requireStoredRunSave())
         } finally {
             scenario.close()
         }
@@ -118,7 +121,7 @@ class LifecyclePersistenceUiTest {
 
     @Test
     fun relaunchRestoresActivePlayableRunFromDurableStorage() = withCleanRunSave {
-        var scenario: ActivityScenario<MainActivity>? = launchActiveContour()
+        var scenario: ActivityScenario<MainActivity>? = launchPausedActiveRun()
         var relaunched: ActivityScenario<MainActivity>? = null
         try {
             checkNotNull(scenario).moveToState(Lifecycle.State.CREATED)
@@ -127,7 +130,7 @@ class LifecyclePersistenceUiTest {
             scenario = null
 
             relaunched = ActivityScenario.launch(MainActivity::class.java)
-            assertActiveContourVisible()
+            assertPausedActivePlayableVisible()
             assertActivePlayableSave(requireStoredRunSave())
         } finally {
             scenario?.close()
@@ -136,18 +139,18 @@ class LifecyclePersistenceUiTest {
     }
 
     @Test
-    fun relaunchRestoresVictoryContourFromDurableStorage() = withCleanRunSave {
-        var scenario: ActivityScenario<MainActivity>? = launchVictoryContour()
+    fun relaunchRestoresVictoryPlayableRunFromDurableStorage() = withCleanRunSave {
+        var scenario: ActivityScenario<MainActivity>? = launchVictoryRun()
         var relaunched: ActivityScenario<MainActivity>? = null
         try {
             checkNotNull(scenario).moveToState(Lifecycle.State.CREATED)
-            assertVictoryContourSave(requireStoredRunSave())
+            assertVictoryPlayableSave(requireStoredRunSave())
             closeScenarioForRelaunch(checkNotNull(scenario))
             scenario = null
 
             relaunched = ActivityScenario.launch(MainActivity::class.java)
-            assertVictoryContourVisible()
-            assertVictoryContourSave(requireStoredRunSave())
+            assertVictoryTerminalVisible()
+            assertVictoryPlayableSave(requireStoredRunSave())
         } finally {
             scenario?.close()
             relaunched?.close()
@@ -247,51 +250,36 @@ class LifecyclePersistenceUiTest {
 
     @Test
     fun relaunchRestoresHistoricalVictoryContourFromDurableStorage() = withCleanRunSave {
-        var scenario: ActivityScenario<MainActivity>? = launchVictoryContour()
+        seedEncodedSave(legacyVictoryPayload())
+        var scenario: ActivityScenario<MainActivity>? = ActivityScenario.launch(MainActivity::class.java)
         var relaunched: ActivityScenario<MainActivity>? = null
         try {
+            assertLegacyVictoryContourVisible()
             checkNotNull(scenario).moveToState(Lifecycle.State.CREATED)
-            val historicalPayload = legacyContourPayload(requireStoredRunSave())
+            assertLegacyVictoryContourSave(requireStoredRunSave())
             closeScenarioForRelaunch(checkNotNull(scenario))
             scenario = null
 
-            seedEncodedSave(historicalPayload)
             relaunched = ActivityScenario.launch(MainActivity::class.java)
-            assertVictoryContourVisible()
-            assertVictoryContourSave(requireStoredRunSave())
+            assertLegacyVictoryContourVisible()
+            assertLegacyVictoryContourSave(requireStoredRunSave())
         } finally {
             scenario?.close()
             relaunched?.close()
         }
     }
 
-    private fun launchActiveContour(): ActivityScenario<MainActivity> {
+    private fun launchPausedActiveRun(): ActivityScenario<MainActivity> {
+        seedRunSave(pausedActiveRun())
         val scenario = ActivityScenario.launch(MainActivity::class.java)
-        waitForText(R.string.campaign_enter_action)
-        click(R.string.campaign_enter_action)
-        click(R.string.campaign_level_setup_action)
-        click(R.string.battle_setup_choice_b)
-        click(R.string.battle_setup_continue_action)
-        click(R.string.battle_start_action)
-        click(
-            R.string.active_battle_speed,
-            context.getString(R.string.active_battle_speed_default),
-        )
-        click(R.string.active_battle_pause_action)
-        click(R.string.active_battle_build_action)
-        assertActiveContourVisible()
+        assertPausedActivePlayableVisible()
         return scenario
     }
 
-    private fun launchVictoryContour(): ActivityScenario<MainActivity> {
-        val scenario = launchActiveContour()
-        click(R.string.active_battle_enhancement_action)
-        click(
-            R.string.enhancement_offer_action,
-            context.getString(R.string.enhancement_offer_steady_pulse),
-        )
-        click(R.string.active_battle_victory_action)
-        waitForText(R.string.victory_title)
+    private fun launchVictoryRun(): ActivityScenario<MainActivity> {
+        seedRunSave(victoryRun())
+        val scenario = ActivityScenario.launch(MainActivity::class.java)
+        assertVictoryTerminalVisible()
         return scenario
     }
 
@@ -302,39 +290,60 @@ class LifecyclePersistenceUiTest {
         return scenario
     }
 
-    private fun assertActiveContourVisible() {
+    private fun assertPausedActivePlayableVisible() {
         waitForText(R.string.active_battle_title)
-        waitForText(
-            context.getString(
-                R.string.active_battle_speed,
-                context.getString(R.string.active_battle_speed_alternate),
-            ),
-        )
         waitForText(R.string.active_battle_resume_action)
-        waitForText(R.string.active_battle_build_selected)
+        waitForDescription(context.getString(R.string.active_battle_tile_empty, 1))
+        device.waitForIdle(UI_TIMEOUT_MS)
+        assertFalse(
+            "Playable active restore must not expose legacy battle controls",
+            device.hasObject(By.text(context.getString(R.string.active_battle_build_action))) ||
+                device.hasObject(By.text(context.getString(R.string.active_battle_enhancement_action))) ||
+                device.hasObject(By.text(context.getString(R.string.active_battle_victory_action))),
+        )
     }
 
-    private fun assertVictoryContourVisible() {
+    private fun assertLegacyVictoryContourVisible() {
         waitForText(R.string.victory_title)
         waitForText(R.string.victory_reward_panel_title)
         waitForText(R.string.victory_reward_panel_body)
     }
 
+    private fun assertVictoryTerminalVisible() {
+        assertPlayableTerminalVisible(
+            title = context.getString(R.string.active_battle_terminal_victory_title),
+            body = context.getString(R.string.active_battle_terminal_victory_body),
+        )
+    }
+
     private fun assertDefeatTerminalVisible() {
-        waitForText(R.string.active_battle_terminal_defeat_title)
-        waitForText(R.string.active_battle_terminal_defeat_body)
+        assertPlayableTerminalVisible(
+            title = context.getString(R.string.active_battle_terminal_defeat_title),
+            body = context.getString(R.string.active_battle_terminal_defeat_body),
+        )
+    }
+
+    private fun assertPlayableTerminalVisible(
+        title: String,
+        body: String,
+    ) {
+        waitForText(title)
+        waitForText(body)
         device.waitForIdle(UI_TIMEOUT_MS)
         assertFalse(
-            "Defeat restore must not show the campaign entry action",
+            "Playable terminal restore must not show the campaign entry action",
             device.hasObject(By.text(context.getString(R.string.campaign_enter_action))),
         )
         assertFalse(
-            "Defeat restore must not expose active battle controls",
+            "Playable terminal restore must not expose active battle controls",
             device.hasObject(By.text(context.getString(R.string.active_battle_pause_action))) ||
-                device.hasObject(By.text(context.getString(R.string.active_battle_resume_action))),
+                device.hasObject(By.text(context.getString(R.string.active_battle_resume_action))) ||
+                device.hasObject(By.text(context.getString(R.string.active_battle_build_action))) ||
+                device.hasObject(By.text(context.getString(R.string.active_battle_enhancement_action))) ||
+                device.hasObject(By.text(context.getString(R.string.active_battle_victory_action))),
         )
         assertFalse(
-            "Defeat restore must not show an unfinished-run prompt",
+            "Playable terminal restore must not show an unfinished-run prompt",
             device.hasObject(By.text(context.getString(R.string.campaign_unfinished_title))),
         )
     }
@@ -360,23 +369,15 @@ class LifecyclePersistenceUiTest {
         assertTrue("Active lifecycle saves must carry the full playable state", saved.playableBattleState != null)
         assertEquals(saved.stageId, saved.playableBattleState?.stageId?.value)
         assertEquals(PlayableBattlePhase.PAUSED, saved.playableBattleState?.phase)
-        assertEquals(50, saved.playableBattleState?.resource)
+        assertNull(saved.playableBattleState?.terminalResult)
+        assertEquals(67, saved.playableBattleState?.resource)
         assertEquals(100, saved.playableBattleState?.resourceCap)
+        assertEquals(11, saved.playableBattleState?.waveElapsedTicks)
         assertEquals(3, saved.playableBattleState?.slots?.size)
         assertTrue(saved.playableBattleState?.enemies?.isNotEmpty() == true)
-        assertEquals(
-            listOf(
-                "mysd.campaign.contour.v1.phase=active",
-                "mysd.campaign.contour.v1.origin=NEW_RUN",
-                "mysd.campaign.contour.v1.setup=setup-option-b",
-                "mysd.campaign.contour.v1.speed=ALTERNATE",
-                "mysd.campaign.contour.v1.paused=1",
-                "mysd.campaign.contour.v1.build=1",
-                "mysd.campaign.contour.v1.refresh=0",
-                "mysd.campaign.contour.v1.enhancement=none",
-            ),
-            saved.modifiers,
-        )
+        assertEquals(41L, saved.tick)
+        assertTrue(saved.pendingCommands.isEmpty())
+        assertTrue(saved.modifiers.isEmpty())
     }
 
     private fun assertDefeatPlayableSave(saved: RunSave) {
@@ -394,17 +395,32 @@ class LifecyclePersistenceUiTest {
         assertEquals(1, saved.pendingCommands.size)
     }
 
-    private fun assertVictoryContourSave(saved: RunSave) {
+    private fun assertVictoryPlayableSave(saved: RunSave) {
         assertTrue(!saved.active)
         assertEquals(RunTerminalResult.VICTORY, saved.terminalResult)
         assertEquals(
-            "mysd.campaign.contour.v1.phase=victory",
-            saved.modifiers.first(),
+            PlayableBattleTerminal.VICTORY,
+            saved.playableBattleState?.terminalResult,
         )
+        assertEquals(saved.stageId, saved.playableBattleState?.stageId?.value)
+        assertTrue(saved.playableBattleState?.base?.health?.let { it > 0 } == true)
+        assertTrue(saved.playableBattleState?.enemies?.isEmpty() == true)
         assertEquals(
-            "mysd.campaign.contour.v1.enhancement=enhancement-steady-pulse",
-            saved.modifiers.last(),
+            saved.playableBattleState?.waveSpawnCount,
+            saved.playableBattleState?.waveSpawnedCount,
         )
+        assertEquals(83, saved.playableBattleState?.resource)
+        assertEquals(29, saved.playableBattleState?.waveElapsedTicks)
+        assertEquals(61L, saved.tick)
+        assertTrue(saved.pendingCommands.isEmpty())
+        assertTrue(saved.modifiers.isEmpty())
+    }
+
+    private fun assertLegacyVictoryContourSave(saved: RunSave) {
+        assertTrue(!saved.active)
+        assertEquals(RunTerminalResult.VICTORY, saved.terminalResult)
+        assertNull(saved.playableBattleState)
+        assertEquals(legacyVictoryModifiers(), saved.modifiers)
     }
 
     private fun click(stringRes: Int, vararg formatArgs: Any) {
@@ -421,6 +437,13 @@ class LifecyclePersistenceUiTest {
         assertTrue(
             "Expected visible text: $text",
             device.wait(Until.hasObject(By.text(text)), UI_TIMEOUT_MS),
+        )
+    }
+
+    private fun waitForDescription(description: String) {
+        assertTrue(
+            "Expected visible content description: $description",
+            device.wait(Until.hasObject(By.desc(description)), UI_TIMEOUT_MS),
         )
     }
 
@@ -454,6 +477,81 @@ class LifecyclePersistenceUiTest {
         scenario.moveToState(Lifecycle.State.CREATED)
         scenario.close()
     }
+
+    private fun pausedActiveRun(): RunSave {
+        val initial = PlayableBattleEngine.initialState(
+            initialResource = 67,
+            incomePerSecond = 13,
+            phase = PlayableBattlePhase.PAUSED,
+        )
+        return RunSave(
+            runId = "instrumented-paused-playable-run",
+            stageId = "stage-ember-path",
+            contentVersion = 1,
+            simulationVersion = 1,
+            seed = 19L,
+            rngState = 23L,
+            tick = 41L,
+            active = true,
+            pendingCommands = emptyList(),
+            modifiers = emptyList(),
+            terminalResult = null,
+            playableBattleState = initial.copy(waveElapsedTicks = 11),
+        )
+    }
+
+    private fun victoryRun(): RunSave {
+        val initial = PlayableBattleEngine.initialState(
+            initialResource = 83,
+            incomePerSecond = 7,
+            phase = PlayableBattlePhase.PAUSED,
+        )
+        val state = initial.copy(
+            enemies = emptyList(),
+            terminalResult = PlayableBattleTerminal.VICTORY,
+            waveSpawnedCount = initial.waveSpawnCount,
+            waveElapsedTicks = 29,
+        )
+        return RunSave(
+            runId = "instrumented-victorious-playable-run",
+            stageId = "stage-ember-path",
+            contentVersion = 1,
+            simulationVersion = 1,
+            seed = 31L,
+            rngState = 37L,
+            tick = 61L,
+            active = false,
+            pendingCommands = emptyList(),
+            modifiers = emptyList(),
+            terminalResult = RunTerminalResult.VICTORY,
+            playableBattleState = state,
+        )
+    }
+
+    private fun legacyVictoryRun(): RunSave = RunSave(
+        runId = "instrumented-legacy-victory-contour",
+        stageId = "stage-ember-path",
+        contentVersion = 1,
+        simulationVersion = 1,
+        seed = 43L,
+        rngState = 47L,
+        tick = 71L,
+        active = false,
+        pendingCommands = emptyList(),
+        modifiers = legacyVictoryModifiers(),
+        terminalResult = RunTerminalResult.VICTORY,
+    )
+
+    private fun legacyVictoryModifiers(): List<String> = listOf(
+        "mysd.campaign.contour.v1.phase=victory",
+        "mysd.campaign.contour.v1.origin=NEW_RUN",
+        "mysd.campaign.contour.v1.setup=setup-option-b",
+        "mysd.campaign.contour.v1.speed=ALTERNATE",
+        "mysd.campaign.contour.v1.paused=1",
+        "mysd.campaign.contour.v1.build=1",
+        "mysd.campaign.contour.v1.refresh=0",
+        "mysd.campaign.contour.v1.enhancement=enhancement-steady-pulse",
+    )
 
     private fun unsupportedStageRun(): RunSave = RunSave(
         runId = "unsupported-stage-run",
@@ -492,8 +590,8 @@ class LifecyclePersistenceUiTest {
         )
     }
 
-    private fun legacyContourPayload(save: RunSave): String =
-        RunSaveCodec.encode(save)
+    private fun legacyVictoryPayload(): String =
+        RunSaveCodec.encode(legacyVictoryRun())
             .lineSequence()
             .filterNot { it.startsWith("playableStatePresent=") }
             .joinToString("\n")

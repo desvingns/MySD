@@ -2189,17 +2189,20 @@ private fun RosterRouteBar(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 RosterRouteButton(
+                    routeId = "campaign",
                     label = stringResource(R.string.campaign_route_campaign),
                     onClick = onCloseRoster,
                     modifier = Modifier.weight(1f),
                 )
                 RosterRouteButton(
+                    routeId = "troops",
                     label = stringResource(R.string.campaign_route_troops),
                     enabled = false,
                     selected = true,
                     modifier = Modifier.weight(1f),
                 )
                 RosterRouteButton(
+                    routeId = "arena",
                     label = stringResource(R.string.campaign_route_arena),
                     enabled = false,
                     modifier = Modifier.weight(1f),
@@ -2211,11 +2214,13 @@ private fun RosterRouteBar(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 RosterRouteButton(
+                    routeId = "shop",
                     label = stringResource(R.string.campaign_shop_action),
                     enabled = false,
                     modifier = Modifier.weight(1f),
                 )
                 RosterRouteButton(
+                    routeId = "tech",
                     label = stringResource(R.string.campaign_tech_action),
                     enabled = false,
                     modifier = Modifier.weight(1f),
@@ -2227,6 +2232,7 @@ private fun RosterRouteBar(
 
 @Composable
 private fun RosterRouteButton(
+    routeId: String,
     label: String,
     enabled: Boolean = true,
     selected: Boolean = false,
@@ -2237,7 +2243,7 @@ private fun RosterRouteButton(
         onClick = onClick,
         enabled = enabled,
         modifier = modifier
-            .testTag("roster-route-${label.lowercase().replace(' ', '-')}")
+            .testTag("roster-route-$routeId")
             .widthIn(min = RosterMetrics.routeItemMinWidth)
             .heightIn(min = RosterMetrics.routeHeight),
         contentPadding = PaddingValues(
