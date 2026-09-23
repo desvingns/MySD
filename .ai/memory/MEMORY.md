@@ -11,8 +11,9 @@
 - Mechanic claims retain contradictions and need controlled samples before promotion.
 - Cross-project lineage is `EV -> OB/ED -> CL -> INV -> FR -> US -> AC -> GAP/ENG -> TEST -> FIT`.
 - MyEngine is consumed through a composite build pinned by exact SHA.
-- ENG-036 is accepted locally at `1174d21c4e92fddff6316f93bc99384ab6c1c689` in
-  `D:/Pet/MyEngine-mysd`; the unrelated sibling engine checkout is not the consumer dependency.
+- ENG-036 (`1174d21`) was merged into MyEngine main on 2026-09-24; MySD pins merge commit
+  `74454178af229a61185a622aa68a6bd5d279ac5b`. main briefly carried a second, independent ENG-036
+  variant: check the engine main for parallel work on the same card before accepting a feature.
   Generic sessions stay Android-free. MySD uses current-tick command draining so repeated UI input
   cannot grant passive time, movement, income, or cooldown progress.
 - A complete diagnostic Android result must come from the runner's terminal outcome, not its host

@@ -68,10 +68,10 @@ $env:MYENGINE_PATH = "D:\Pet\MyEngine-mysd"
 
 For a different checkout location, pass `-Pmyengine.path=<path>` or set `MYENGINE_PATH`.
 
-The active integrated work uses `D:/Pet/MyEngine-mysd`, pinned to technically accepted local commit
-`1174d21c4e92fddff6316f93bc99384ab6c1c689` (ENG-036). The unrelated sibling `D:/Pet/MyEngine` is not
-the accepted checkout for this batch. The new engine commit has not been pushed: remote publication
-requires publishing it before the game lock that references it.
+MySD is pinned to MyEngine `main` merge commit `74454178af229a61185a622aa68a6bd5d279ac5b`: the
+MySD-accepted ENG-036 runtime (`1174d21`) merged with main's Phase 14+ sandbox work. Build against a
+checkout of that exact commit (the integrated work used `D:/Pet/MyEngine-mysd`); the unrelated
+sibling `D:/Pet/MyEngine` is not the consumer dependency.
 
 ## Play
 

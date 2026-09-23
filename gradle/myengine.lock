@@ -1,5 +1,5 @@
 schemaVersion=1
 repository=https://github.com/desvingns/MyEngine.git
-commit=1174d21c4e92fddff6316f93bc99384ab6c1c689
+commit=74454178af229a61185a622aa68a6bd5d279ac5b
 engineVersion=0.0.1
 compatibilityPolicy=stable-plus-explicit-experimental-adapters

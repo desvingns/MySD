@@ -4,7 +4,14 @@ Status: all device/host gates that this host can execute are complete on final *
 (2026-09-23/24). Release frame-performance acceptance remains open: it needs a physical device
 (the SwiftShader AVD fails the frame budget even for system Settings). No reference-parity claim.
 
-## Current checkpoint — build 13 final verification
+## Current checkpoint — build 14 on merged MyEngine main (2026-09-24)
+
+MyEngine main now contains ENG-036 (merge `74454178af229a61185a622aa68a6bd5d279ac5b`; engine suite
+481/0 and all engine gates pass). MySD's only change is the lock: build14 passes 294 JVM tests,
+lint 0 errors and full Android 99/99 (`build/reports/product-full14-20260924/`). The build-13
+findings below remain the product verification record.
+
+## Build 13 final verification
 
 Build-11 full-run interruption was diagnosed and recovered; two demonstrated defects were fixed
 (builds 12 and 13) and every gate was re-run on the final APKs. Evidence directories are under

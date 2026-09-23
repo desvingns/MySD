@@ -1,6 +1,14 @@
 # MySD Handoff
 
-## CURRENT — build13 final verification complete on this host (2026-09-24)
+## CURRENT — engine merged into main; build14 (2026-09-24)
+
+- MyEngine: ENG-036 branch `1174d21` merged into main as `74454178af22…` (conflict with a parallel
+  main ENG-036 variant resolved in favour of the MySD-accepted API; main's Phase 14+ sandbox work
+  kept). Engine suite 481/0, content/replay/save-compat/selfcheck, Android assemble pass.
+- MySD pins that commit; build14 (lock-only change): 294 JVM, lint 0 errors, full Android 99/99.
+  Evidence `build/reports/product-full14-20260924/`. Everything is on both repos' main.
+
+## PREVIOUS — build13 final verification complete on this host (2026-09-24)
 
 - DONE: build11 full-run stop diagnosed — Codex turns interrupted 19:39:18Z/19:39:22Z; emulator
   launcher (child of worker shell 29228) ran its termination handler. Recovered log 81 PASS/0 FAIL,
