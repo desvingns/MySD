@@ -1,1 +1,4 @@
 path,origin,creator_or_tool,license,review_status,notes
+app/src/main/res/drawable/ic_launcher_foreground.xml,original,OpenAI Codex and project author,Project-owned original,approved,Hand-authored Emberwatch adaptive-icon foreground; no reference asset or sampled geometry used.
+app/src/main/res/drawable/ic_launcher_monochrome.xml,original,OpenAI Codex and project author,Project-owned original,approved,Hand-authored monochrome adaptive-icon layer derived from the original Emberwatch mark.
+app/src/main/kotlin/dev/mysd/android/product/ProductFeedback.kt,original,OpenAI Codex and project author,Project-owned original,approved,Original runtime-synthesized PCM arpeggio and effects; no external audio files or reference samples.

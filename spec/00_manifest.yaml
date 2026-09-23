@@ -4,19 +4,36 @@ mode: clone
 depth: reference
 platforms:
   - android
-status: gate1_blocked
+status: full_product_human_decision_active
 source_reference:
-  package: com.gdzsq.crazy_td
-  public_listing: https://play.google.com/store/apps/details?id=com.gdzsq.crazy_td
+  package: com.yuegame.defender
+  public_listing: https://play.google.com/store/apps/details?id=com.yuegame.defender
+  legacy_evidence_package: com.gdzsq.crazy_td
+  authority_note: broad topology only; unobserved production behavior is original human-decided MySD design
 gates:
   gate1:
-    status: pending_luna_crawl
+    status: accepted
+    verdict: accepted
+    human_decision: accepted
     accepts: observed inventory, scope, mandatory deviations
+    remaining_blockers: []
+    deferred_visual_fit:
+      - G1-BL-007
+      - G1-BL-010
+      - G1-BL-011
   evaluator:
-    status: not_run
+    status: pass_relaxed
+    verdict: accepted_relaxed
   gate2:
-    status: blocked_by_gate1
-    accepts: full bundle, coverage gaps, risks
+    status: accepted_relaxed
+    verdict: accepted_relaxed
+    human_decision: accepted
+    accepts: evaluated semantic bundle, accepted scope, explicit deferred coverage, risks
+    deferred:
+      - INV-008
+      - G1-BL-007
+      - G1-BL-010
+      - G1-BL-011
 engine_pin:
   lock_file: ../gradle/myengine.lock
 artifacts:
@@ -35,3 +52,7 @@ artifacts:
 notes:
   - Only human-locked constraints are normative before Gate 1.
   - Reference mechanic candidates remain outside FR/US/AC until observed.
+  - The completed crawl inventory, scope proposals, DEV-001 through DEV-009, and the semantic bundle were accepted under relaxed Gate 1/Gate 2 policy; implementation and the MyEngine backlog bridge remain separately phase-gated.
+  - The independent Gate 1 recheck found 276 indexed artifacts with zero missing files or SHA-256 mismatches.
+  - Approved policy treats structured terminal and negative-access blockers as sufficient and moves visual completeness to per-surface Visual Fit Gates.
+  - On 2026-09-16 the human explicitly authorized one integrated full-product implementation batch; this promotes INV-004 and INV-005 and treats all otherwise-unobserved mechanics, content, copy, visuals, and balance as original MySD decisions rather than reference observations.

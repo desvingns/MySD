@@ -58,8 +58,38 @@ if ($errors.Count -eq 0) {
     }
 
     $manifest = Get-Content -Raw -LiteralPath (Join-Path $repoRoot "spec/00_manifest.yaml")
-    if ($manifest -match 'status:\s*gate1_blocked' -and $requirementsText -match '(?m)^### FR-1[0-9]{2}') {
-        $errors.Add("gameplay-range FR-100+ exists while Gate 1 is blocked")
+    $gameplayRequirementSections = @([regex]::Matches(
+        $requirementsText,
+        '(?ms)^### (FR-1[0-9]{2})\b.*?(?=^### |^## |\z)'
+    ))
+    $gate1Accepted = $manifest -match '(?m)^\s{4}human_decision:\s*accepted\s*$'
+    if (-not $gate1Accepted -and $gameplayRequirementSections.Count -gt 0) {
+        $errors.Add("gameplay-range FR-100+ exists before explicit Gate 1 acceptance")
+    }
+
+    if ($gate1Accepted -and $gameplayRequirementSections.Count -gt 0) {
+        $graph = Get-Content -Raw -LiteralPath (Join-Path $repoRoot "spec/evidence/state-graph.v1.json") |
+            ConvertFrom-Json
+        $scopeById = @{}
+        foreach ($scope in @($graph.coverage.scope_decisions)) {
+            $scopeById[$scope.inventory_id] = $scope
+        }
+        foreach ($section in $gameplayRequirementSections) {
+            $requirementId = $section.Groups[1].Value
+            $inventoryRefs = @([regex]::Matches($section.Value, 'INV-[0-9]{3}') |
+                ForEach-Object { $_.Value } | Sort-Object -Unique)
+            if ($inventoryRefs.Count -eq 0) {
+                $errors.Add("gameplay requirement $requirementId requires an accepted inventory reference")
+                continue
+            }
+            foreach ($inventoryRef in $inventoryRefs) {
+                if (-not $scopeById.ContainsKey($inventoryRef) -or
+                    $scopeById[$inventoryRef].decision -ne "accept" -or
+                    $scopeById[$inventoryRef].human_lock -ne "accepted") {
+                    $errors.Add("gameplay requirement $requirementId references non-accepted scope $inventoryRef")
+                }
+            }
+        }
     }
 }
 
@@ -71,11 +101,12 @@ if ($errors.Count -gt 0) {
     exit 1
 }
 
+$validationGate = if ($gate1Accepted) { "gate2_relaxed_bundle" } else { "pre_gate1_baseline" }
 [pscustomobject]@{
     status = "pass"
     requirements = $requirementIds.Count
     stories = $storyIds.Count
     acceptance = $acceptanceIds.Count
     trace_rows = $trace.Count
-    gate = "pre_gate1_baseline"
+    gate = $validationGate
 } | ConvertTo-Json -Compress

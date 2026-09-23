@@ -1,9 +1,27 @@
 requirement_id,user_story_id,acceptance_id,design_section,engine_gap_id,status
 FR-001,US-001,AC-001,System boundary,PROC-002,baseline
-FR-002,US-002,AC-002,Public/private evidence split,PROC-015,baseline
+FR-002,US-002,AC-002,Public/private evidence split,PROC-015,done
 FR-003,US-003,AC-003,Services,,baseline
 FR-004,US-004,AC-004,System boundary,ENG-036,baseline
-FR-005,US-005,AC-005,State model,PROC-015,baseline
+FR-005,US-005,AC-005,State model,PROC-015,done
 FR-006,US-002,AC-002,Intended deviations,,baseline
 FR-007,US-004,AC-004,Persistence,ENG-036,baseline
-FR-008,US-005,AC-005,State model,PROC-015,baseline
+FR-008,US-005,AC-005,State model,PROC-015,done
+FR-100,US-100,AC-100,Accepted campaign contour,,gate2_relaxed_accepted
+FR-101,US-101,AC-101,Accepted early-battle setup,,gate2_relaxed_accepted
+FR-102,US-101,AC-101,Accepted active-battle affordances,,gate2_relaxed_accepted
+FR-103,US-102,AC-102,Accepted enhancement contour,,gate2_relaxed_accepted
+FR-104,US-102,AC-102,Accepted victory contour,,gate2_relaxed_accepted
+FR-105,US-103,AC-103,Accepted roster/settings contour,,gate2_relaxed_accepted
+FR-106,US-104,AC-104,Deterministic reward adapter,ENG-036,gate2_relaxed_accepted
+FR-107,US-104,AC-104,Deterministic Arena adapter,,gate2_relaxed_accepted
+FR-108,US-105,AC-105,State model,,human_decision_active
+FR-109,US-106,AC-106,State model,ENG-036,human_decision_active
+FR-110,US-106,AC-106,Content,,human_decision_active
+FR-111,US-107,AC-107,State model,,human_decision_active
+FR-112,US-105,AC-105,Persistence,,human_decision_active
+FR-113,US-108,AC-108,Content,,human_decision_active
+FR-114,US-109,AC-109,Services,,human_decision_active
+FR-115,US-110,AC-110,Services,,human_decision_active
+FR-116,US-111,AC-111,State model,,human_decision_active
+FR-117,US-112,AC-112,Persistence,ENG-036,human_decision_active

@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="product_launch_tagline">Защитите орбитальные рубежи</string>
+    <string name="product_launch_detail">Развивайте экспедицию, усиливайте отряд и отражайте последовательные волны.</string>
+
+    <string name="product_resource_energy">Энергия: %1$d / %2$d</string>
+    <string name="product_resource_credits">Кредиты: %1$d</string>
+    <string name="product_resource_crystals">Кристаллы: %1$d</string>
+    <string name="product_reward_progress">Маршрут наград: %1$d / %2$d</string>
+    <string name="product_settings_action">Настройки</string>
+    <string name="product_settings_body">Настройте звук, музыку, виброотклик и плавность движения. Изменения сохраняются на устройстве.</string>
+
+    <string name="product_nav_campaign">Карта</string>
+    <string name="product_nav_roster">Отряд</string>
+    <string name="product_nav_tech">Технологии</string>
+    <string name="product_nav_shop">Магазин</string>
+    <string name="product_nav_arena">Арена</string>
+    <string name="product_nav_selected">Выбрано: %1$s</string>
+
+    <string name="product_campaign_title">Орбитальный маршрут</string>
+    <string name="product_campaign_body">Продвигайтесь от маяка к маяку и укрепляйте линию обороны.</string>
+    <string name="product_stage_completed">Завершено</string>
+    <string name="product_stage_available">Доступно</string>
+    <string name="product_stage_locked">Заблокировано</string>
+    <string name="product_stage_stars">Звёзды: %1$d / 3</string>
+    <string name="product_stage_energy_cost">Запуск: %1$d энергии</string>
+    <string name="product_stage_waves">Волн: %1$d</string>
+    <string name="product_stage_open">Подготовить</string>
+    <string name="product_stage_locked_description">Уровень заблокирован: %1$s</string>
+    <string name="product_resume_title">Продолжить оборону?</string>
+    <string name="product_resume_body">Сохранённый бой можно продолжить с последнего контрольного такта.</string>
+    <string name="product_resume_action">Продолжить</string>
+    <string name="product_resume_discard">Начать заново</string>
+
+    <string name="product_setup_title">Подготовка экспедиции</string>
+    <string name="product_setup_body">Выберите башни, бойцов и способности для обороны. В составе должны быть хотя бы одна башня и один боец.</string>
+    <string name="product_setup_threat">Угроза: %1$s</string>
+    <string name="product_setup_wave_count">Последовательных волн: %1$d</string>
+    <string name="product_setup_loadout">Боевой состав</string>
+    <string name="product_setup_loadout_capacity">Боевой состав: %1$d / %2$d</string>
+    <string name="product_setup_kind_tower">Башенные модули</string>
+    <string name="product_setup_kind_ally">Мобильный отряд</string>
+    <string name="product_setup_hero">Командир: %1$s</string>
+    <string name="product_setup_hero_loadout">Способности командира</string>
+    <string name="product_setup_hero_body">Выберите открытые способности для этого боя. Они не занимают ячейки отряда; можно оставить их выключенными.</string>
+    <string name="product_setup_hero_selected">Включена</string>
+    <string name="product_setup_hero_unselected">Выключена</string>
+    <string name="product_setup_hero_empty">Открытых способностей пока нет.</string>
+    <string name="product_setup_slot_empty">Свободная ячейка %1$d</string>
+    <string name="product_setup_slot_selected">Ячейка %1$d: %2$s</string>
+    <string name="product_setup_start">Начать оборону</string>
+    <string name="product_setup_sweep">Быстрый рейд</string>
+    <string name="product_setup_back">Назад к карте</string>
+    <string name="product_setup_energy_guard">Недостаточно энергии: требуется %1$d.</string>
+    <string name="product_setup_sweep_guard">Быстрый рейд откроется после победы с тремя звёздами.</string>
+
+    <string name="product_battle_wave">Волна %1$d / %2$d</string>
+    <string name="product_battle_resource">Плазма: %1$d / %2$d</string>
+    <string name="product_battle_base">Ядро: %1$d / %2$d</string>
+    <string name="product_battle_speed">Скорость %1$dx</string>
+    <string name="product_battle_speed_value">%1$dx</string>
+    <string name="product_battle_pause">Пауза</string>
+    <string name="product_battle_resume">Продолжить</string>
+    <string name="product_battle_exit">Покинуть бой</string>
+    <string name="product_battle_field_description">Поле боя. Ядро %1$d из %2$d. Врагов %3$d. Союзников %4$d. Точек строительства %5$d.</string>
+    <string name="product_battle_enemy_description">Враг %1$s, здоровье %2$d из %3$d</string>
+    <string name="product_battle_ally_description">Союзник %1$s, здоровье %2$d из %3$d</string>
+    <string name="product_battle_slot_empty">Точка %1$d свободна</string>
+    <string name="product_battle_slot_tower">Точка %1$d: %2$s, уровень %3$d</string>
+    <string name="product_battle_build">Построить</string>
+    <string name="product_battle_upgrade">Улучшить</string>
+    <string name="product_battle_sell">Разобрать</string>
+    <string name="product_battle_cost">Стоимость: %1$d</string>
+    <string name="product_battle_insufficient">Недостаточно плазмы</string>
+    <string name="product_battle_max_level">Максимальный уровень</string>
+    <string name="product_battle_ability_ready">%1$s: готово</string>
+    <string name="product_battle_ability_cooldown">%1$s: %2$d сек.</string>
+    <string name="product_battle_deploy_ally">Развернуть: %1$s</string>
+    <string name="product_battle_paused_title">Бой на паузе</string>
+    <string name="product_battle_paused_body">Состояние боя заморожено. Фоновое время не учитывается.</string>
+    <string name="product_exit_confirm_title">Покинуть оборону?</string>
+    <string name="product_exit_confirm_body">Бой будет завершён без награды. Пока выход не подтверждён, бой остаётся на паузе.</string>
+    <string name="product_exit_cancel">Остаться</string>
+    <string name="product_exit_confirm">Покинуть</string>
+
+    <string name="product_enhancement_title">Выберите усиление</string>
+    <string name="product_enhancement_body">Один из трёх модулей будет действовать до конца боя.</string>
+    <string name="product_enhancement_wave_complete">Волна %1$d отражена</string>
+    <string name="product_enhancement_choose">Применить</string>
+    <string name="product_enhancement_reroll">Обновить варианты (%1$d)</string>
+    <string name="product_enhancement_selected">Выбрано усиление: %1$s</string>
+
+    <string name="product_victory_title">Рубеж удержан</string>
+    <string name="product_defeat_title">Ядро потеряно</string>
+    <string name="product_result_wave">Пройдено волн: %1$d / %2$d</string>
+    <string name="product_result_enemies">Устранено целей: %1$d</string>
+    <string name="product_result_reward">Награда: %1$d кредитов, %2$d опыта</string>
+    <string name="product_result_claim">Получить награду</string>
+    <string name="product_result_claimed">Награда получена</string>
+    <string name="product_result_multiplier">Открыть видеозаглушку — без награды</string>
+    <string name="product_result_retry">Повторить</string>
+    <string name="product_result_map">Вернуться к карте</string>
+
+    <string name="product_roster_title">Боевой отряд</string>
+    <string name="product_roster_body">Настройте активный состав и улучшите доступные роли.</string>
+    <string name="product_roster_level">Уровень %1$d</string>
+    <string name="product_roster_power">Мощь: %1$d</string>
+    <string name="product_roster_equipped">В составе</string>
+    <string name="product_roster_equip">Добавить</string>
+    <string name="product_roster_remove">Убрать</string>
+    <string name="product_roster_upgrade">Улучшить за %1$d</string>
+    <string name="product_roster_maximum">Максимальный уровень</string>
+    <string name="product_roster_locked">Откроется после этапа %1$s</string>
+    <string name="product_roster_locked_progress">Откроется при дальнейшем продвижении</string>
+
+    <string name="product_tech_title">Сеть технологий</string>
+    <string name="product_tech_body">Связывайте модули, чтобы открывать постоянные улучшения.</string>
+    <string name="product_tech_unlocked">Изучено</string>
+    <string name="product_tech_available">Доступно</string>
+    <string name="product_tech_locked">Требуется: %1$s</string>
+    <string name="product_tech_unlock">Изучить за %1$d</string>
+
+    <string name="product_shop_title">Склад экспедиции</string>
+    <string name="product_shop_body">Расходуйте игровые ресурсы или проверяйте локальные сервисные заглушки.</string>
+    <string name="product_shop_buy">Получить за %1$d</string>
+    <string name="product_shop_owned">Получено</string>
+    <string name="product_shop_iap">Проверить заглушку покупки</string>
+    <string name="product_shop_iap_badge">ДЕМО · БЕЗ ОПЛАТЫ</string>
+    <string name="product_shop_soft_reward">В наборе: %1$d кредитов</string>
+    <string name="product_shop_energy_reward">В наборе: %1$d энергии</string>
+    <string name="product_shop_purchased">Получено раз: %1$d</string>
+
+    <string name="product_track_title">Маршрут наград</string>
+    <string name="product_track_body">Пятнадцать локальных этапов прогресса экспедиции.</string>
+    <string name="product_track_tier">Этап %1$d</string>
+    <string name="product_track_progress">%1$d / %2$d опыта</string>
+    <string name="product_track_claim">Получить</string>
+    <string name="product_track_claimed">Получено</string>
+    <string name="product_track_locked">Недоступно</string>
+    <string name="product_track_soft_reward">%1$d кредитов</string>
+    <string name="product_track_crystal_reward">%1$d кристаллов</string>
+    <string name="product_track_energy_reward">%1$d энергии</string>
+    <string name="product_track_no_reward">Памятный знак маршрута</string>
+
+    <string name="product_settings_title">Настройки сигнала</string>
+    <string name="product_settings_audio">Звуковые эффекты</string>
+    <string name="product_settings_music">Музыка</string>
+    <string name="product_settings_haptics">Виброотклик</string>
+    <string name="product_settings_reduced_motion">Уменьшить движение</string>
+    <string name="product_settings_close">Готово</string>
+
+    <string name="product_arena_title">Локальная арена</string>
+    <string name="product_arena_body">Выставочное сравнение мощи отрядов. Соперник и результат рассчитываются сразу из сохранённого seed. Игровой бой, сеть и аккаунт не используются.</string>
+    <string name="product_arena_rating">Рейтинг: %1$d</string>
+    <string name="product_arena_player_power">Мощь отряда: %1$d</string>
+    <string name="product_arena_tickets">Пропуски: %1$d</string>
+    <string name="product_arena_find">Рассчитать выставочный поединок</string>
+    <string name="product_arena_opponent">Соперник: %1$s</string>
+    <string name="product_arena_power">Мощь соперника: %1$d</string>
+    <string name="product_arena_start">Рассчитать результат</string>
+    <string name="product_arena_cancel">Отменить</string>
+    <string name="product_arena_victory">Победа на арене</string>
+    <string name="product_arena_defeat">Поражение на арене</string>
+    <string name="product_arena_return">Вернуться к карте</string>
+    <string name="product_arena_again">Новый выставочный поединок</string>
+    <string name="product_arena_local_badge">ЛОКАЛЬНЫЙ РАСЧЁТ</string>
+
+    <string name="product_service_title">Локальная заглушка</string>
+    <string name="product_service_rewarded_body">Реклама не запускалась. Награда не начислена: это локальная заглушка без сети.</string>
+    <string name="product_service_purchase_body">Платёж не выполнялся и ресурсы не изменились. Это локальная заглушка без SDK и аккаунта.</string>
+    <string name="product_service_arena_body">Сетевой запрос не выполнялся. Выставочный результат рассчитан локально из сохранённого seed.</string>
+    <string name="product_service_confirm">Понятно</string>
+    <string name="product_local_only">Только локально</string>
+    <string name="product_legacy_continue">Перейти к новой экспедиции</string>
+    <string name="product_save_failed">Изменения ещё не сохранены. Освободите место и повторите запись.</string>
+    <string name="product_save_retry">Повторить</string>
+    <string name="product_recovery_title">Сохранение требует восстановления</string>
+    <string name="product_recovery_run_body">Сохранённый бой повреждён или несовместим. Профиль сохранён, но бой не был продолжен.</string>
+    <string name="product_recovery_profile_body">Сохранение повреждено или несовместимо. Открыта новая экспедиция; прежний прогресс не был восстановлен.</string>
+    <string name="product_recovery_archived">Исходные документы оставлены в локальном архиве восстановления и не будут перезаписаны автосохранением.</string>
+    <string name="product_recovery_archive_failed">Не удалось записать архив восстановления. Исходные документы не перезаписаны; новые изменения пока нельзя сохранить.</string>
+</resources>

@@ -2,6 +2,7 @@ package dev.mysd.game.campaign
 
 import dev.mysd.game.battle.ActiveBattleIntent
 import dev.mysd.game.battle.EnhancementIntent
+import dev.mysd.game.battle.playable.PlayableBattleCommand
 import dev.mysd.game.battle.playable.PlayableBattleEngine
 import dev.mysd.game.battle.playable.PlayableBattlePhase
 import dev.mysd.game.battle.playable.PlayableBattleTerminal
@@ -387,6 +388,282 @@ class CampaignLifecyclePersistenceTest {
     @Test
     fun `victory contour survives process death persistence boundary`() {
         assertVictoryContourRestoresAfter(LifecycleEvent.PROCESS_DEATH)
+    }
+
+    @Test
+    fun `live playable victory emits restorable canonical terminal save and stays frozen`() {
+        val initial = PlayableBattleEngine.initialState(
+            initialResource = 100,
+            phase = PlayableBattlePhase.ACTIVE,
+        )
+        val nearVictory = initial.copy(
+            slots = initial.slots.mapIndexed { index, slot ->
+                if (index == 0) slot.copy(towerId = initial.towerId) else slot
+            },
+            enemies = listOf(
+                initial.enemies.single().copy(
+                    health = initial.towerBaseDamage,
+                    positionTicks = 0,
+                ),
+            ),
+            waveSpawnedCount = initial.waveSpawnCount,
+        )
+        val nonTerminalSave = RunSave(
+            runId = "live-playable-victory-run",
+            stageId = AcceptedCampaignFixture.STAGE_ID.value,
+            contentVersion = 1,
+            simulationVersion = 1,
+            seed = 19L,
+            rngState = 23L,
+            tick = 41L,
+            active = true,
+            pendingCommands = emptyList(),
+            modifiers = listOf(
+                "local-test-modifier",
+                "mysd.campaign.contour.v1.phase=active",
+                "mysd.campaign.contour.v1.origin=NEW_RUN",
+                "mysd.campaign.contour.v1.setup=setup-option-b",
+                "mysd.campaign.contour.v1.speed=ALTERNATE",
+                "mysd.campaign.contour.v1.paused=0",
+                "mysd.campaign.contour.v1.build=1",
+                "mysd.campaign.contour.v1.refresh=0",
+                "mysd.campaign.contour.v1.enhancement=${OriginalContentIds.FOUNDATION_ENHANCEMENT_EMBER_WARD.value}",
+            ),
+            terminalResult = null,
+            playableBattleState = nearVictory,
+        )
+        val session = restore(nonTerminalSave)
+
+        assertEquals(nonTerminalSave, session.runSave())
+        assertEquals(PlayableBattleTerminal.VICTORY, session.advance(50L)?.terminalResult)
+
+        val liveTerminal = assertNotNull(session.playableBattleSnapshot())
+        assertNull(session.activeBattleSnapshot())
+        listOf(
+            ActiveBattleIntent.ChangeSpeed,
+            ActiveBattleIntent.PauseOrResume,
+            ActiveBattleIntent.SelectBuildAffordance,
+            ActiveBattleIntent.OpenEnhancement,
+            ActiveBattleIntent.ResolveVictory,
+        ).forEach { intent ->
+            assertNull(session.submit(intent))
+        }
+        assertNull(session.submit(EnhancementIntent.RefreshOffers))
+        listOf(
+            PlayableBattleCommand.Pause,
+            PlayableBattleCommand.Resume,
+            PlayableBattleCommand.SpendResource(targetSlotId = null, cost = 0),
+            PlayableBattleCommand.BuildTower(nearVictory.slots[1].id),
+            PlayableBattleCommand.UpgradeTower(nearVictory.slots[0].id),
+        ).forEach { command ->
+            assertEquals(liveTerminal, session.submit(command))
+        }
+        assertEquals(liveTerminal, session.advance(5_000L))
+        assertEquals(liveTerminal, session.playableBattleSnapshot())
+
+        val terminalSave = assertNotNull(session.runSave())
+        assertFalse(terminalSave.active)
+        assertEquals(RunTerminalResult.VICTORY, terminalSave.terminalResult)
+        assertEquals(PlayableBattleTerminal.VICTORY, terminalSave.playableBattleState?.terminalResult)
+        assertEquals(
+            listOf(
+                "local-test-modifier",
+                "mysd.campaign.contour.v1.phase=victory",
+                "mysd.campaign.contour.v1.origin=NEW_RUN",
+                "mysd.campaign.contour.v1.setup=setup-option-b",
+                "mysd.campaign.contour.v1.speed=ALTERNATE",
+                "mysd.campaign.contour.v1.paused=0",
+                "mysd.campaign.contour.v1.build=1",
+                "mysd.campaign.contour.v1.refresh=0",
+                "mysd.campaign.contour.v1.enhancement=${OriginalContentIds.FOUNDATION_ENHANCEMENT_EMBER_WARD.value}",
+            ),
+            terminalSave.modifiers,
+        )
+
+        val encoded = RunSaveCodec.encode(terminalSave)
+        val decoded = RunSaveCodec.decode(encoded)
+        assertEquals(terminalSave, decoded)
+        assertEquals(encoded, RunSaveCodec.encode(decoded))
+
+        val restored = AcceptedCampaignFixture.createSession(decoded)
+        val frozen = assertNotNull(restored.playableBattleSnapshot())
+        assertEquals(PlayableBattleTerminal.VICTORY, frozen.terminalResult)
+        assertEquals(LevelSetupOrigin.NEW_RUN, restored.snapshot().setupOrigin)
+        assertEquals(BattleSetupChoice.OPTION_B, restored.snapshot().battleStart?.selectedChoice)
+        val restoredVictory = assertNotNull(restored.victorySnapshot())
+        assertEquals(BattleSetupChoice.OPTION_B, restoredVictory.selectedSetupChoice)
+        assertEquals(
+            OriginalContentIds.FOUNDATION_ENHANCEMENT_EMBER_WARD,
+            restoredVictory.selectedEnhancementId,
+        )
+        assertNull(restored.activeBattleSnapshot())
+        assertNull(restored.submit(ActiveBattleIntent.ChangeSpeed))
+        assertEquals(frozen, restored.submit(PlayableBattleCommand.Pause))
+        assertEquals(frozen, restored.advance(5_000L))
+        assertEquals(frozen, restored.playableBattleSnapshot())
+        assertEquals(restoredVictory, restored.victorySnapshot())
+        assertEquals(decoded, restored.runSave())
+    }
+
+    @Test
+    fun `live playable defeat emits restorable canonical terminal save and stays frozen`() {
+        val initial = PlayableBattleEngine.initialState(
+            initialResource = 100,
+            phase = PlayableBattlePhase.ACTIVE,
+        )
+        val nearDefeat = initial.copy(
+            base = initial.base.copy(health = initial.baseLeakDamage),
+            enemies = listOf(
+                initial.enemies.single().copy(
+                    positionTicks = initial.base.positionTicks - initial.enemySpeedTicks,
+                ),
+            ),
+        )
+        val nonTerminalSave = RunSave(
+            runId = "live-playable-defeat-run",
+            stageId = AcceptedCampaignFixture.STAGE_ID.value,
+            contentVersion = 1,
+            simulationVersion = 1,
+            seed = 29L,
+            rngState = 31L,
+            tick = 43L,
+            active = true,
+            pendingCommands = emptyList(),
+            modifiers = listOf(
+                "local-defeat-modifier",
+                "mysd.campaign.contour.v1.phase=active",
+                "mysd.campaign.contour.v1.origin=NEW_RUN",
+                "mysd.campaign.contour.v1.setup=setup-option-a",
+                "mysd.campaign.contour.v1.speed=DEFAULT",
+                "mysd.campaign.contour.v1.paused=0",
+                "mysd.campaign.contour.v1.build=0",
+                "mysd.campaign.contour.v1.refresh=0",
+                "mysd.campaign.contour.v1.enhancement=none",
+            ),
+            terminalResult = null,
+            playableBattleState = nearDefeat,
+        )
+        val session = restore(nonTerminalSave)
+
+        assertEquals(nonTerminalSave, session.runSave())
+        assertEquals(PlayableBattleTerminal.DEFEAT, session.advance(50L)?.terminalResult)
+
+        val liveTerminal = assertNotNull(session.playableBattleSnapshot())
+        assertNull(session.activeBattleSnapshot())
+        assertNull(session.submit(ActiveBattleIntent.PauseOrResume))
+        assertEquals(liveTerminal, session.submit(PlayableBattleCommand.Pause))
+        assertEquals(liveTerminal, session.advance(5_000L))
+
+        val terminalSave = assertNotNull(session.runSave())
+        assertFalse(terminalSave.active)
+        assertEquals(RunTerminalResult.DEFEAT, terminalSave.terminalResult)
+        assertEquals(PlayableBattleTerminal.DEFEAT, terminalSave.playableBattleState?.terminalResult)
+        assertEquals(listOf("local-defeat-modifier"), terminalSave.modifiers)
+
+        val encoded = RunSaveCodec.encode(terminalSave)
+        val decoded = RunSaveCodec.decode(encoded)
+        assertEquals(terminalSave, decoded)
+        assertEquals(encoded, RunSaveCodec.encode(decoded))
+
+        val restored = AcceptedCampaignFixture.createSession(decoded)
+        val frozen = assertNotNull(restored.playableBattleSnapshot())
+        assertEquals(PlayableBattleTerminal.DEFEAT, frozen.terminalResult)
+        assertNull(restored.activeBattleSnapshot())
+        assertNull(restored.submit(ActiveBattleIntent.ChangeSpeed))
+        assertEquals(frozen, restored.submit(PlayableBattleCommand.Pause))
+        assertEquals(frozen, restored.advance(5_000L))
+        assertEquals(frozen, restored.playableBattleSnapshot())
+        assertEquals(decoded, restored.runSave())
+    }
+
+    @Test
+    fun `resume tick finalizes a live victory through the same terminal boundary`() {
+        val initial = PlayableBattleEngine.initialState(
+            initialResource = 100,
+            phase = PlayableBattlePhase.PAUSED,
+        )
+        val nearVictory = initial.copy(
+            slots = initial.slots.mapIndexed { index, slot ->
+                if (index == 0) slot.copy(towerId = initial.towerId) else slot
+            },
+            enemies = listOf(
+                initial.enemies.single().copy(
+                    health = initial.towerBaseDamage,
+                    positionTicks = 0,
+                ),
+            ),
+            waveSpawnedCount = initial.waveSpawnCount,
+        )
+        val session = restore(
+            RunSave(
+                runId = "resume-to-live-victory-run",
+                stageId = AcceptedCampaignFixture.STAGE_ID.value,
+                contentVersion = 1,
+                simulationVersion = 1,
+                seed = 37L,
+                rngState = 41L,
+                tick = 47L,
+                active = true,
+                pendingCommands = emptyList(),
+                modifiers = listOf(
+                    "mysd.campaign.contour.v1.phase=active",
+                    "mysd.campaign.contour.v1.origin=NEW_RUN",
+                    "mysd.campaign.contour.v1.setup=setup-option-a",
+                    "mysd.campaign.contour.v1.speed=DEFAULT",
+                    "mysd.campaign.contour.v1.paused=1",
+                    "mysd.campaign.contour.v1.build=0",
+                    "mysd.campaign.contour.v1.refresh=0",
+                    "mysd.campaign.contour.v1.enhancement=${OriginalContentIds.FOUNDATION_ENHANCEMENT.value}",
+                ),
+                terminalResult = null,
+                playableBattleState = nearVictory,
+            ),
+        )
+
+        assertTrue(session.activeBattleSnapshot()?.paused == true)
+        assertNull(session.submit(ActiveBattleIntent.PauseOrResume))
+        assertEquals(PlayableBattleTerminal.VICTORY, session.playableBattleState()?.terminalResult)
+        assertNull(session.activeBattleSnapshot())
+        assertNull(session.submit(ActiveBattleIntent.ChangeSpeed))
+        val terminalSave = assertNotNull(session.runSave())
+        assertEquals(RunTerminalResult.VICTORY, terminalSave.terminalResult)
+        assertTrue("mysd.campaign.contour.v1.phase=victory" in terminalSave.modifiers)
+        assertTrue(
+            "mysd.campaign.contour.v1.enhancement=${OriginalContentIds.FOUNDATION_ENHANCEMENT.value}" in
+                terminalSave.modifiers,
+        )
+    }
+
+    @Test
+    fun `legacy contour victory freezes its hidden playable session`() {
+        val session = startedSession()
+        session.submit(ActiveBattleIntent.OpenEnhancement)
+        session.submit(
+            EnhancementIntent.SelectOffer(
+                OriginalContentIds.FOUNDATION_ENHANCEMENT_EMBER_WARD,
+            ),
+        )
+        session.submit(ActiveBattleIntent.ResolveVictory)
+
+        val victory = assertNotNull(session.victorySnapshot())
+        val frozen = assertNotNull(session.playableBattleSnapshot())
+        val frozenState = assertNotNull(session.playableBattleState())
+        val frozenSave = assertNotNull(session.runSave())
+        assertFalse(frozenSave.active)
+        assertEquals(RunTerminalResult.VICTORY, frozenSave.terminalResult)
+        assertNull(frozenSave.playableBattleState)
+
+        assertEquals(frozen, session.submit(PlayableBattleCommand.Pause))
+        assertEquals(frozenSave, session.runSave())
+        assertEquals(frozen, session.advance(5_000L))
+        assertEquals(frozen, session.playableBattleSnapshot())
+        assertEquals(frozenState, session.playableBattleState())
+        assertEquals(victory, session.victorySnapshot())
+        assertEquals(frozenSave, session.runSave())
+
+        val restored = restore(frozenSave)
+        assertEquals(victory, restored.victorySnapshot())
+        assertEquals(frozenSave, restored.runSave())
     }
 
     @Test

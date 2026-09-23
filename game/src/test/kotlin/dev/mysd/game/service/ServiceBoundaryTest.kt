@@ -103,7 +103,43 @@ class ServiceBoundaryTest {
         val arena = services.arenaService.request(ArenaRequest(unknown))
         assertEquals(LocalServiceAvailability.BLOCKED, arena.trace.availability)
         assertEquals(ArenaLocalState.NETWORK_MATCH_BLOCKED, arena.localState)
+        assertEquals(unknown, arena.trace.requestId)
+        assertFalse(arena.trace.affordancePreserved)
+        assertFalse(arena.trace.authoritativeStateChanged)
+        assertFalse(arena.trace.productionIntegrationAttempted)
+        assertFalse(arena.matchRequestEnabled)
+        assertFalse(arena.accountRequired)
         assertFalse(arena.trace.networkRequestMade)
+    }
+
+    @Test
+    fun `arena snapshots are immutable and reject contradictory local or blocked states`() {
+        val services = OfflineServiceAdapters.foundation()
+        val local = services.arenaService.request(ArenaRequest())
+        val blocked = services.arenaService.request(
+            ArenaRequest(ServiceRequestId.of("unknown-arena-route")),
+        )
+
+        listOf(local, blocked).forEach { snapshot ->
+            val fields = ArenaSnapshot::class.java.declaredFields.filterNot { it.isSynthetic }
+            assertTrue(fields.isNotEmpty())
+            assertTrue(fields.all { Modifier.isFinal(it.modifiers) })
+            assertFalse(ArenaSnapshot::class.java.methods.any { it.name.startsWith("set") })
+            assertEquals(snapshot, services.arenaService.request(ArenaRequest(snapshot.trace.requestId)))
+            assertFailsWith<IllegalArgumentException> {
+                snapshot.copy(matchRequestEnabled = true)
+            }
+            assertFailsWith<IllegalArgumentException> {
+                snapshot.copy(accountRequired = true)
+            }
+        }
+
+        assertFailsWith<IllegalArgumentException> {
+            local.copy(localState = ArenaLocalState.NETWORK_MATCH_BLOCKED)
+        }
+        assertFailsWith<IllegalArgumentException> {
+            blocked.copy(localState = ArenaLocalState.LOCAL_SERVICE_SHAPED)
+        }
     }
 
     @Test

@@ -1,6 +1,11 @@
 # MySD Implementation Roadmap
 
-Status: Phase 0 in progress; Gate 1 blocked on Luna crawl
+Status: 2026-09-16 full-product human decision active; phases execute as one integrated batch
+
+The dependency model below remains the architectural order, but the user explicitly requested one
+complete engine + game implementation pass with no intermediate test/build/lint execution. All
+phase verification is therefore consolidated into the Phase 7 final cycle; failures are repaired in
+one stabilization pass without reducing scope.
 
 ## Dependency flow
 
@@ -26,12 +31,15 @@ Deliver:
 Exit:
 
 - all root routes reached;
-- core loop terminal state captured;
+- core loop reaches an observed terminal; other required terminals are observed or structurally blocked;
 - no unmatched affordance;
-- positive/negative states captured;
+- positive access and either observed negative access or the approved zero-resource plus structured-blocker fallback;
 - six-iteration discovery plateau;
 - all inference below 0.8 in open questions;
 - human accepts inventory, scope, and mandatory deviations.
+
+Valid per-surface visual anchors, perceptual hashes, measurable bounds, and before/after PNG parity
+are not Phase 0 exit criteria. They are verified incrementally by Visual Fit Gates in Phases 3-7.
 
 ## Phase 1 — Specification and engine foundation
 
@@ -134,5 +142,6 @@ Release gate:
 ## Commit policy
 
 Human reviews the diff at each gate. Accepted MySD changes may commit directly to `main`. MyEngine
-changes follow the MyEngine pipeline in their own accepted feature runs; MySD updates its lock only
-after those commits are available remotely.
+changes follow the MyEngine pipeline in their own accepted feature runs. Local verification may pin
+an exact technically accepted local engine commit. Before publishing that game lock, the referenced
+engine commit must be available remotely; neither repository is pushed without user authorization.

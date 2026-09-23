@@ -1,37 +1,288 @@
 schema_version: reference-inventory.v1
-status: provisional_pre_crawl
+status: accepted
 reference:
   package: com.gdzsq.crazy_td
-  public_source:
-    type: google_play_listing
-    url: https://play.google.com/store/apps/details?id=com.gdzsq.crazy_td
-    reviewed_date: 2026-07-18
+  capture:
+    device_profile: Pixel 9
+    android_api: 37
+    locale: en-US
+    metadata_evidence_id: EV-0191
+    metadata_sha256: 2e85c6d116f9ea98c1b4ffa126b88d1c54670f785e15269596250e94aceab899
+
 rules:
-  - Public-listing statements are inventory candidates, not mechanic requirements.
-  - Every candidate needs observed crawl evidence or an explicit human decision at Gate 1.
-candidates:
+  - This inventory is descriptive and public-safe; it contains no raw media, UI dump, or verbatim reference copy.
+  - Candidate means eligible for a human scope decision, not a production requirement.
+  - No candidate may be promoted to FR, US, AC, engine demand, or backlog before human Gate 1 acceptance.
+  - Low-confidence observations remain claims or open questions even when their route is in a scope candidate.
+  - Gate 1 evaluates semantic and behavioral inventory; visual completeness is deferred to per-surface Visual Fit Gates.
+  - Preserved legacy screenshots with invalid PNG encoding are unusable for visual claims but do not invalidate trace-backed behavioral evidence.
+
+corpus_audit:
+  audited_at: 2026-07-18
+  audit_result: independently_reverified
+  raw_root: .reference-local/
+  sanitized_root: spec/evidence/
+  raw_files_total: 280
+  indexed_artifacts: 276
+  indexed_screenshots: 137
+  indexed_ui_dumps: 138
+  indexed_metadata: 1
+  valid_png_screenshots: 42
+  legacy_invalid_png_screenshots: 95
+  local_trace_events: 43
+  unindexed_local_control_files:
+    - .reference-local/coverage.md
+    - .reference-local/traces/trace.jsonl
+    - .reference-local/archive/EV-0192.partial.png
+    - .reference-local/recovery-diagnostic.md
+  missing_index_targets: 0
+  sha256_mismatches: 0
+  graph_schema_validation: pass
+  sanitized_graph:
+    nodes: 13
+    edges: 25
+    observations: 12
+    observed_edges: 25
+    edges_with_before_after_anchors: 25
+    edges_with_action_level_trace_pairs: 25
+    affordances: 26
+    affordances_mapped_to_edges: 21
+    affordances_mapped_to_blockers: 5
+    unmatched_affordances: 0
+    mechanic_claims_below_0_8: 5
+    graph_investigation_clusters_below_0_8: 9
+    affordances_with_bounds: 0
+    nodes_with_structural_signatures: 13
+    nodes_with_semantic_signatures: 13
+    nodes_with_valid_visual_anchors: 8
+    nodes_with_usable_visual_claims: 7
+    nodes_with_valid_anchor_pending_signature: 1
+
+coverage_inventory:
   - id: INV-001
-    semantic_summary: campaign tower-defense loop
-    source: public_listing
-    confidence: 0.6
-    gate1_status: needs_observation
+    area: launch_and_campaign_entry
+    observed_summary: Clean launch, initial entry, campaign selection, level start, and unfinished-run prompt were observed.
+    graph_refs: [ST-0001, ST-0002, ST-0006, ST-0012, ED-0001, ED-0013, ED-0020, ED-0021, ED-0024]
+    evidence_anchors:
+      - id: EV-0001
+        sha256: 94855089196847cbfe65b58a7c029fe9aff9fd33ba29a47eee7d704ed24caab7
+      - id: EV-0109
+        sha256: 5d06556af999f9452bf4fec9c4205999fb756755af90a1ab6274721dbfc376eb
+      - id: EV-0189
+        sha256: 84328a3143e620bafbc21cd18f2f95ccad1d35b1be3bc936ad8cff5d77271d62
+    gate1_scope_proposal: accept
+    human_lock: accepted
+    scope_boundary: Observed launch, campaign entry, level start, and resume-prompt contour only.
+    caveats: Energy values are observations only; stage locks, sweep behavior, and continuation semantics are not established beyond the observed resume prompt and cancel/continue edges.
+
   - id: INV-002
-    semantic_summary: controllable or progressable hero/unit roster
-    source: public_listing
-    confidence: 0.5
-    gate1_status: needs_observation
+    area: early_battle_contour
+    observed_summary: Three early setup trials, active wave activity, an available structure action, an enhancement choice and refresh, and victory were observed.
+    graph_refs: [ST-0002, ST-0003, ST-0004, ST-0005, ED-0002, ED-0003, ED-0004, ED-0006, ED-0009, ED-0010, ED-0011, ED-0012, ED-0023, ED-0025]
+    claim_refs: [CL-0001, CL-0002, CL-0003]
+    evidence_anchors:
+      - id: EV-0023
+        sha256: ff1cb25409c9fa6952780d14a8d12ad9481ba149763d30badabdfe1e4e806b4c
+      - id: EV-0041
+        sha256: 459f89e7e2db603c8435543cd8c8aebbf299681165721f980d7e8b4c417c4413
+      - id: EV-0097
+        sha256: 54639af7d4b647466e64088d82a2d8d9ae911f2c8534d706ea5d451107fb6ea1
+    gate1_scope_proposal: accept
+    human_lock: accepted
+    scope_boundary: Observed early-battle and victory contour only; unresolved mechanic, balance, and defeat semantics remain deferred.
+    caveats: Setup effects, speed multiplier, pause semantics, refresh rules, costs, balance, boss threats, and defeat behavior are not established; defeat is explicitly blocked by ED-0025.
+
   - id: INV-003
-    semantic_summary: defensive building placement or development
-    source: public_listing
-    confidence: 0.6
-    gate1_status: needs_observation
+    area: roster_and_local_settings
+    observed_summary: A roster surface, visible slots, upgrade affordance, and a local settings overlay open/close contour were observed.
+    graph_refs: [ST-0007, ST-0008, ED-0015, ED-0018, ED-0019]
+    evidence_anchors:
+      - id: EV-0143
+        sha256: b055d6dc800046f7cfa3c44e0298d19f5ee18dad291c61fd7141cf88061d05f9
+      - id: EV-0157
+        sha256: ad7531c929b9f6f00919c6684c7e1e6ad60027d9878b7ac90a603fed44295963
+    gate1_scope_proposal: accept
+    human_lock: accepted
+    scope_boundary: Surface inventory only; roster upgrades and settings-toggle effects remain deferred.
+    caveats: Upgrade behavior and settings-toggle effects were not exercised and remain blockers.
+
   - id: INV-004
-    semantic_summary: wave progression with boss-class threats
-    source: public_listing
-    confidence: 0.6
-    gate1_status: needs_observation
+    area: shop_surface
+    observed_summary: The root tab selection was observed, but distinct Shop content was not confirmed.
+    graph_refs: [ST-0009, ED-0014]
+    claim_refs: [CL-0005]
+    evidence_anchors:
+      - id: EV-0137
+        sha256: 8f2168555cc2905282224d003e38b44614ac8ac9947db5dee4dae3125e85fbb3
+      - id: EV-0200
+        sha256: 443c34368afd8c850dcaf5b486b1cb01f87ef9900d6a1e1b3271ce7d5a0ec2d6
+    gate1_scope_proposal: defer
+    human_lock: accepted
+    caveats: Two controlled follow-up selections still showed no distinct Shop surface; no Shop mechanic or content family is eligible for promotion.
+
   - id: INV-005
-    semantic_summary: persistent base and technology progression
-    source: public_listing
-    confidence: 0.6
-    gate1_status: needs_observation
+    area: technology_surface
+    observed_summary: The root tab selection was observed, but distinct technology content was not confirmed.
+    graph_refs: [ST-0010, ED-0016]
+    claim_refs: [CL-0005]
+    evidence_anchors:
+      - id: EV-0145
+        sha256: b58662789a9fc5f1933aaddc94dd7347925c8bd7b0763895d5d9f8a5aacb366c
+      - id: EV-0202
+        sha256: f03dd4f86f2ffc04b4e3540e8766d81575854f13b8d072388a3cbf2eaddbe1b2
+    gate1_scope_proposal: defer
+    human_lock: accepted
+    caveats: Two controlled follow-up selections still showed no distinct Tech surface; no technology graph, progression rule, or persistent-base mechanic is eligible for promotion.
+
+  - id: INV-006
+    area: arena_service_boundary
+    observed_summary: The Arena root tab was reached; no network request or match was run.
+    graph_refs: [ST-0011, ED-0017]
+    claim_refs: [CL-0005]
+    evidence_anchors:
+      - id: EV-0149
+        sha256: 4c18f9ed8d9c2ad3bad255650fea003098fd92adc002151875d3b38b44c41943
+    gate1_scope_proposal: accept
+    human_lock: accepted
+    scope_boundary: Local service-shaped adapter boundary only; network Arena behavior is excluded.
+    mandatory_deviation_refs: [DEV-008]
+    caveats: Network Arena behavior is intentionally out of scope and cannot be inferred.
+
+  - id: INV-007
+    area: victory_reward_service_boundary
+    observed_summary: A victory reward contour was observed; an external test surface appeared after an ambiguous action and the crawl stopped without completion.
+    graph_refs: [ST-0005]
+    blocker_refs: [BL-REWARD-CLAIM-001, BL-REWARDED-AD-001]
+    claim_refs: [CL-0004]
+    evidence_anchors:
+      - id: EV-0099
+        sha256: 4359a17937343e7d0345ab022e904e1597a8be1b64e7cff62031e4f628912677
+    gate1_scope_proposal: accept
+    human_lock: accepted
+    scope_boundary: Local service-shaped reward boundary only; claim, doubling, purchase, and transaction semantics remain deferred.
+    mandatory_deviation_refs: [DEV-006, DEV-007]
+    caveats: Claim, doubling, purchase, and transaction semantics are not established.
+
+  - id: INV-008
+    area: system_back_external_exit
+    observed_summary: One system Back action exited to an external store surface.
+    graph_refs: [ST-0013, ED-0022]
+    claim_refs: [CL-0006]
+    evidence_anchors:
+      - id: EV-0125
+        sha256: 6ba6e054de83edb316f26d155bd625082d865852d63679584a42c0421c3ed183
+    gate1_scope_proposal: exclude
+    human_lock: accepted
+    caveats: This is an observed host interaction, not a confirmed intended navigation rule.
+
+mandatory_deviations:
+  status: accepted_for_gate1_lock
+  human_lock: accepted
+  refs:
+    - DEV-001
+    - DEV-002
+    - DEV-003
+    - DEV-004
+    - DEV-005
+    - DEV-006
+    - DEV-007
+    - DEV-008
+    - DEV-009
+  source: spec/deviations.md
+  additional_crawl_deviations: []
+
+blockers:
+  - id: G1-BL-001
+    condition: Six consecutive discovery iterations add no node, affordance, or claim.
+    current: 6
+    required: 6
+    evidence_ref: .reference-local/traces/trace.jsonl#TR-PLATEAU-0001..TR-PLATEAU-0006
+  - id: G1-BL-002
+    condition: Positive and negative resource/access states are captured.
+    current: satisfied_by_approved_zero_resource_plus_structured_blocker_policy
+    evidence_ref: coverage.md#positive-negative-meta
+    refs: [OB-0008, OB-0009, OB-0010]
+    note: Energy available and positive/zero resource observations are captured; no energy-unavailable transition was inferred because the safe path would require repeated finite runs and its costs are not fully established.
+  - id: G1-BL-003
+    condition: Shop and Tech surface content is distinguishable before either area can enter scope.
+    current: deferred_after_controlled_recheck
+    refs: [ST-0009, ST-0010, CL-0005, EV-0200, EV-0202]
+  - id: G1-BL-004
+    condition: Defeat is either observed or retained as an explicit coverage blocker.
+    current: satisfied_by_approved_explicit_structured_blocker_policy
+    evidence_ref: state-graph.v1.json#/edges/ED-0025
+  - id: G1-BL-005
+    condition: Reward claim, rewarded completion, purchases, roster upgrade, sweep, and settings-toggle behavior stay blocked unless safely observed or explicitly decided.
+    current: deferred_or_local_adapter_only_by_approved_scope_policy
+    refs: [BL-REWARD-CLAIM-001, BL-REWARDED-AD-001, BL-UPGRADE-UNTESTED-001, BL-SWEEP-001, BL-SETTINGS-TOGGLE-001]
+  - id: G1-BL-006
+    condition: The observed launch-to-victory and resume contours are traceable through state-graph edges.
+    current: complete_for_observed_contours
+    refs: [ED-0023, ED-0024, ST-0005, ST-0012]
+    note: Launch to setup to active battle to victory is edge-complete for the observed victory contour; resume confirmation now has an observed incoming edge. Defeat remains blocked by ED-0025.
+  - id: G1-BL-007
+    condition: Affordance bounds and structural, visual, and semantic signature values support the runbook's fit and deduplication checks.
+    current: deferred_to_per_surface_visual_fit_gate
+    refs: [G1-BL-010, G1-BL-011]
+    note: Structural and semantic digests are populated for all 13 nodes; ST-0001 and ST-0003 now have validated fresh visual anchors and eight nodes have complete new visual hashes. All 26 affordance bounds remain null because UIAutomator exposes only the full-screen GameCanvas.
+  - id: G1-BL-008
+    condition: Raw action-level trace events reconstruct sanitized transitions and link screenshot/UI-dump evidence pairs.
+    current: backfilled_for_all_graph_edges
+    note: The local trace contains 39 events, including one edge-level trace with paired screenshot/UI-dump paths for each of 25 graph edges and six new plateau iterations.
+  - id: G1-BL-009
+    condition: Terminal-state blocking has one machine-verifiable policy across the evidence contract, graph, and validator.
+    current: resolved_by_approved_policy_patch
+    note: The contract, graph schema, and validator now accept a structured terminal blocker; ED-0025 satisfies defeat coverage without unsafe forcing.
+  - id: G1-BL-010
+    condition: Affordance bounds are technically derivable from the captured accessibility tree.
+    current: deferred_to_per_surface_visual_fit_gate
+    affected_affordances: all 26 AF-0001..AF-0026
+    evidence_refs: [EV-0195, EV-0197, EV-0201, EV-0203, EV-0205, EV-0207, EV-0209]
+    reason: UIAutomator exposes only the full-screen WebView/GameCanvas bounds [0,0][1080,2424]; child hit regions are not exposed, so dp bounds would be invented rather than measured.
+  - id: G1-BL-011
+    condition: Every stable node has a valid masked visual capture for perceptual hashing.
+    current: preserved_unusable_deferred_to_per_surface_visual_fit_gate
+    affected_nodes: [ST-0002, ST-0004, ST-0005, ST-0011, ST-0013]
+    reason: Existing legacy PNG paths are preserved but fail the PNG magic-byte check due to a pre-existing binary-encoding defect; they were not overwritten. Seven nodes have usable visual evidence and hashes; ST-0003 has a valid anchor but its graph signature remains deferred.
+
+gate1:
+  ready_for_human_acceptance: true
+  verdict: accepted
+  reason: Human accepted the relaxed semantic/behavioral Gate 1 inventory, scope proposals, and mandatory deviations; visual completeness moves to per-surface Visual Fit Gates.
+  satisfied_checks:
+    - All expected root tab selections were reached or intentionally service-blocked.
+    - Raw observations include a victory terminal; graph edge ED-0025 records defeat as an explicit safe-boundary blocker.
+    - All captured affordances map to an edge or blocker; unmatched count is zero.
+    - Five claim-ledger rows below confidence 0.8 remain open questions and have no FR or ENG links.
+    - Indexed raw artifacts exist and all 276 recorded SHA-256 values match.
+    - Observed potion=0 plus the structured unavailable-energy blocker satisfies approved negative-access policy.
+    - Shop and Tech are deferred and cannot generate requirements.
+    - Defeat is covered by structured blocker ED-0025 under the approved safety policy.
+  unsatisfied_checks: []
+  remaining_blocker_refs: []
+  deferred_non_blocking_refs: [G1-BL-003, G1-BL-005, G1-BL-007, G1-BL-010, G1-BL-011]
+  policy_decisions:
+    - id: G1-PD-001
+      question: Does an explicit structured terminal blocker satisfy defeat coverage?
+      current_conflict: resolved_by_approved_policy; the contract, graph schema, and validator require either an observed terminal or a structured terminal blocker linked to the matching blocked edge.
+      options:
+        - Keep strict two-terminal observation policy and require a safely observed defeat.
+        - Allow an explicit terminal blocker, then separately amend schema and validator before setting ready status.
+      human_decision: approved_allow_structured_terminal_blocker
+    - id: G1-PD-002
+      question: Does the structured unavailable-energy blocker satisfy negative access coverage, or must an unavailable transition be observed?
+      current_conflict: resolved_by_approved_policy; observed potion=0 plus a structured safe-boundary blocker for energy_unavailable satisfies Gate 1.
+      human_decision: approved_zero_resource_plus_structured_blocker
+  human_decisions_deferred_until_eligible:
+    - Gate 2 accepted the evaluated semantic bundle in relaxed mode; implementation and Visual Fit remain phase-gated.
+  production_requirements_frozen: true
+  myengine_backlog_frozen: true
+
+post_gate_product_decision:
+  date: 2026-09-16
+  authority: human
+  decision: implement_complete_original_product_in_one_batch
+  promoted_product_scope: [INV-004, INV-005]
+  resolved_for_product_design: [G1-BL-003, G1-BL-004, G1-BL-005]
+  evidence_effect: none
+  note: Shop, Tech, defeat, settings, progression, sweep, rewards, and related semantics remain unobserved as reference facts; production requirements are original MySD decisions under DEV-010 and do not alter claim confidence.

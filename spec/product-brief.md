@@ -1,10 +1,11 @@
 # Product Brief
 
-Status: **provisional, Gate 1 pending**
+Status: **full-product human decision active; integrated implementation in progress**
 
 ## Замысел
 
-MySD — мобильная tower-defense стратегия с короткими campaign-сессиями и долгосрочным развитием.
+MySD (working identity: Emberwatch) — мобильная tower-defense стратегия с короткими
+campaign-сессиями и долгосрочным развитием.
 Цель reverse-spec — воспроизвести наблюдаемую структуру экранов, core loop, темп и UX референса,
 сохранив полностью оригинальный мир, визуальный язык, звук, тексты и баланс.
 
@@ -22,7 +23,12 @@ MySD — мобильная tower-defense стратегия с коротким
 
 ## In scope
 
-- весь подтверждённый наблюдением offline-контур;
+- весь подтверждённый наблюдением offline-контур и явно утверждённый 16.09.2026 оригинальный
+  full-product contour;
+- шесть оригинальных этапов по десять волн, несколько defensive/allied/enemy roles, героические
+  способности, deterministic enhancement breaks, victory/defeat и reward settlement;
+- campaign progression, energy, currencies, roster/loadout, technology, reward track, claims,
+  mastered-stage sweep, Shop и deterministic local Arena exhibition;
 - Android/Pixel 9;
 - deterministic local adapters для rewarded, IAP и Arena;
 - replay/save/migration/fit gates.
@@ -32,7 +38,8 @@ MySD — мобильная tower-defense стратегия с коротким
 - реальные ad/payment SDK;
 - аккаунты, backend и network Arena;
 - reference assets, названия, тексты, звуки и точные balance values;
-- production scope, не прошедший Gate 1.
+- exact unobserved reference behavior; such behavior is implemented only as an explicitly original
+  MySD design decision.
 
 ## Success criteria
 

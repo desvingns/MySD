@@ -52,7 +52,7 @@
     "affordance": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "role", "action", "coverage_status"],
+      "required": ["id", "role", "action", "bounds_dp", "bounds_unavailable_reason", "coverage_status"],
       "properties": {
         "id": { "type": "string", "pattern": "^AF-[0-9]{4}$" },
         "role": { "type": "string", "minLength": 1 },
@@ -63,6 +63,7 @@
             { "type": "null" }
           ]
         },
+        "bounds_unavailable_reason": { "type": ["string", "null"] },
         "coverage_status": {
           "enum": ["edge", "deviation", "blocker", "unmatched"]
         },
@@ -143,6 +144,9 @@
         "semantic_flags",
         "visible_affordances",
         "signatures",
+        "evidence_tier",
+        "visual_status",
+        "visual_evidence_ids",
         "evidence_ids",
         "source",
         "confidence"
@@ -169,6 +173,15 @@
           "items": { "$ref": "#/$defs/affordance" }
         },
         "signatures": { "$ref": "#/$defs/signatures" },
+        "evidence_tier": { "enum": ["behavioral", "behavioral_and_visual"] },
+        "visual_status": {
+          "enum": ["usable", "deferred_missing_signature", "preserved_unusable"]
+        },
+        "visual_evidence_ids": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^EV-[0-9]{4}$" },
+          "uniqueItems": true
+        },
         "evidence_ids": {
           "type": "array",
           "items": { "type": "string", "pattern": "^EV-[0-9]{4}$" },
@@ -262,6 +275,10 @@
         "root_routes_expected",
         "root_routes_seen",
         "terminal_states_seen",
+        "terminal_state_blockers",
+        "negative_access_coverage",
+        "scope_decisions",
+        "visual_fit_status",
         "unmatched_affordance_ids",
         "plateau_iterations",
         "low_confidence_open_questions"
@@ -282,6 +299,75 @@
           "type": "array",
           "items": { "enum": ["victory", "defeat"] },
           "uniqueItems": true
+        },
+        "terminal_state_blockers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["terminal", "edge_id", "reason_code", "reason"],
+            "properties": {
+              "terminal": { "enum": ["victory", "defeat"] },
+              "edge_id": { "type": "string", "pattern": "^ED-[0-9]{4}$" },
+              "reason_code": { "type": "string", "minLength": 1 },
+              "reason": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+        "negative_access_coverage": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "observation_ids", "blockers"],
+          "properties": {
+            "status": {
+              "enum": ["missing", "observed", "observed_zero_plus_structured_blocker"]
+            },
+            "observation_ids": {
+              "type": "array",
+              "items": { "type": "string", "pattern": "^OB-[0-9]{4}$" },
+              "uniqueItems": true
+            },
+            "blockers": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["id", "access_condition", "reason_code", "reason", "safety_boundary"],
+                "properties": {
+                  "id": { "type": "string", "pattern": "^G1-BL-[0-9]{3}$" },
+                  "access_condition": { "type": "string", "minLength": 1 },
+                  "reason_code": { "enum": ["safe_boundary_unreachable", "service_boundary", "technically_unobservable"] },
+                  "reason": { "type": "string", "minLength": 1 },
+                  "safety_boundary": { "const": true }
+                }
+              }
+            }
+          }
+        },
+        "scope_decisions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["inventory_id", "area", "decision", "human_lock"],
+            "properties": {
+              "inventory_id": { "type": "string", "pattern": "^INV-[0-9]{3}$" },
+              "area": { "type": "string", "minLength": 1 },
+              "decision": { "enum": ["accept", "defer", "exclude"] },
+              "human_lock": { "enum": ["pending", "accepted"] }
+            }
+          }
+        },
+        "visual_fit_status": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["gate1_required", "status", "bounds_unavailable_reason", "legacy_visual_status"],
+          "properties": {
+            "gate1_required": { "const": false },
+            "status": { "enum": ["deferred_per_surface", "complete"] },
+            "bounds_unavailable_reason": { "type": ["string", "null"] },
+            "legacy_visual_status": { "enum": ["usable", "preserved_unusable"] }
+          }
         },
         "unmatched_affordance_ids": {
           "type": "array",

@@ -1,6 +1,6 @@
 # Luna Crawl Runbook
 
-Status: ready for a separate Pixel 9 observation session
+Status: crawl complete; Gate 1 and relaxed Gate 2 accepted; Visual Fit remains deferred
 Reference package: `com.gdzsq.crazy_td`
 Raw output root: `D:\Pet\MySD\.reference-local` (gitignored)
 Sanitized output root: `D:\Pet\MySD\spec\evidence`
@@ -149,5 +149,11 @@ Luna hands Sol:
 - coverage report and blockers;
 - a compact Gate 1 inventory table.
 
-Sol must reject the handoff when a root tab or terminal battle state is missing, any visible
-affordance is unmatched, or low-confidence inference leaked into a requirement candidate.
+Sol must reject the handoff when an expected root tab has neither an observation nor a deferred
+scope decision, a required terminal has neither an observation nor a structured blocker, any
+visible affordance is unmatched, or low-confidence inference leaked into a requirement candidate.
+
+Gate 1 does not require complete PNG, perceptual-hash, or affordance-bounds coverage. Those checks
+belong to per-surface Visual Fit Gates during implementation. Corrupted captures remain preserved
+and unusable for visual claims. A Canvas-only surface may record a structured bounds-unavailable
+reason; coordinates are never invented.

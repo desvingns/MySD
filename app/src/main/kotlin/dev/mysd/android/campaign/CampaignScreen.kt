@@ -56,6 +56,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import dev.mysd.android.R
+import dev.mysd.android.ui.WholeWordText
 import dev.mysd.android.ui.theme.BattleAction
 import dev.mysd.android.ui.theme.BattleBackground
 import dev.mysd.android.ui.theme.BattleBase
@@ -2675,9 +2676,15 @@ private fun UnfinishedRunPrompt(
                     modifier = Modifier.padding(ResumeMetrics.panelPadding),
                     verticalArrangement = Arrangement.spacedBy(ResumeMetrics.contentGap),
                 ) {
-                    Text(
+                    // A Dialog window follows the system font scale; keep this long word whole.
+                    WholeWordText(
                         text = stringResource(R.string.campaign_unfinished_title),
                         style = MaterialTheme.typography.headlineSmall,
+                        fallbackStyles = listOf(
+                            MaterialTheme.typography.titleLarge,
+                            MaterialTheme.typography.titleMedium,
+                            MaterialTheme.typography.titleSmall,
+                        ),
                         color = ResumeOnPanel,
                     )
                     Text(

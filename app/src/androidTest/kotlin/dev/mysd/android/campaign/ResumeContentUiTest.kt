@@ -1,6 +1,8 @@
 package dev.mysd.android.campaign
 
 import android.content.Context
+import android.content.SharedPreferences
+import android.util.Log
 import androidx.lifecycle.Lifecycle
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -12,9 +14,14 @@ import androidx.test.uiautomator.Until
 import dev.mysd.android.MainActivity
 import dev.mysd.android.R
 import dev.mysd.android.persistence.AndroidRunSaveStorage
+import dev.mysd.android.persistence.AndroidProductPersistence
 import dev.mysd.game.persistence.PendingCommand
 import dev.mysd.game.persistence.RunSave
 import dev.mysd.game.persistence.RunSaveCodec
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -24,26 +31,13 @@ import kotlin.math.ceil
 /** ST-0012 structural/device seam for a valid unfinished run loaded by MainActivity. */
 @RunWith(AndroidJUnit4::class)
 class ResumeContentUiTest {
+    private val instrumentation = InstrumentationRegistry.getInstrumentation()
+    private val context = instrumentation.targetContext
+    private val device = UiDevice.getInstance(instrumentation)
 
     @Test
-    fun st0012_loadsSeededRunThroughActivity_andCapturesEvidence() {
-        val instrumentation = InstrumentationRegistry.getInstrumentation()
-        val context = instrumentation.targetContext
-        val preferences = context.getSharedPreferences(
-            AndroidRunSaveStorage.PREFERENCES_NAME,
-            Context.MODE_PRIVATE,
-        )
-        val hadPreviousSave = preferences.contains(AndroidRunSaveStorage.ENCODED_SAVE_KEY)
-        val previousEncodedSave = preferences.getString(
-            AndroidRunSaveStorage.ENCODED_SAVE_KEY,
-            null,
-        )
-        var scenario: ActivityScenario<MainActivity>? = null
-        val device = UiDevice.getInstance(instrumentation)
-
-        try {
-            seedRunSave(context)
-            scenario = ActivityScenario.launch(MainActivity::class.java)
+    fun st0012_loadsSeededRunThroughActivity_andCapturesEvidence() =
+        withSeededRun("capture-cancel") { productPreferences ->
             val outputDirectory = requireNotNull(context.getExternalFilesDir("fit"))
             enterCampaign(device, context)
             assertResumePromptVisible(device, context)
@@ -81,11 +75,30 @@ class ResumeContentUiTest {
                     UI_TIMEOUT_MS,
                 ),
             )
+            assertTrue(
+                "Cancel should hand off to the full product campaign",
+                device.wait(
+                    Until.hasObject(By.text(context.getString(R.string.product_campaign_title))),
+                    UI_TIMEOUT_MS,
+                ),
+            )
+            val productPersistence = AndroidProductPersistence(context)
+            assertTrue(productPersistence.hasProductProfile())
+            assertNotNull(productPersistence.loadProfileSave())
+            assertTrue(productPreferences.contains(AndroidProductPersistence.HAS_RUN_SAVE_KEY))
+            assertFalse(productPreferences.getBoolean(AndroidProductPersistence.HAS_RUN_SAVE_KEY, true))
+            assertNull(productPersistence.loadRunSave())
+            assertEquals(
+                "Cancel must archive the exact legacy source before committing product state",
+                RunSaveCodec.encode(unfinishedRun()),
+                productPreferences.getString(AndroidProductPersistence.ARCHIVED_LEGACY_RUN_KEY, null),
+            )
+            Log.i(TAG, "capture-cancel: captures, bounds, handoff and archive assertions passed")
+        }
 
-            closeScenarioForRelaunch(scenario)
-            scenario = null
-            seedRunSave(context)
-            scenario = ActivityScenario.launch(MainActivity::class.java)
+    @Test
+    fun st0012_continueSeededRunThroughActivityShowsLevelSetup() =
+        withSeededRun("continue") {
             enterCampaign(device, context)
             assertResumePromptVisible(device, context)
             clickText(device, context, R.string.campaign_continue_action)
@@ -103,14 +116,8 @@ class ResumeContentUiTest {
                     UI_TIMEOUT_MS,
                 ),
             )
-        } finally {
-            scenario?.let {
-                it.moveToState(Lifecycle.State.CREATED)
-                it.close()
-            }
-            restoreRunSave(context, hadPreviousSave, previousEncodedSave)
+            Log.i(TAG, "continue: prompt dismissal and setup assertions passed")
         }
-    }
 
     private fun enterCampaign(device: UiDevice, context: Context) {
         clickText(device, context, R.string.campaign_enter_action)
@@ -222,11 +229,6 @@ class ResumeContentUiTest {
     private fun panelSurfaceDescription(context: Context): String =
         "${context.getString(R.string.campaign_unfinished_panel_description)} surface"
 
-    private fun closeScenarioForRelaunch(scenario: ActivityScenario<MainActivity>) {
-        scenario.moveToState(Lifecycle.State.CREATED)
-        scenario.close()
-    }
-
     private fun seedRunSave(context: Context) {
         check(
             context.getSharedPreferences(
@@ -241,23 +243,88 @@ class ResumeContentUiTest {
         )
     }
 
-    private fun restoreRunSave(
-        context: Context,
-        hadPreviousSave: Boolean,
-        previousEncodedSave: String?,
-    ) {
-        val editor = context.getSharedPreferences(
+    private fun withSeededRun(label: String, block: (SharedPreferences) -> Unit) {
+        val legacyPreferences = context.getSharedPreferences(
             AndroidRunSaveStorage.PREFERENCES_NAME,
             Context.MODE_PRIVATE,
-        ).edit()
-        if (hadPreviousSave) {
-            editor.putString(AndroidRunSaveStorage.ENCODED_SAVE_KEY, previousEncodedSave)
-        } else {
-            editor.remove(AndroidRunSaveStorage.ENCODED_SAVE_KEY)
-        }
-        check(
-            editor.commit(),
         )
+        val productPreferences = context.getSharedPreferences(
+            AndroidProductPersistence.PRODUCT_PREFERENCES_NAME,
+            Context.MODE_PRIVATE,
+        )
+        val previousLegacyValues = legacyPreferences.all.toMap()
+        val previousProductValues = productPreferences.all.toMap()
+        var scenario: ActivityScenario<MainActivity>? = null
+        var primaryFailure: Throwable? = null
+        try {
+            // Cancel creates a product profile; each independent legacy branch needs both stores clean.
+            check(productPreferences.edit().clear().commit())
+            check(legacyPreferences.edit().clear().commit())
+            seedRunSave(context)
+            scenario = ActivityScenario.launch(MainActivity::class.java)
+            block(productPreferences)
+        } catch (failure: Throwable) {
+            primaryFailure = failure
+            Log.e(TAG, "$label: primary failure before teardown", failure)
+            throw failure
+        } finally {
+            completeCleanup(
+                primaryFailure,
+                "$label close" to { closeScenarioFromResumed(scenario) },
+                "$label restore product" to { restorePreferences(productPreferences, previousProductValues) },
+                "$label restore legacy" to { restorePreferences(legacyPreferences, previousLegacyValues) },
+            )
+        }
+    }
+
+    private fun closeScenarioFromResumed(scenario: ActivityScenario<MainActivity>?) {
+        if (scenario == null) return
+        Log.i(TAG, "before scenario cleanup; state=${scenario.state}")
+        completeCleanup(
+            null,
+            "resume for cleanup" to {
+                if (scenario.state != Lifecycle.State.DESTROYED) {
+                    // Closing directly from CREATED repeats the already resumed EmptyActivity handshake.
+                    scenario.moveToState(Lifecycle.State.RESUMED)
+                }
+            },
+            "scenario close" to { scenario.close() },
+        )
+        assertEquals(Lifecycle.State.DESTROYED, scenario.state)
+        Log.i(TAG, "scenario cleanup reached DESTROYED")
+    }
+
+    private fun completeCleanup(primaryFailure: Throwable?, vararg steps: Pair<String, () -> Unit>) {
+        var failure = primaryFailure
+        steps.forEach { (label, action) ->
+            try {
+                action()
+            } catch (cleanupFailure: Throwable) {
+                Log.e(TAG, "$label: cleanup failure", cleanupFailure)
+                val existing = failure
+                if (existing == null) failure = cleanupFailure
+                else if (existing !== cleanupFailure) existing.addSuppressed(cleanupFailure)
+            }
+        }
+        if (primaryFailure == null) failure?.let { throw it }
+    }
+
+    private fun restorePreferences(
+        preferences: SharedPreferences,
+        values: Map<String, *>,
+    ) {
+        val editor = preferences.edit().clear()
+        values.forEach { (key, value) ->
+            when (value) {
+                is Boolean -> editor.putBoolean(key, value)
+                is Float -> editor.putFloat(key, value)
+                is Int -> editor.putInt(key, value)
+                is Long -> editor.putLong(key, value)
+                is String -> editor.putString(key, value)
+                is Set<*> -> editor.putStringSet(key, value.filterIsInstance<String>().toSet())
+            }
+        }
+        check(editor.commit())
     }
 
     private fun assertRemoteCaptureIsValid(device: UiDevice, remotePath: String) {
@@ -289,6 +356,7 @@ class ResumeContentUiTest {
     )
 
     private companion object {
+        const val TAG = "ResumeContentUiTest"
         const val UI_TIMEOUT_MS = 5_000L
         const val MIN_TOUCH_TARGET_DP = 48f
         const val MIN_ACTION_WIDTH_DP = 112f

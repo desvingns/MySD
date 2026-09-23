@@ -1,6 +1,6 @@
 # Design
 
-Status: **architecture baseline; navigation/gameplay sections await Gate 1**
+Status: **full-product human decision active; integrated implementation in progress**
 
 ## System boundary
 
@@ -34,6 +34,10 @@ each accepted reference node to:
 The hierarchy separates route screens, overlays, battle phases, and meta states. HP, currency,
 energy, wave, and timers are observations and do not multiply state nodes.
 
+The fit registry records accepted semantic nodes and the excluded external Back node. Shop and Tech
+were promoted by the 2026-09-16 human decision; behaviors not directly observed remain explicitly
+original MySD design rather than reference claims.
+
 ## Persistence
 
 - `RunSaveV1+`: active battle state, pending commands, deterministic RNG state/seed, selected
@@ -61,11 +65,50 @@ Game-specific content stays in MySD. Flat scalar definitions use reviewed data f
 layouts, tech DAGs, and modifier pools use structured versioned schemas consistent with MyEngine
 ADR-0003. Content IDs, not display text, enter saves and replay traces.
 
-## Pending sections
+## Full-product session
 
-Gate 1 must supply the accepted navigation graph, battle command vocabulary, economy transitions,
-stage progression, roster/loadout behavior, tech semantics, reward flow, and terminal-state rules.
+Android consumes one `MySdAppSession` façade with four transport-neutral operations:
+
+- `snapshot()` returns the immutable route, profile, battle, service, and feedback projection;
+- `submit(intent)` performs one typed atomic user transition;
+- `pulse()` advances fixed authoritative ticks according to the selected presentation speed;
+- `saveBundle()` emits independent versioned run/profile payloads.
+
+`MySdAppSession` is the only coordinator allowed to settle battle rewards into the profile. The
+MyEngine `engine-runtime` API remains behind the game module; Compose never imports it.
+
+## Battle order
+
+Every active tick uses a stable integer-only order: commands, passive supply/cooldowns, spawns,
+hostile movement/attacks/leaks, allied movement/attacks, tower attacks/support, deaths/rewards,
+wave transition, choice/terminal evaluation. Entity and target tie breaks use stable IDs. Choice,
+paused, and terminal phases are tick identities. Presentation speed determines how many fixed ticks
+the Android pulse requests and never changes reducer semantics.
+
+Immediate player commands use a game-owned command-only boundary at the current logical tick.
+MyEngine drains already-due commands in canonical order; MySD applies their direct costs/effects
+without advancing income, movement, attacks, or cooldowns. Future commands remain saveable. Thus
+pause/resume and enhancement selection work while the ticker is frozen, and repeated input cannot
+accelerate the 20 Hz simulation.
+
+## Meta transaction order
+
+All energy, currency, reward, upgrade, claim, Shop, and sweep mutations pass through an atomic
+profile reducer. A successful mutation appends a stable ledger entry containing sequence, reason,
+resource deltas, and resulting balances; rejection returns the exact input profile plus a typed
+reason. Loadouts and technology prerequisites are validated before any cost is applied.
+
+## Android composition
+
+The production shell separates home/campaign, setup, battle, roster, technology, Shop, reward
+track, settings, Arena, and terminal surfaces into bounded composables. The existing
+`CampaignScreen` API remains a compatibility façade for prior semantic tests. Lifecycle collection
+owns the ticker and persistence callbacks, while all gameplay state stays in `:game`.
+
+Presentation feedback is local and non-authoritative: original procedural PCM effects/music and
+system haptic feedback honor the persisted sound/music/haptic preferences and stop outside the
+RESUMED lifecycle. No external audio files, synthesis services, or reference samples are consumed.
 
 ---
-*Сгенерировано `/mp-spec`-совместимым процессом (mode `clone`, depth `reference`, platform
-`android`). Handoff заблокирован до Gate 2.*
+*The original relaxed Gate 2 bundle was extended by an explicit human product decision on
+2026-09-16. That extension authorizes original implementation scope, not unobserved parity claims.*

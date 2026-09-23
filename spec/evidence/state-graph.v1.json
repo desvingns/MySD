@@ -2,18 +2,1739 @@
   "schema_version": "state-graph.v1",
   "reference": {
     "package": "com.gdzsq.crazy_td",
-    "capture_meta_evidence_id": null
+    "capture_meta_evidence_id": "EV-0191"
   },
-  "nodes": [],
-  "edges": [],
-  "observations": [],
+  "nodes": [
+    {
+      "id": "ST-0001",
+      "evidence_tier": "behavioral_and_visual",
+      "visual_status": "usable",
+      "visual_evidence_ids": ["EV-0233"],
+      "kind": "screen",
+      "parent": null,
+      "route": "launch",
+      "phase": "idle",
+      "semantic_flags": {
+        "clean_launch": true,
+        "reference_ip_visible": true
+      },
+      "visible_affordances": [
+        {
+          "id": "AF-0001",
+          "bounds_unavailable_reason": "G1-BL-010: GameCanvas exposes no measurable child bounds; coordinates are not invented.",
+          "role": "primary_action",
+          "action": "start_game",
+          "bounds_dp": null,
+          "coverage_status": "edge",
+          "coverage_ref": "ED-0001"
+        }
+      ],
+      "signatures": {
+        "structural": {
+          "activity": "com.gdzsq.crazy_td/.MainActivity",
+          "normalized_affordances": [
+            "primary_start"
+          ],
+          "digest": "052c68c4a3f125b011cdf8f9100a36331409c129e6bcb7cb886a4ba47d07865d"
+        },
+        "visual": {
+          "algorithm": "dct-phash-64-masked",
+          "perceptual_hash": "090dba5ae727354c",
+          "distance_threshold": 8,
+          "masked_regions": []
+        },
+        "semantic": {
+          "route": "launch",
+          "overlay": null,
+          "battle_phase": null,
+          "flags": {
+            "clean_launch": true
+          },
+          "digest": "808cfe5fe3864fef8e025ca56893c70f98dbb4c477b1e1534dc8ac3ecb5d1153"
+        }
+      },
+      "evidence_ids": [
+        "EV-0001",
+        "EV-0127",
+        "EV-0169",
+        "EV-0233"
+      ],
+      "source": "observed",
+      "confidence": 0.98
+    },
+    {
+      "id": "ST-0002",
+      "evidence_tier": "behavioral",
+      "visual_status": "preserved_unusable",
+      "visual_evidence_ids": [],
+      "kind": "battle_phase",
+      "parent": null,
+      "route": "battle",
+      "phase": "setup",
+      "semantic_flags": {
+        "level": "Lv1",
+        "tutorial_overlay_seen": true,
+        "initial_options_seen": 3
+      },
+      "visible_affordances": [
+        {
+          "id": "AF-0002",
+          "bounds_unavailable_reason": "G1-BL-010: GameCanvas exposes no measurable child bounds; coordinates are not invented.",
+          "role": "choice",
+          "action": "select_initial_option_a",
+          "bounds_dp": null,
+          "coverage_status": "edge",
+          "coverage_ref": "ED-0002"
+        },
+        {
+          "id": "AF-0003",
+          "bounds_unavailable_reason": "G1-BL-010: GameCanvas exposes no measurable child bounds; coordinates are not invented.",
+          "role": "choice",
+          "action": "select_initial_option_b",
+          "bounds_dp": null,
+          "coverage_status": "edge",
+          "coverage_ref": "ED-0003"
+        },
+        {
+          "id": "AF-0004",
+          "bounds_unavailable_reason": "G1-BL-010: GameCanvas exposes no measurable child bounds; coordinates are not invented.",
+          "role": "choice",
+          "action": "select_initial_option_c",
+          "bounds_dp": null,
+          "coverage_status": "edge",
+          "coverage_ref": "ED-0004"
+        },
+        {
+          "id": "AF-0005",
+          "bounds_unavailable_reason": "G1-BL-010: GameCanvas exposes no measurable child bounds; coordinates are not invented.",
+          "role": "secondary_action",
+          "action": "continue_tutorial_setup",
+          "bounds_dp": null,
+          "coverage_status": "edge",
+          "coverage_ref": "ED-0005"
+        },
+        {
+          "id": "AF-0006",
+          "bounds_unavailable_reason": "G1-BL-010: GameCanvas exposes no measurable child bounds; coordinates are not invented.",
+          "role": "primary_action",
+          "action": "start_battle",
+          "bounds_dp": null,
+          "coverage_status": "edge",
+          "coverage_ref": "ED-0006"
+        }
+      ],
+      "signatures": {
+        "structural": {
+          "activity": "com.gdzsq.crazy_td/.MainActivity",
+          "normalized_affordances": [
+            "choice_a",
+            "choice_b",
+            "choice_c",
+            "continue",
+            "start_battle"
+          ],
+          "digest": "f257bc1f988b037ba6346ab962c7d23a40db37f6d811f404bc252dc274db1aef"
+        },
+        "visual": {
+          "algorithm": "dct-phash-64-masked",
+          "perceptual_hash": "181c1d454f6ee85d",
+          "distance_threshold": 8,
+          "masked_regions": [
+            {
+              "reason": "currency",
+              "bounds_dp": {
+                "left": 0,
+                "top": 0,
+                "right": 220,
+                "bottom": 120
+              }
+            }
+          ]
+        },
+        "semantic": {
+          "route": "battle",
+          "overlay": null,
+          "battle_phase": "setup",
+          "flags": {
+            "level": "Lv1",
+            "tutorial_overlay_seen": true
+          },
+          "digest": "9cb789de48f9d4491e64443cfaaa7a8c3e8da04f041124831d553895f5f648ab"
+        }
+      },
+      "evidence_ids": [
+        "EV-0003",
+        "EV-0017",
+        "EV-0115",
+        "EV-0179"
+      ],
+      "source": "observed",
+      "confidence": 0.95
+    },
+    {
+      "id": "ST-0003",
+      "evidence_tier": "behavioral",
+      "visual_status": "deferred_missing_signature",
+      "visual_evidence_ids": ["EV-0243"],
+      "kind": "battle_phase",
+      "parent": null,
+      "route": "battle",
+      "phase": "active_wave",
+      "semantic_flags": {
+        "level": "Lv1",
+        "waves_total": 5,
+        "enemy_entities_visible": true,
+        "base_visible": true
+      },
+      "visible_affordances": [
+        {
+          "id": "AF-0007",
+          "bounds_unavailable_reason": "G1-BL-010: GameCanvas exposes no measurable child bounds; coordinates are not invented.",
+          "role": "speed_control",
+          "action": "change_battle_speed",
+          "bounds_dp": null,
+          "coverage_status": "edge",
+          "coverage_ref": "ED-0007"
+        },
+        {
+          "id": "AF-0008",
+          "bounds_unavailable_reason": "G1-BL-010: GameCanvas exposes no measurable child bounds; coordinates are not invented.",
+          "role": "pause_control",
+          "action": "pause_or_resume_battle",
+          "bounds_dp": null,
+          "coverage_status": "edge",
+          "coverage_ref": "ED-0008"
+        },
+        {
+          "id": "AF-0009",
+          "bounds_unavailable_reason": "G1-BL-010: GameCanvas exposes no measurable child bounds; coordinates are not invented.",
+          "role": "build_action",
+          "action": "build_available_structure",
+          "bounds_dp": null,
+          "coverage_status": "edge",
+          "coverage_ref": "ED-0009"
+        },
+        {
+          "id": "AF-0010",
+          "bounds_unavailable_reason": "G1-BL-010: GameCanvas exposes no measurable child bounds; coordinates are not invented.",
+          "role": "phase_action",
+          "action": "open_enhancement_choice",
+          "bounds_dp": null,
+          "coverage_status": "edge",
+          "coverage_ref": "ED-0010"
+        }
+      ],
+      "signatures": {
+        "structural": {
+          "activity": "com.gdzsq.crazy_td/.MainActivity",
+          "normalized_affordances": [
+            "speed",
+            "pause",
+            "build",
+            "phase_transition"
+          ],
+          "digest": "88272a9395848a80b0317467479c6e171cd384817a136502951dd6dbc60f6597"
+        },
+        "visual": {
+          "algorithm": "manual_capture",
+          "perceptual_hash": null,
+          "distance_threshold": null,
+          "masked_regions": [
+            {
+              "reason": "wave",
+              "bounds_dp": {
+                "left": 420,
+                "top": 0,
+                "right": 680,
+                "bottom": 130
+              }
+            },
+            {
+              "reason": "hp",
+              "bounds_dp": {
+                "left": 0,
+                "top": 1700,
+                "right": 1080,
+                "bottom": 2424
+              }
+            }
+          ]
+        },
+        "semantic": {
+          "route": "battle",
+          "overlay": null,
+          "battle_phase": "active_wave",
+          "flags": {
+            "waves_total": 5,
+            "enemy_entities_visible": true
+          },
+          "digest": "cbce38482f893ab79cdef4ae611aef6764d6eed219076e172da69b302a07d532"
+        }
+      },
+      "evidence_ids": [
+        "EV-0023",
+        "EV-0121",
+        "EV-0243"
+      ],
+      "source": "observed",
+      "confidence": 0.92
+    },
+    {
+      "id": "ST-0004",
+      "evidence_tier": "behavioral",
+      "visual_status": "preserved_unusable",
+      "visual_evidence_ids": [],
+      "kind": "overlay",
+      "parent": "ST-0003",
+      "route": "battle",
+      "phase": "enhancement_choice",
+      "semantic_flags": {
+        "refresh_visible": true,
+        "all_filter_visible": true,
+        "offers_observed": true
+      },
+      "visible_affordances": [
+        {
+          "id": "AF-0011",
+          "bounds_unavailable_reason": "G1-BL-010: GameCanvas exposes no measurable child bounds; coordinates are not invented.",
+          "role": "choice",
+          "action": "select_enhancement_offer",
+          "bounds_dp": null,
+          "coverage_status": "edge",
+          "coverage_ref": "ED-0011"
+        },
+        {
+          "id": "AF-0012",
+          "bounds_unavailable_reason": "G1-BL-010: GameCanvas exposes no measurable child bounds; coordinates are not invented.",
+          "role": "secondary_action",
+          "action": "refresh_enhancement_offers",
+          "bounds_dp": null,
+          "coverage_status": "edge",
+          "coverage_ref": "ED-0012"
+        }
+      ],
+      "signatures": {
+        "structural": {
+          "activity": "com.gdzsq.crazy_td/.MainActivity",
+          "normalized_affordances": [
+            "enhancement_offer",
+            "refresh",
+            "filter"
+          ],
+          "digest": "299d91c3f2a65c454b74466727652b1cae09a6d516da90e8b73d2ca85ea136e3"
+        },
+        "visual": {
+          "algorithm": "manual_capture",
+          "perceptual_hash": null,
+          "distance_threshold": null,
+          "masked_regions": []
+        },
+        "semantic": {
+          "route": "battle",
+          "overlay": "enhancement_choice",
+          "battle_phase": null,
+          "flags": {
+            "refresh_visible": true
+          },
+          "digest": "d1fb164ec8a982d1c6c44a84019eb6d3fa084e0257eb33d5e9daa62a9a89e7a9"
+        }
+      },
+      "evidence_ids": [
+        "EV-0041",
+        "EV-0043",
+        "EV-0091"
+      ],
+      "source": "observed",
+      "confidence": 0.9
+    },
+    {
+      "id": "ST-0005",
+      "evidence_tier": "behavioral",
+      "visual_status": "preserved_unusable",
+      "visual_evidence_ids": [],
+      "kind": "battle_phase",
+      "parent": null,
+      "route": "battle",
+      "phase": "victory",
+      "semantic_flags": {
+        "terminal": true,
+        "reward_panel_visible": true,
+        "rewarded_ad_not_completed": true
+      },
+      "visible_affordances": [
+        {
+          "id": "AF-0013",
+          "bounds_unavailable_reason": "G1-BL-010: GameCanvas exposes no measurable child bounds; coordinates are not invented.",
+          "role": "reward_claim",
+          "action": "claim_normal_victory_reward",
+          "bounds_dp": null,
+          "coverage_status": "blocker",
+          "coverage_ref": "BL-REWARD-CLAIM-001"
+        },
+        {
+          "id": "AF-0014",
+          "bounds_unavailable_reason": "G1-BL-010: GameCanvas exposes no measurable child bounds; coordinates are not invented.",
+          "role": "reward_multiplier",
+          "action": "request_rewarded_double",
+          "bounds_dp": null,
+          "coverage_status": "blocker",
+          "coverage_ref": "BL-REWARDED-AD-001"
+        }
+      ],
+      "signatures": {
+        "structural": {
+          "activity": "com.gdzsq.crazy_td/.MainActivity",
+          "normalized_affordances": [
+            "victory",
+            "reward_claim",
+            "rewarded_multiplier"
+          ],
+          "digest": "01b3163a8bbbf7eb9185ae611772ebf2b03646f578c5cce6528ca33ebb3eec1d"
+        },
+        "visual": {
+          "algorithm": "manual_capture",
+          "perceptual_hash": null,
+          "distance_threshold": null,
+          "masked_regions": [
+            {
+              "reason": "currency",
+              "bounds_dp": {
+                "left": 0,
+                "top": 0,
+                "right": 300,
+                "bottom": 160
+              }
+            }
+          ]
+        },
+        "semantic": {
+          "route": "battle",
+          "overlay": "victory_reward",
+          "battle_phase": "victory",
+          "flags": {
+            "terminal": true,
+            "rewarded_ad_not_completed": true
+          },
+          "digest": "50cf39cb778f9ff1e8ff04a6f3403356427a61158b94a6421082f39d847750c2"
+        }
+      },
+      "evidence_ids": [
+        "EV-0097",
+        "EV-0099",
+        "EV-0101"
+      ],
+      "source": "observed",
+      "confidence": 0.96
+    },
+    {
+      "id": "ST-0006",
+      "evidence_tier": "behavioral_and_visual",
+      "visual_status": "usable",
+      "visual_evidence_ids": ["EV-0196","EV-0200"],
+      "kind": "screen",
+      "parent": null,
+      "route": "battle",
+      "phase": "campaign_selection",
+      "semantic_flags": {
+        "root_surface": true,
+        "level": "Lv1",
+        "sweep_visible": true,
+        "energy_visible": true
+      },
+      "visible_affordances": [
+        {
+          "id": "AF-0015",
+          "bounds_unavailable_reason": "G1-BL-010: GameCanvas exposes no measurable child bounds; coordinates are not invented.",
+          "role": "primary_action",
+          "action": "start_campaign_level",
+          "bounds_dp": null,
+          "coverage_status": "edge",
+          "coverage_ref": "ED-0013"
+        },
+        {
+          "id": "AF-0016",
+          "bounds_unavailable_reason": "G1-BL-010: GameCanvas exposes no measurable child bounds; coordinates are not invented.",
+          "role": "secondary_action",
+          "action": "sweep_campaign_level",
+          "bounds_dp": null,
+          "coverage_status": "blocker",
+          "coverage_ref": "BL-SWEEP-001"
+        },
+        {
+          "id": "AF-0017",
+          "bounds_unavailable_reason": "G1-BL-010: GameCanvas exposes no measurable child bounds; coordinates are not invented.",
+          "role": "navigation",
+          "action": "open_shop_route",
+          "bounds_dp": null,
+          "coverage_status": "edge",
+          "coverage_ref": "ED-0014"
+        },
+        {
+          "id": "AF-0018",
+          "bounds_unavailable_reason": "G1-BL-010: GameCanvas exposes no measurable child bounds; coordinates are not invented.",
+          "role": "navigation",
+          "action": "open_troops_route",
+          "bounds_dp": null,
+          "coverage_status": "edge",
+          "coverage_ref": "ED-0015"
+        },
+        {
+          "id": "AF-0019",
+          "bounds_unavailable_reason": "G1-BL-010: GameCanvas exposes no measurable child bounds; coordinates are not invented.",
+          "role": "navigation",
+          "action": "open_tech_route",
+          "bounds_dp": null,
+          "coverage_status": "edge",
+          "coverage_ref": "ED-0016"
+        },
+        {
+          "id": "AF-0020",
+          "bounds_unavailable_reason": "G1-BL-010: GameCanvas exposes no measurable child bounds; coordinates are not invented.",
+          "role": "navigation",
+          "action": "open_arena_route",
+          "bounds_dp": null,
+          "coverage_status": "edge",
+          "coverage_ref": "ED-0017"
+        }
+      ],
+      "signatures": {
+        "structural": {
+          "activity": "com.gdzsq.crazy_td/.MainActivity",
+          "normalized_affordances": [
+            "campaign_start",
+            "sweep",
+            "shop",
+            "troops",
+            "battle",
+            "tech",
+            "arena"
+          ],
+          "digest": "cfcee3b1ddefed00bb3daf11b5fcaf51e3404e07e53564164c7525f17bd29f7a"
+        },
+        "visual": {
+          "algorithm": "dct-phash-64-masked",
+          "perceptual_hash": "2a55aa55aa7ba02e",
+          "distance_threshold": 8,
+          "masked_regions": [
+            {
+              "reason": "currency",
+              "bounds_dp": {
+                "left": 0,
+                "top": 0,
+                "right": 340,
+                "bottom": 160
+              }
+            }
+          ]
+        },
+        "semantic": {
+          "route": "battle",
+          "overlay": null,
+          "battle_phase": "campaign_selection",
+          "flags": {
+            "root_surface": true,
+            "energy_visible": true
+          },
+          "digest": "923ecb243933e307a6cb0aedcb1d23f978592803b296cb787186dd8111c403fd"
+        }
+      },
+      "evidence_ids": [
+        "EV-0109",
+        "EV-0111",
+        "EV-0135",
+        "EV-0196",
+        "EV-0200"
+      ],
+      "source": "observed",
+      "confidence": 0.94
+    },
+    {
+      "id": "ST-0007",
+      "evidence_tier": "behavioral_and_visual",
+      "visual_status": "usable",
+      "visual_evidence_ids": ["EV-0204","EV-0208"],
+      "kind": "screen",
+      "parent": null,
+      "route": "troops",
+      "phase": "inventory",
+      "semantic_flags": {
+        "unit_roster_visible": true,
+        "upgrade_controls_visible": true
+      },
+      "visible_affordances": [
+        {
+          "id": "AF-0021",
+          "bounds_unavailable_reason": "G1-BL-010: GameCanvas exposes no measurable child bounds; coordinates are not invented.",
+          "role": "navigation",
+          "action": "open_settings",
+          "bounds_dp": null,
+          "coverage_status": "edge",
+          "coverage_ref": "ED-0018"
+        },
+        {
+          "id": "AF-0024",
+          "bounds_unavailable_reason": "G1-BL-010: GameCanvas exposes no measurable child bounds; coordinates are not invented.",
+          "role": "upgrade",
+          "action": "upgrade_roster_item",
+          "bounds_dp": null,
+          "coverage_status": "blocker",
+          "coverage_ref": "BL-UPGRADE-UNTESTED-001"
+        }
+      ],
+      "signatures": {
+        "structural": {
+          "activity": "com.gdzsq.crazy_td/.MainActivity",
+          "normalized_affordances": [
+            "roster",
+            "upgrade",
+            "settings"
+          ],
+          "digest": "471d183eefdabb46d8bc92029554761e68b18228d0052e2a5e0b792da422679d"
+        },
+        "visual": {
+          "algorithm": "dct-phash-64-masked",
+          "perceptual_hash": "2a51aa5da157aa55",
+          "distance_threshold": 8,
+          "masked_regions": []
+        },
+        "semantic": {
+          "route": "troops",
+          "overlay": null,
+          "battle_phase": null,
+          "flags": {
+            "unit_roster_visible": true,
+            "upgrade_controls_visible": true
+          },
+          "digest": "0091fdf7289ea87112f06081dfd21224c2c9917d9517f53a7d0589b58f922f3f"
+        }
+      },
+      "evidence_ids": [
+        "EV-0143",
+        "EV-0204",
+        "EV-0208"
+      ],
+      "source": "observed",
+      "confidence": 0.91
+    },
+    {
+      "id": "ST-0008",
+      "evidence_tier": "behavioral_and_visual",
+      "visual_status": "usable",
+      "visual_evidence_ids": ["EV-0206"],
+      "kind": "overlay",
+      "parent": "ST-0007",
+      "route": "meta",
+      "phase": "settings",
+      "semantic_flags": {
+        "local_settings_visible": true,
+        "no_account_input_seen": true
+      },
+      "visible_affordances": [
+        {
+          "id": "AF-0022",
+          "bounds_unavailable_reason": "G1-BL-010: GameCanvas exposes no measurable child bounds; coordinates are not invented.",
+          "role": "toggle",
+          "action": "toggle_settings_option",
+          "bounds_dp": null,
+          "coverage_status": "blocker",
+          "coverage_ref": "BL-SETTINGS-TOGGLE-001"
+        },
+        {
+          "id": "AF-0023",
+          "bounds_unavailable_reason": "G1-BL-010: GameCanvas exposes no measurable child bounds; coordinates are not invented.",
+          "role": "navigation",
+          "action": "confirm_settings",
+          "bounds_dp": null,
+          "coverage_status": "edge",
+          "coverage_ref": "ED-0019"
+        }
+      ],
+      "signatures": {
+        "structural": {
+          "activity": "com.gdzsq.crazy_td/.MainActivity",
+          "normalized_affordances": [
+            "settings_toggle",
+            "settings_confirm"
+          ],
+          "digest": "a368759f13bf1f456982c13c6f41605d6365cab68d86db89552410332257b899"
+        },
+        "visual": {
+          "algorithm": "dct-phash-64-masked",
+          "perceptual_hash": "2a55ea55a156aa4d",
+          "distance_threshold": 8,
+          "masked_regions": []
+        },
+        "semantic": {
+          "route": "meta",
+          "overlay": "settings",
+          "battle_phase": null,
+          "flags": {
+            "local_settings_visible": true
+          },
+          "digest": "599f3247670f6dbe1828799ae5f1d505fa5f943d894406d90e86ecae311372de"
+        }
+      },
+      "evidence_ids": [
+        "EV-0157",
+        "EV-0206"
+      ],
+      "source": "observed",
+      "confidence": 0.93
+    },
+    {
+      "id": "ST-0009",
+      "evidence_tier": "behavioral_and_visual",
+      "visual_status": "usable",
+      "visual_evidence_ids": ["EV-0200"],
+      "kind": "screen",
+      "parent": null,
+      "route": "shop",
+      "phase": "surface_unconfirmed",
+      "semantic_flags": {
+        "route_tab_selected": true,
+        "content_match_unconfirmed": true
+      },
+      "visible_affordances": [],
+      "signatures": {
+        "structural": {
+          "activity": "com.gdzsq.crazy_td/.MainActivity",
+          "normalized_affordances": [
+            "shop_tab_selected"
+          ],
+          "digest": "c1706256ea0bf80a33863c8b348bed9d93113b7549f3ceebbae203c27b764ae4"
+        },
+        "visual": {
+          "algorithm": "dct-phash-64-masked",
+          "perceptual_hash": "2a55aa55aa7ba02e",
+          "distance_threshold": 8,
+          "masked_regions": []
+        },
+        "semantic": {
+          "route": "shop",
+          "overlay": null,
+          "battle_phase": null,
+          "flags": {
+            "content_match_unconfirmed": true
+          },
+          "digest": "959ad53d6c5340b462f0927938094e9528bb5dabb8955694c9735166cc3af9b1"
+        }
+      },
+      "evidence_ids": [
+        "EV-0137",
+        "EV-0139",
+        "EV-0200"
+      ],
+      "source": "observed",
+      "confidence": 0.65
+    },
+    {
+      "id": "ST-0010",
+      "evidence_tier": "behavioral_and_visual",
+      "visual_status": "usable",
+      "visual_evidence_ids": ["EV-0202"],
+      "kind": "screen",
+      "parent": null,
+      "route": "tech",
+      "phase": "surface_unconfirmed",
+      "semantic_flags": {
+        "route_tab_selected": true,
+        "content_match_unconfirmed": true
+      },
+      "visible_affordances": [],
+      "signatures": {
+        "structural": {
+          "activity": "com.gdzsq.crazy_td/.MainActivity",
+          "normalized_affordances": [
+            "tech_tab_selected"
+          ],
+          "digest": "ec2518519dff84ff55d75a4805d3d23590c3c341b17a1f9568a8c372156bd517"
+        },
+        "visual": {
+          "algorithm": "dct-phash-64-masked",
+          "perceptual_hash": "2a55aa55aa7ba02e",
+          "distance_threshold": 8,
+          "masked_regions": []
+        },
+        "semantic": {
+          "route": "tech",
+          "overlay": null,
+          "battle_phase": null,
+          "flags": {
+            "content_match_unconfirmed": true
+          },
+          "digest": "7177d1a029269d28abe35ed287bc18aa95805735f75be2c4af5bead49c380c49"
+        }
+      },
+      "evidence_ids": [
+        "EV-0145",
+        "EV-0147",
+        "EV-0202"
+      ],
+      "source": "observed",
+      "confidence": 0.65
+    },
+    {
+      "id": "ST-0011",
+      "evidence_tier": "behavioral",
+      "visual_status": "preserved_unusable",
+      "visual_evidence_ids": [],
+      "kind": "screen",
+      "parent": null,
+      "route": "arena",
+      "phase": "service_blocked",
+      "semantic_flags": {
+        "route_tab_selected": true,
+        "network_arena_not_run": true,
+        "service_adapter_blocked": true
+      },
+      "visible_affordances": [],
+      "signatures": {
+        "structural": {
+          "activity": "com.gdzsq.crazy_td/.MainActivity",
+          "normalized_affordances": [
+            "arena_tab_selected"
+          ],
+          "digest": "806e6ff6ecaa0eef040f17b0d4f392e6c3cc346cb583f84d0ce022c8fe2098ea"
+        },
+        "visual": {
+          "algorithm": "manual_capture",
+          "perceptual_hash": null,
+          "distance_threshold": null,
+          "masked_regions": []
+        },
+        "semantic": {
+          "route": "arena",
+          "overlay": null,
+          "battle_phase": null,
+          "flags": {
+            "network_arena_not_run": true,
+            "service_adapter_blocked": true
+          },
+          "digest": "6f563d29c126c7d013d47b6f9f8ac72e3215ed39d6b9799f901df0efbc38f042"
+        }
+      },
+      "evidence_ids": [
+        "EV-0149",
+        "EV-0151"
+      ],
+      "source": "observed",
+      "confidence": 0.88
+    },
+    {
+      "id": "ST-0012",
+      "evidence_tier": "behavioral_and_visual",
+      "visual_status": "usable",
+      "visual_evidence_ids": ["EV-0194"],
+      "kind": "overlay",
+      "parent": "ST-0006",
+      "route": "battle",
+      "phase": "resume_confirmation",
+      "semantic_flags": {
+        "unfinished_battle_prompt_seen": true
+      },
+      "visible_affordances": [
+        {
+          "id": "AF-0025",
+          "bounds_unavailable_reason": "G1-BL-010: GameCanvas exposes no measurable child bounds; coordinates are not invented.",
+          "role": "secondary_action",
+          "action": "cancel_resume",
+          "bounds_dp": null,
+          "coverage_status": "edge",
+          "coverage_ref": "ED-0020"
+        },
+        {
+          "id": "AF-0026",
+          "bounds_unavailable_reason": "G1-BL-010: GameCanvas exposes no measurable child bounds; coordinates are not invented.",
+          "role": "primary_action",
+          "action": "continue_unfinished_battle",
+          "bounds_dp": null,
+          "coverage_status": "edge",
+          "coverage_ref": "ED-0021"
+        }
+      ],
+      "signatures": {
+        "structural": {
+          "activity": "com.gdzsq.crazy_td/.MainActivity",
+          "normalized_affordances": [
+            "resume_cancel",
+            "resume_continue"
+          ],
+          "digest": "2f948b41030b3b2d5f63c72178796f0ee01cfc13d499330e77b635df2679938f"
+        },
+        "visual": {
+          "algorithm": "dct-phash-64-masked",
+          "perceptual_hash": "2a51aa67aae8a8ae",
+          "distance_threshold": 8,
+          "masked_regions": []
+        },
+        "semantic": {
+          "route": "battle",
+          "overlay": "resume_confirmation",
+          "battle_phase": null,
+          "flags": {
+            "unfinished_battle_prompt_seen": true
+          },
+          "digest": "38a1da8d8f7b571deda5cb42cc98a5c66986946d48f4733b426a0103b5cefbc8"
+        }
+      },
+      "evidence_ids": [
+        "EV-0133",
+        "EV-0189",
+        "EV-0194"
+      ],
+      "source": "observed",
+      "confidence": 0.95
+    },
+    {
+      "id": "ST-0013",
+      "evidence_tier": "behavioral",
+      "visual_status": "preserved_unusable",
+      "visual_evidence_ids": [],
+      "kind": "meta_state",
+      "parent": null,
+      "route": "system",
+      "phase": "external_store_exit",
+      "semantic_flags": {
+        "app_exited_after_system_back": true,
+        "no_personal_data_seen": true
+      },
+      "visible_affordances": [],
+      "signatures": {
+        "structural": {
+          "activity": "com.android.vending",
+          "normalized_affordances": [
+            "system_back_exit"
+          ],
+          "digest": "58503d129d3ae0f5d301ced23053ae449740d0b2285ddbb074412d9b0c3c6b1d"
+        },
+        "visual": {
+          "algorithm": "manual_capture",
+          "perceptual_hash": null,
+          "distance_threshold": null,
+          "masked_regions": []
+        },
+        "semantic": {
+          "route": "system",
+          "overlay": null,
+          "battle_phase": null,
+          "flags": {
+            "app_exited_after_system_back": true
+          },
+          "digest": "6368f792a8955c2049f191a06212bf8bfc4e482530abecbd88d02ebb29624b29"
+        }
+      },
+      "evidence_ids": [
+        "EV-0125"
+      ],
+      "source": "observed",
+      "confidence": 0.95
+    }
+  ],
+  "edges": [
+    {
+      "id": "ED-0001",
+      "from": "ST-0001",
+      "to": "ST-0002",
+      "action": "start_game",
+      "preconditions": [
+        "clean launch"
+      ],
+      "cost_observation_ids": [],
+      "observed_effect": "opens the first observed battle setup",
+      "wait_ms": {
+        "min": 1500,
+        "max": 3000,
+        "samples": 2
+      },
+      "before_evidence_ids": [
+        "EV-0001"
+      ],
+      "after_evidence_ids": [
+        "EV-0003"
+      ],
+      "classification": "navigation",
+      "source": "observed",
+      "confidence": 0.95
+    },
+    {
+      "id": "ED-0002",
+      "from": "ST-0002",
+      "to": "ST-0002",
+      "action": "select_initial_option_a",
+      "preconditions": [
+        "setup options visible"
+      ],
+      "cost_observation_ids": [],
+      "observed_effect": "changes setup choice and continues the same setup contour",
+      "wait_ms": {
+        "min": 0,
+        "max": 1000,
+        "samples": 1
+      },
+      "before_evidence_ids": [
+        "EV-0005"
+      ],
+      "after_evidence_ids": [
+        "EV-0007"
+      ],
+      "classification": "phase",
+      "source": "observed",
+      "confidence": 0.85
+    },
+    {
+      "id": "ED-0003",
+      "from": "ST-0002",
+      "to": "ST-0002",
+      "action": "select_initial_option_b",
+      "preconditions": [
+        "setup options visible"
+      ],
+      "cost_observation_ids": [],
+      "observed_effect": "changes setup choice and continues the same setup contour",
+      "wait_ms": {
+        "min": 0,
+        "max": 1000,
+        "samples": 1
+      },
+      "before_evidence_ids": [
+        "EV-0017"
+      ],
+      "after_evidence_ids": [
+        "EV-0019"
+      ],
+      "classification": "phase",
+      "source": "observed",
+      "confidence": 0.85
+    },
+    {
+      "id": "ED-0004",
+      "from": "ST-0002",
+      "to": "ST-0002",
+      "action": "select_initial_option_c",
+      "preconditions": [
+        "setup options visible"
+      ],
+      "cost_observation_ids": [],
+      "observed_effect": "changes setup choice and continues the same setup contour",
+      "wait_ms": {
+        "min": 0,
+        "max": 1000,
+        "samples": 1
+      },
+      "before_evidence_ids": [
+        "EV-0115"
+      ],
+      "after_evidence_ids": [
+        "EV-0117"
+      ],
+      "classification": "phase",
+      "source": "observed",
+      "confidence": 0.85
+    },
+    {
+      "id": "ED-0005",
+      "from": "ST-0002",
+      "to": "ST-0002",
+      "action": "continue_tutorial_setup",
+      "preconditions": [
+        "tutorial setup prompt visible"
+      ],
+      "cost_observation_ids": [
+        "OB-0004"
+      ],
+      "observed_effect": "advances to the next setup prompt",
+      "wait_ms": {
+        "min": 500,
+        "max": 1500,
+        "samples": 1
+      },
+      "before_evidence_ids": [
+        "EV-0009"
+      ],
+      "after_evidence_ids": [
+        "EV-0011"
+      ],
+      "classification": "phase",
+      "source": "observed",
+      "confidence": 0.82
+    },
+    {
+      "id": "ED-0006",
+      "from": "ST-0002",
+      "to": "ST-0003",
+      "action": "start_battle",
+      "preconditions": [
+        "setup completed"
+      ],
+      "cost_observation_ids": [],
+      "observed_effect": "starts wave activity",
+      "wait_ms": {
+        "min": 500,
+        "max": 1500,
+        "samples": 3
+      },
+      "before_evidence_ids": [
+        "EV-0021",
+        "EV-0119"
+      ],
+      "after_evidence_ids": [
+        "EV-0023",
+        "EV-0121"
+      ],
+      "classification": "phase",
+      "source": "observed",
+      "confidence": 0.93
+    },
+    {
+      "id": "ED-0007",
+      "from": "ST-0003",
+      "to": "ST-0003",
+      "action": "change_battle_speed",
+      "preconditions": [
+        "active wave"
+      ],
+      "cost_observation_ids": [],
+      "observed_effect": "changes the visible speed indicator; exact multiplier remains unconfirmed",
+      "wait_ms": {
+        "min": 0,
+        "max": 1000,
+        "samples": 1
+      },
+      "before_evidence_ids": [
+        "EV-0023"
+      ],
+      "after_evidence_ids": [
+        "EV-0025"
+      ],
+      "classification": "meta",
+      "source": "observed",
+      "confidence": 0.72
+    },
+    {
+      "id": "ED-0008",
+      "from": "ST-0003",
+      "to": "ST-0003",
+      "action": "pause_or_resume_battle",
+      "preconditions": [
+        "active wave"
+      ],
+      "cost_observation_ids": [],
+      "observed_effect": "produces a short stable visual interval; explicit pause label was not confirmed",
+      "wait_ms": {
+        "min": 1000,
+        "max": 3000,
+        "samples": 1
+      },
+      "before_evidence_ids": [
+        "EV-0057"
+      ],
+      "after_evidence_ids": [
+        "EV-0059"
+      ],
+      "classification": "meta",
+      "source": "observed",
+      "confidence": 0.55
+    },
+    {
+      "id": "ED-0009",
+      "from": "ST-0003",
+      "to": "ST-0003",
+      "action": "build_available_structure",
+      "preconditions": [
+        "active wave and build affordance visible"
+      ],
+      "cost_observation_ids": [],
+      "observed_effect": "structure construction/progression is visible in battle",
+      "wait_ms": {
+        "min": 1000,
+        "max": 3000,
+        "samples": 2
+      },
+      "before_evidence_ids": [
+        "EV-0023"
+      ],
+      "after_evidence_ids": [
+        "EV-0027"
+      ],
+      "classification": "phase",
+      "source": "observed",
+      "confidence": 0.78
+    },
+    {
+      "id": "ED-0010",
+      "from": "ST-0003",
+      "to": "ST-0004",
+      "action": "open_enhancement_choice",
+      "preconditions": [
+        "between-wave transition"
+      ],
+      "cost_observation_ids": [],
+      "observed_effect": "opens enhancement choice overlay",
+      "wait_ms": {
+        "min": 500,
+        "max": 3000,
+        "samples": 2
+      },
+      "before_evidence_ids": [
+        "EV-0039"
+      ],
+      "after_evidence_ids": [
+        "EV-0041"
+      ],
+      "classification": "phase",
+      "source": "observed",
+      "confidence": 0.9
+    },
+    {
+      "id": "ED-0011",
+      "from": "ST-0004",
+      "to": "ST-0003",
+      "action": "select_enhancement_offer",
+      "preconditions": [
+        "enhancement choice visible"
+      ],
+      "cost_observation_ids": [],
+      "observed_effect": "selected offer is applied and battle can resume",
+      "wait_ms": {
+        "min": 500,
+        "max": 3000,
+        "samples": 2
+      },
+      "before_evidence_ids": [
+        "EV-0041"
+      ],
+      "after_evidence_ids": [
+        "EV-0047"
+      ],
+      "classification": "phase",
+      "source": "observed",
+      "confidence": 0.76
+    },
+    {
+      "id": "ED-0012",
+      "from": "ST-0004",
+      "to": "ST-0004",
+      "action": "refresh_enhancement_offers",
+      "preconditions": [
+        "enhancement choice visible"
+      ],
+      "cost_observation_ids": [],
+      "observed_effect": "offer set changes after refresh",
+      "wait_ms": {
+        "min": 0,
+        "max": 1500,
+        "samples": 1
+      },
+      "before_evidence_ids": [
+        "EV-0041"
+      ],
+      "after_evidence_ids": [
+        "EV-0043"
+      ],
+      "classification": "phase",
+      "source": "observed",
+      "confidence": 0.76
+    },
+    {
+      "id": "ED-0013",
+      "from": "ST-0006",
+      "to": "ST-0002",
+      "action": "start_campaign_level",
+      "preconditions": [
+        "campaign selection visible"
+      ],
+      "cost_observation_ids": [
+        "OB-0005"
+      ],
+      "observed_effect": "opens the next battle setup contour",
+      "wait_ms": {
+        "min": 500,
+        "max": 2500,
+        "samples": 2
+      },
+      "before_evidence_ids": [
+        "EV-0111"
+      ],
+      "after_evidence_ids": [
+        "EV-0115"
+      ],
+      "classification": "navigation",
+      "source": "observed",
+      "confidence": 0.9
+    },
+    {
+      "id": "ED-0014",
+      "from": "ST-0006",
+      "to": "ST-0009",
+      "action": "open_shop_route",
+      "preconditions": [
+        "campaign selection visible"
+      ],
+      "cost_observation_ids": [],
+      "observed_effect": "shop tab becomes selected while content match remains unconfirmed",
+      "wait_ms": {
+        "min": 500,
+        "max": 2000,
+        "samples": 1
+      },
+      "before_evidence_ids": [
+        "EV-0137"
+      ],
+      "after_evidence_ids": [
+        "EV-0139"
+      ],
+      "classification": "navigation",
+      "source": "observed",
+      "confidence": 0.62
+    },
+    {
+      "id": "ED-0015",
+      "from": "ST-0006",
+      "to": "ST-0007",
+      "action": "open_troops_route",
+      "preconditions": [
+        "campaign selection visible"
+      ],
+      "cost_observation_ids": [],
+      "observed_effect": "troops roster surface is shown",
+      "wait_ms": {
+        "min": 500,
+        "max": 2000,
+        "samples": 1
+      },
+      "before_evidence_ids": [
+        "EV-0141"
+      ],
+      "after_evidence_ids": [
+        "EV-0143"
+      ],
+      "classification": "navigation",
+      "source": "observed",
+      "confidence": 0.9
+    },
+    {
+      "id": "ED-0016",
+      "from": "ST-0007",
+      "to": "ST-0010",
+      "action": "open_tech_route",
+      "preconditions": [
+        "troops roster visible"
+      ],
+      "cost_observation_ids": [],
+      "observed_effect": "tech tab becomes selected while content match remains unconfirmed",
+      "wait_ms": {
+        "min": 500,
+        "max": 2000,
+        "samples": 1
+      },
+      "before_evidence_ids": [
+        "EV-0145"
+      ],
+      "after_evidence_ids": [
+        "EV-0147"
+      ],
+      "classification": "navigation",
+      "source": "observed",
+      "confidence": 0.62
+    },
+    {
+      "id": "ED-0017",
+      "from": "ST-0010",
+      "to": "ST-0011",
+      "action": "open_arena_route",
+      "preconditions": [
+        "arena tab visible"
+      ],
+      "cost_observation_ids": [],
+      "observed_effect": "arena route is selected; network/service contour intentionally not executed",
+      "wait_ms": {
+        "min": 500,
+        "max": 1500,
+        "samples": 1
+      },
+      "before_evidence_ids": [
+        "EV-0149"
+      ],
+      "after_evidence_ids": [
+        "EV-0151"
+      ],
+      "classification": "service_adapter",
+      "source": "observed",
+      "confidence": 0.88
+    },
+    {
+      "id": "ED-0018",
+      "from": "ST-0007",
+      "to": "ST-0008",
+      "action": "open_settings",
+      "preconditions": [
+        "troops roster visible"
+      ],
+      "cost_observation_ids": [],
+      "observed_effect": "local settings overlay opens",
+      "wait_ms": {
+        "min": 500,
+        "max": 1500,
+        "samples": 1
+      },
+      "before_evidence_ids": [
+        "EV-0153"
+      ],
+      "after_evidence_ids": [
+        "EV-0157"
+      ],
+      "classification": "meta",
+      "source": "observed",
+      "confidence": 0.92
+    },
+    {
+      "id": "ED-0019",
+      "from": "ST-0008",
+      "to": "ST-0007",
+      "action": "confirm_settings",
+      "preconditions": [
+        "settings overlay visible"
+      ],
+      "cost_observation_ids": [],
+      "observed_effect": "settings overlay closes",
+      "wait_ms": {
+        "min": 0,
+        "max": 1000,
+        "samples": 1
+      },
+      "before_evidence_ids": [
+        "EV-0157"
+      ],
+      "after_evidence_ids": [
+        "EV-0159"
+      ],
+      "classification": "meta",
+      "source": "observed",
+      "confidence": 0.9
+    },
+    {
+      "id": "ED-0020",
+      "from": "ST-0012",
+      "to": "ST-0006",
+      "action": "cancel_resume",
+      "preconditions": [
+        "unfinished battle prompt visible"
+      ],
+      "cost_observation_ids": [],
+      "observed_effect": "returns to campaign selection",
+      "wait_ms": {
+        "min": 0,
+        "max": 1000,
+        "samples": 1
+      },
+      "before_evidence_ids": [
+        "EV-0133"
+      ],
+      "after_evidence_ids": [
+        "EV-0135"
+      ],
+      "classification": "meta",
+      "source": "observed",
+      "confidence": 0.9
+    },
+    {
+      "id": "ED-0021",
+      "from": "ST-0012",
+      "to": "ST-0003",
+      "action": "continue_unfinished_battle",
+      "preconditions": [
+        "unfinished battle prompt visible"
+      ],
+      "cost_observation_ids": [],
+      "observed_effect": "resume path was available; exact resumed phase not independently isolated",
+      "wait_ms": {
+        "min": 500,
+        "max": 2000,
+        "samples": 1
+      },
+      "before_evidence_ids": [
+        "EV-0189"
+      ],
+      "after_evidence_ids": [
+        "EV-0185"
+      ],
+      "classification": "meta",
+      "source": "observed",
+      "confidence": 0.58
+    },
+    {
+      "id": "ED-0022",
+      "from": "ST-0003",
+      "to": "ST-0013",
+      "action": "system_back",
+      "preconditions": [
+        "reference app focused"
+      ],
+      "cost_observation_ids": [],
+      "observed_effect": "system back exited the reference app to the Play Store surface",
+      "wait_ms": {
+        "min": 0,
+        "max": 1000,
+        "samples": 1
+      },
+      "before_evidence_ids": [
+        "EV-0123"
+      ],
+      "after_evidence_ids": [
+        "EV-0125"
+      ],
+      "classification": "meta",
+      "source": "observed",
+      "confidence": 0.95
+    },
+    {
+      "id": "ED-0023",
+      "from": "ST-0003",
+      "to": "ST-0005",
+      "action": "resolve_final_wave_to_victory",
+      "preconditions": [
+        "active early battle",
+        "safe offline play"
+      ],
+      "cost_observation_ids": [],
+      "observed_effect": "the observed final wave resolved to a stable victory reward panel",
+      "wait_ms": {
+        "min": 30000,
+        "max": 45000,
+        "samples": 1
+      },
+      "before_evidence_ids": [
+        "EV-0095"
+      ],
+      "after_evidence_ids": [
+        "EV-0097"
+      ],
+      "classification": "phase",
+      "source": "observed",
+      "confidence": 0.96
+    },
+    {
+      "id": "ED-0024",
+      "from": "ST-0006",
+      "to": "ST-0012",
+      "action": "resume_prompt_on_campaign_entry",
+      "preconditions": [
+        "unfinished local battle exists"
+      ],
+      "cost_observation_ids": [],
+      "observed_effect": "campaign entry displayed the resume confirmation overlay",
+      "wait_ms": {
+        "min": 30000,
+        "max": 45000,
+        "samples": 1
+      },
+      "before_evidence_ids": [
+        "EV-0131"
+      ],
+      "after_evidence_ids": [
+        "EV-0133"
+      ],
+      "classification": "meta",
+      "source": "observed",
+      "confidence": 0.95
+    },
+    {
+      "id": "ED-0025",
+      "from": "ST-0003",
+      "to": null,
+      "action": "reach_defeat_terminal",
+      "preconditions": [
+        "safe local battle play only",
+        "no purchase, ad, network, credential, or app modification"
+      ],
+      "cost_observation_ids": [],
+      "observed_effect": "defeat was not reached safely; the observed early contour resolved to victory or an unfinished-run prompt, so no defeat state is inferred",
+      "wait_ms": {
+        "min": 0,
+        "max": 0,
+        "samples": 3
+      },
+      "before_evidence_ids": [
+        "EV-0023"
+      ],
+      "after_evidence_ids": [
+        "EV-0097"
+      ],
+      "classification": "blocked",
+      "source": "observed",
+      "confidence": 0.9
+    }
+  ],
+  "observations": [
+    {
+      "id": "OB-0001",
+      "node_id": "ST-0002",
+      "metric": "currency",
+      "value": 150,
+      "unit": "crystal",
+      "evidence_id": "EV-0003",
+      "captured_at_utc": "2026-07-18T18:15:23.1922238Z"
+    },
+    {
+      "id": "OB-0002",
+      "node_id": "ST-0003",
+      "metric": "wave",
+      "value": "1/5",
+      "unit": "wave",
+      "evidence_id": "EV-0023",
+      "captured_at_utc": "2026-07-18T18:17:59.6999774Z"
+    },
+    {
+      "id": "OB-0003",
+      "node_id": "ST-0004",
+      "metric": "other",
+      "value": "multiple enhancement offers and a refresh affordance",
+      "unit": null,
+      "evidence_id": "EV-0041",
+      "captured_at_utc": "2026-07-18T18:20:26.8323416Z"
+    },
+    {
+      "id": "OB-0004",
+      "node_id": "ST-0002",
+      "metric": "cost",
+      "value": 100,
+      "unit": "crystal",
+      "evidence_id": "EV-0009",
+      "captured_at_utc": "2026-07-18T18:16:26.5014501Z"
+    },
+    {
+      "id": "OB-0005",
+      "node_id": "ST-0006",
+      "metric": "energy",
+      "value": "30/30",
+      "unit": "energy",
+      "evidence_id": "EV-0109",
+      "captured_at_utc": "2026-07-18T18:32:13.2908274Z"
+    },
+    {
+      "id": "OB-0006",
+      "node_id": "ST-0006",
+      "metric": "energy",
+      "value": "12/30",
+      "unit": "energy",
+      "evidence_id": "EV-0189",
+      "captured_at_utc": "2026-07-18T18:49:30.6124598Z"
+    },
+    {
+      "id": "OB-0007",
+      "node_id": "ST-0005",
+      "metric": "other",
+      "value": "victory reward panel",
+      "unit": null,
+      "evidence_id": "EV-0097",
+      "captured_at_utc": "2026-07-18T18:29:22.6976902Z"
+    },
+    {
+      "id": "OB-0008",
+      "node_id": "ST-0006",
+      "metric": "energy",
+      "value": "22/30",
+      "unit": "energy",
+      "evidence_id": "EV-0200",
+      "captured_at_utc": "2026-07-18T20:26:16.4121527Z"
+    },
+    {
+      "id": "OB-0009",
+      "node_id": "ST-0006",
+      "metric": "currency",
+      "value": 340,
+      "unit": "crystal",
+      "evidence_id": "EV-0200",
+      "captured_at_utc": "2026-07-18T20:26:16.4121527Z"
+    },
+    {
+      "id": "OB-0010",
+      "node_id": "ST-0006",
+      "metric": "currency",
+      "value": 0,
+      "unit": "potion",
+      "evidence_id": "EV-0200",
+      "captured_at_utc": "2026-07-18T20:26:16.4121527Z"
+    },
+    {
+      "id": "OB-0011",
+      "node_id": "ST-0009",
+      "metric": "other",
+      "value": "shop tab selected while the campaign surface remained visually unchanged",
+      "unit": null,
+      "evidence_id": "EV-0200",
+      "captured_at_utc": "2026-07-18T20:26:16.4121527Z"
+    },
+    {
+      "id": "OB-0012",
+      "node_id": "ST-0010",
+      "metric": "other",
+      "value": "tech tab selected while the campaign surface remained visually unchanged",
+      "unit": null,
+      "evidence_id": "EV-0202",
+      "captured_at_utc": "2026-07-18T20:26:40.5446614Z"
+    }
+  ],
   "coverage": {
-    "gate1_status": "not_started",
-    "root_routes_expected": ["shop", "troops", "battle", "tech", "arena"],
-    "root_routes_seen": [],
-    "terminal_states_seen": [],
+    "gate1_status": "accepted",
+    "root_routes_expected": [
+      "shop",
+      "troops",
+      "battle",
+      "tech",
+      "arena"
+    ],
+    "root_routes_seen": [
+      "shop",
+      "troops",
+      "battle",
+      "tech",
+      "arena"
+    ],
+    "terminal_states_seen": [
+      "victory"
+    ],
+    "terminal_state_blockers": [
+      {
+        "terminal": "defeat",
+        "edge_id": "ED-0025",
+        "reason_code": "safe_boundary_unreachable",
+        "reason": "Defeat was not safely reached without forcing finite runs or crossing service and purchase boundaries."
+      }
+    ],
+    "negative_access_coverage": {
+      "status": "observed_zero_plus_structured_blocker",
+      "observation_ids": [
+        "OB-0010"
+      ],
+      "blockers": [
+        {
+          "id": "G1-BL-002",
+          "access_condition": "energy_unavailable",
+          "reason_code": "safe_boundary_unreachable",
+          "reason": "The unavailable-energy transition was not forced because repeated finite runs would cross the approved safe observation boundary.",
+          "safety_boundary": true
+        }
+      ]
+    },
+    "scope_decisions": [
+      { "inventory_id": "INV-001", "area": "launch_and_campaign_entry", "decision": "accept", "human_lock": "accepted" },
+      { "inventory_id": "INV-002", "area": "early_battle_contour", "decision": "accept", "human_lock": "accepted" },
+      { "inventory_id": "INV-003", "area": "roster_and_local_settings", "decision": "accept", "human_lock": "accepted" },
+      { "inventory_id": "INV-004", "area": "shop_surface", "decision": "accept", "human_lock": "accepted" },
+      { "inventory_id": "INV-005", "area": "technology_surface", "decision": "accept", "human_lock": "accepted" },
+      { "inventory_id": "INV-006", "area": "arena_service_boundary", "decision": "accept", "human_lock": "accepted" },
+      { "inventory_id": "INV-007", "area": "victory_reward_service_boundary", "decision": "accept", "human_lock": "accepted" },
+      { "inventory_id": "INV-008", "area": "system_back_external_exit", "decision": "exclude", "human_lock": "accepted" }
+    ],
+    "visual_fit_status": {
+      "gate1_required": false,
+      "status": "deferred_per_surface",
+      "bounds_unavailable_reason": "G1-BL-010: GameCanvas exposes no measurable child bounds; coordinates are not invented.",
+      "legacy_visual_status": "preserved_unusable"
+    },
     "unmatched_affordance_ids": [],
-    "plateau_iterations": 0,
-    "low_confidence_open_questions": 0
+    "plateau_iterations": 6,
+    "low_confidence_open_questions": 9
   }
 }

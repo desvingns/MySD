@@ -1,0 +1,94 @@
+{
+  "schema_version": "recovery-summary.v1",
+  "verdict": "blocked",
+  "legacy_png_files": 95,
+  "root_cause": "Windows PowerShell text redirection/recoding of adb exec-out screencap -p: UTF-16LE BOM plus U+FFFD replacement for binary bytes and newline normalization; not a PNG format variant.",
+  "recoverable_files": 0,
+  "recaptured_files": 34,
+  "recaptured_files_indexed": 34,
+  "recovery_captures_promoted": 2,
+  "recovery_captures_not_promoted": 32,
+  "valid_png_total": 42,
+  "valid_png_total_indexed": 42,
+  "nodes_with_valid_visual_anchor": "8/13",
+  "edges_with_valid_before_after_png": "0/25",
+  "nodes_with_complete_visual_signature": "8/13",
+  "graph_references_to_invalid_png": [
+    "EV-0001", "EV-0003", "EV-0005", "EV-0007", "EV-0009", "EV-0011", "EV-0017", "EV-0019", "EV-0021", "EV-0023", "EV-0025", "EV-0027", "EV-0039", "EV-0041", "EV-0043", "EV-0047", "EV-0057", "EV-0059", "EV-0091", "EV-0095", "EV-0097", "EV-0099", "EV-0101", "EV-0109", "EV-0111", "EV-0115", "EV-0117", "EV-0119", "EV-0121", "EV-0123", "EV-0125", "EV-0127", "EV-0131", "EV-0133", "EV-0135", "EV-0137", "EV-0139", "EV-0141", "EV-0143", "EV-0145", "EV-0147", "EV-0149", "EV-0151", "EV-0153", "EV-0157", "EV-0159", "EV-0169", "EV-0179", "EV-0185", "EV-0189"
+  ],
+  "missing_paths": [],
+  "sha256_mismatches": [],
+  "unmatched_affordances": [],
+  "safety_blocked_edges": ["ED-0025"],
+  "validation": {
+    "validate_evidence": "pass",
+    "public_safety": "pass",
+    "binary_audit": "blocked: 50 graph-referenced legacy PNGs fail magic/decode; 9 graph-referenced screenshots pass"
+  },
+  "bounds_unavailable": [
+    {
+      "reason_code": "G1-BL-010",
+      "affected_affordance_count": 26,
+      "reason": "Cocos/WebView exposes only a full-screen GameCanvas; child affordance bounds are unavailable in UI dump. Coordinates were not invented."
+    }
+  ],
+  "remaining_blockers": [
+    "95 legacy screenshot bytes are lossy and cannot be reconstructed without pixel guessing.",
+    "The 11 initial fresh PNG probes and 23 additional safe probes are technically valid but do not form the required complete 13-node/25-edge replay set; 32 remain probe_not_promoted.",
+    "Five nodes still lack a valid visual anchor and five nodes lack complete visual signatures; only ST-0001 and ST-0003 gained new validated node anchors.",
+    "All 25 graph edges still point to legacy screenshot anchors; none has a fully valid before/after PNG pair in the sanitized graph.",
+    "Defeat remains blocked by the safe boundary; rewarded ad, purchase, Arena network, energy depletion, Shop and Tech remain deferred/blocked per existing scope."
+  ],
+  "capture_method": {
+    "device_serial": "emulator-5554",
+    "device_profile": "Pixel 9",
+    "resolution_px": "1080x2424",
+    "density_dpi": 420,
+    "api_level": 37,
+    "binary_capture": "adb.exe exec-out screencap -p captured through Process.StandardOutput.BaseStream; no PowerShell text redirection",
+    "per_capture_checks": [
+      "PNG magic bytes",
+      "width/height",
+      "Pillow decode",
+      "SHA-256",
+      "screenshot/UI-dump evidence IDs"
+    ]
+  },
+  "probe_ids": {
+    "valid_png": [
+      "EV-0210", "EV-0213", "EV-0215", "EV-0217", "EV-0219", "EV-0221", "EV-0223", "EV-0225", "EV-0227", "EV-0229", "EV-0231",
+      "EV-0233", "EV-0235", "EV-0237", "EV-0239", "EV-0241", "EV-0243", "EV-0245", "EV-0247", "EV-0249", "EV-0251", "EV-0253", "EV-0255", "EV-0257", "EV-0259", "EV-0261", "EV-0263", "EV-0265", "EV-0267", "EV-0269", "EV-0271", "EV-0273", "EV-0275", "EV-0277"
+    ],
+    "ui_dumps": [
+      "EV-0211", "EV-0214", "EV-0216", "EV-0218", "EV-0220", "EV-0222", "EV-0224", "EV-0226", "EV-0228", "EV-0230", "EV-0232",
+      "EV-0234", "EV-0236", "EV-0238", "EV-0240", "EV-0242", "EV-0244", "EV-0246", "EV-0248", "EV-0250", "EV-0252", "EV-0254", "EV-0256", "EV-0258", "EV-0260", "EV-0262", "EV-0264", "EV-0266", "EV-0268", "EV-0270", "EV-0272", "EV-0274", "EV-0276", "EV-0278"
+    ],
+    "promoted_to_index": ["EV-0233", "EV-0234", "EV-0243", "EV-0244"],
+    "probe_not_promoted": ["EV-0210", "EV-0213", "EV-0215", "EV-0217", "EV-0219", "EV-0221", "EV-0223", "EV-0225", "EV-0227", "EV-0229", "EV-0231", "EV-0235", "EV-0237", "EV-0239", "EV-0241", "EV-0245", "EV-0247", "EV-0249", "EV-0251", "EV-0253", "EV-0255", "EV-0257", "EV-0259", "EV-0261", "EV-0263", "EV-0265", "EV-0267", "EV-0269", "EV-0271", "EV-0273", "EV-0275", "EV-0277"]
+  },
+  "visual_hash_status": {
+    "algorithm": "dct-phash-64-masked",
+    "documented_masks_used": true,
+    "complete_target": "13/13",
+    "valid_anchor_hashes_available": "8/13",
+    "not_computed_from_corrupt_images": true
+  },
+  "unchanged_scopes": [
+    "production requirements",
+    "FR/US/AC",
+    "engine gaps",
+    "roadmap",
+    "MyEngine backlog",
+    "Gate 1 acceptance",
+    "Gate 2"
+  ],
+  "changed_files": [
+    ".reference-local/recovery captures, paired UI dumps, and trace",
+    "spec/evidence/evidence-index.csv",
+    "spec/evidence/state-graph.v1.json",
+    "spec/evidence/coverage.md",
+    "spec/evidence/reference-inventory.yaml",
+    "spec/evidence/recovery-summary.json",
+    ".ai/handoff.md"
+  ]
+}

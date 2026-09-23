@@ -150,7 +150,9 @@ class SimulationSessionTest {
         val encodedUpgradeType = Base64.getEncoder().encodeToString(
             "playable-battle.upgrade-tower".toByteArray(),
         )
+        val encodedUpgradePayload = Base64.getEncoder().encodeToString(target.value.toByteArray())
         assertTrue(firstEncoding.contains(encodedUpgradeType))
+        assertTrue(firstEncoding.contains(encodedUpgradePayload))
         assertEquals(firstEncoding, secondEncoding)
         assertEquals(first.inputHash(), second.inputHash())
         assertEquals(1, firstBuildTick.single().commandsProcessed)
@@ -179,6 +181,27 @@ class SimulationSessionTest {
         )
         assertEquals(first.snapshot(), second.snapshot())
         assertEquals(first.replayHashChain(), second.replayHashChain())
+
+        val beforeRejectedUpgrade = first.snapshot()
+        first.upgradeTower(target)
+        second.upgradeTower(target)
+        val rejectedFirst = first.advance(50)
+        val rejectedSecond = second.advance(50)
+
+        assertEquals(1, rejectedFirst.single().commandsProcessed)
+        assertEquals(rejectedFirst, rejectedSecond)
+        assertEquals(2, first.state().slots[2].towerLevel)
+        assertEquals(beforeRejectedUpgrade.resource, first.state().resource)
+        assertEquals(beforeRejectedUpgrade.state.slots[2].towerDamage, first.state().slots[2].towerDamage)
+        assertEquals(beforeRejectedUpgrade.state.slots[2].towerCooldownTicks, first.state().slots[2].towerCooldownTicks)
+        assertEquals(first.snapshot(), second.snapshot())
+        assertEquals(first.replayHashChain(), second.replayHashChain())
+        assertTrue(
+            ReplayVerification.compare(
+                firstBuildTick + firstUpgradeTick + finalFirst + rejectedFirst,
+                secondBuildTick + secondUpgradeTick + finalSecond + rejectedSecond,
+            ).passed,
+        )
     }
 
     @Test

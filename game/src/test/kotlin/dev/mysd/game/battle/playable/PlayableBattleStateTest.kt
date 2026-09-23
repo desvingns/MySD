@@ -169,14 +169,15 @@ class PlayableBattleStateTest {
         assertEquals(1, upgraded.slots.first().towerLevel)
         assertEquals(upgraded.slots.first().towerDamage, upgraded.slots.first().damage)
         assertEquals(upgraded.slots.first().towerCooldownTicks, upgraded.slots.first().cooldownTicks)
+        assertEquals(initial.towerBaseDamage + initial.towerDamageStep, upgraded.slots.first().towerDamage)
         val maxed = PlayableBattleEngine.upgradeTower(upgraded, initial.slots.first().id).state
         assertEquals(2, maxed.slots.first().towerLevel)
         assertEquals(
-            initial.towerBaseDamage + initial.towerDamageStep,
+            initial.towerBaseDamage + initial.towerDamageStep * 2,
             maxed.slots.first().towerDamage,
         )
         assertEquals(
-            maxOf(initial.towerMinCooldownTicks, initial.towerBaseCooldownTicks - initial.towerCooldownStep),
+            maxOf(initial.towerMinCooldownTicks, initial.towerBaseCooldownTicks - initial.towerCooldownStep * 2),
             maxed.slots.first().towerCooldownTicks,
         )
         assertNotEquals(hash(upgraded), hash(maxed))

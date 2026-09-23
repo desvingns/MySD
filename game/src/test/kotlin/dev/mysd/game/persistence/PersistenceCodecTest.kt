@@ -2,6 +2,10 @@ package dev.mysd.game.persistence
 
 import dev.myengine.core.stableHashOf
 import dev.mysd.game.battle.playable.PlayableBattleEngine
+import dev.mysd.game.battle.playable.PlayableBattlePhase
+import dev.mysd.game.battle.playable.PlayableBattleState
+import dev.mysd.game.battle.playable.PlayableBattleTerminal
+import dev.mysd.game.content.ContentId
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -37,6 +41,7 @@ class PersistenceCodecTest {
             active = true,
             terminalResult = null,
         )
+        assertEquals(null, migratedRunV1.playableBattleState)
 
         val migratedRunV2 = RunSaveCodec.decode(
             legacyRunPayload(version = 2, active = false, terminalResult = RunTerminalResult.VICTORY),
@@ -57,6 +62,29 @@ class PersistenceCodecTest {
         val migratedProfile = ProfileStoreCodec.decode(profileV1)
         assertTrue(migratedProfile.tech.isEmpty())
         assertTrue(migratedProfile.localServiceHistory.isEmpty())
+    }
+
+    @Test
+    fun `legacy v3 inactive contour without terminal does not invent playable state`() {
+        val migratedRun = RunSaveCodec.decode(legacyV3RunPayload(active = false))
+
+        assertEquals("legacy-run", migratedRun.runId)
+        assertEquals("stage-alpha", migratedRun.stageId)
+        assertEquals(3, migratedRun.contentVersion)
+        assertEquals(7, migratedRun.simulationVersion)
+        assertEquals(false, migratedRun.active)
+        assertEquals(null, migratedRun.terminalResult)
+        assertEquals(
+            PendingCommand(
+                id = 4L,
+                scheduledTick = 18L,
+                type = "place",
+                actorId = 9L,
+                payload = "tower-a",
+            ),
+            migratedRun.pendingCommands.single(),
+        )
+        assertEquals(null, migratedRun.playableBattleState)
     }
 
     @Test
@@ -287,10 +315,15 @@ class PersistenceCodecTest {
             .replace("terminalPresent=0", "terminalPresent=1")
             .replace("terminalResult=", "terminalResult=VICTORY")
 
-        assertFailsWith<MalformedPersistenceException> { RunSaveCodec.decode(invalid) }
-        assertFailsWith<MalformedPersistenceException> {
+        val decodeError = assertFailsWith<MalformedPersistenceException> {
+            RunSaveCodec.decode(invalid)
+        }
+        assertEquals("Active run cannot have a terminal result", decodeError.message)
+
+        val encodeError = assertFailsWith<MalformedPersistenceException> {
             RunSaveCodec.encode(sampleRun().copy(active = true, terminalResult = RunTerminalResult.DEFEAT))
         }
+        assertEquals("Active run cannot have a terminal result", encodeError.message)
     }
 
     @Test
@@ -305,45 +338,273 @@ class PersistenceCodecTest {
     @Test
     fun playableStateRoundTripPreservesAuthoritativeEntityOrderAndHash() {
         val initial = PlayableBattleEngine.initialState()
-        val firstEnemy = initial.enemies.single()
-        val secondEnemy = firstEnemy.copy(
-            id = "${firstEnemy.id}-later",
-            positionTicks = firstEnemy.positionTicks + 1,
+        val firstEnemy = initial.enemies.single().copy(
+            id = "enemy-z",
+            health = 5,
+            positionTicks = 7,
         )
+        val secondEnemy = firstEnemy.copy(id = "enemy-a", health = 4, positionTicks = 11, speedTicks = 3)
         val state = initial.copy(
-            slots = initial.slots.asReversed(),
-            enemies = listOf(secondEnemy, firstEnemy),
+            phase = PlayableBattlePhase.ACTIVE,
+            slots = listOf(
+                initial.slots[1].copy(
+                    id = ContentId.of("slot-z"),
+                    towerId = initial.towerId,
+                    towerLevel = PlayableBattleState.MAX_TOWER_LEVEL,
+                    towerDamage = initial.towerBaseDamage + initial.towerDamageStep,
+                    towerCooldownTicks = initial.towerBaseCooldownTicks - initial.towerCooldownStep,
+                    towerCooldownRemainingTicks = 3,
+                ),
+                initial.slots[0].copy(id = ContentId.of("slot-a")),
+            ),
+            enemies = listOf(firstEnemy, secondEnemy),
             waveSpawnedCount = 2,
-            waveElapsedTicks = 1,
+            waveElapsedTicks = 13,
+            incomeRemainderTicks = 7,
         )
         val run = sampleRun().copy(
+            active = true,
             stageId = state.stageId.value,
             playableBattleState = state,
         )
 
-        val decoded = requireNotNull(RunSaveCodec.decode(RunSaveCodec.encode(run)).playableBattleState)
+        val encoded = RunSaveCodec.encode(run)
+        val decodedRun = RunSaveCodec.decode(encoded)
+        val decoded = requireNotNull(decodedRun.playableBattleState)
 
         assertEquals(state, decoded)
+        assertEquals(listOf("slot-z", "slot-a"), decoded.slots.map { it.id.value })
+        assertEquals(listOf("enemy-z", "enemy-a"), decoded.enemies.map { it.id })
         fun hash(value: dev.mysd.game.battle.playable.PlayableBattleState): String =
             stableHashOf { value.appendHash(this) }
         assertEquals(hash(state), hash(decoded))
+        assertTrue(
+            hash(state) != hash(state.copy(slots = state.slots.asReversed(), enemies = state.enemies.asReversed())),
+        )
+        assertEquals(encoded, RunSaveCodec.encode(decodedRun))
     }
 
     @Test
-    fun malformedPlayableStateReportsTheExactNestedFieldPath() {
+    fun `defeat payload round trip keeps terminal state frozen`() {
+        val initial = PlayableBattleEngine.initialState()
+        val defeatState = initial.copy(
+            base = initial.base.copy(health = 0),
+            terminalResult = PlayableBattleTerminal.DEFEAT,
+        )
+        val run = sampleRun().copy(
+            active = false,
+            stageId = defeatState.stageId.value,
+            terminalResult = RunTerminalResult.DEFEAT,
+            playableBattleState = defeatState,
+        )
+
+        val encoded = RunSaveCodec.encode(run)
+        val decoded = RunSaveCodec.decode(encoded)
+
+        assertEquals(run, decoded)
+        assertEquals(false, decoded.active)
+        assertEquals(RunTerminalResult.DEFEAT, decoded.terminalResult)
+        assertEquals(PlayableBattleTerminal.DEFEAT, decoded.playableState?.terminalResult)
+        assertEquals(0, decoded.playableState?.base?.health)
+        assertEquals(encoded, RunSaveCodec.encode(decoded))
+
+        val invalidTerminalPayload = replaceField(encoded, "state.base.health", "1")
+        val invalidTerminalError = assertFailsWith<MalformedPersistenceException> {
+            RunSaveCodec.decode(invalidTerminalPayload)
+        }
+        assertEquals(
+            "Invalid terminal combination: state.base.health must be zero for DEFEAT",
+            invalidTerminalError.message,
+        )
+    }
+
+    @Test
+    fun `playable state terminal must match run terminal and active flag`() {
+        val initial = PlayableBattleEngine.initialState()
+        val nonTerminal = sampleRun().copy(
+            active = true,
+            stageId = initial.stageId.value,
+            terminalResult = null,
+            playableBattleState = initial,
+        )
+
+        val terminalMismatch = assertFailsWith<MalformedPersistenceException> {
+            RunSaveCodec.encode(
+                nonTerminal.copy(active = false, terminalResult = RunTerminalResult.DEFEAT),
+            )
+        }
+        assertEquals("Playable state terminal does not match run terminal result", terminalMismatch.message)
+
+        val defeatState = initial.copy(
+            base = initial.base.copy(health = 0),
+            terminalResult = PlayableBattleTerminal.DEFEAT,
+        )
+        val activeTerminal = assertFailsWith<MalformedPersistenceException> {
+            RunSaveCodec.encode(
+                nonTerminal.copy(
+                    active = true,
+                    terminalResult = RunTerminalResult.DEFEAT,
+                    playableBattleState = defeatState,
+                ),
+            )
+        }
+        assertEquals("Active run cannot have a terminal result", activeTerminal.message)
+    }
+
+    @Test
+    fun `run rejects active zero-health playable state without terminal result`() {
+        val initial = PlayableBattleEngine.initialState()
+        val encoded = RunSaveCodec.encode(
+            sampleRun().copy(
+                stageId = initial.stageId.value,
+                playableBattleState = initial,
+            ),
+        )
+        val invalid = replaceField(encoded, "state.base.health", "0")
+
+        val error = assertFailsWith<MalformedPersistenceException> {
+            RunSaveCodec.decode(invalid)
+        }
+
+        assertEquals(
+            "Invalid terminal combination: state.terminalResult=null requires state.base.health>0",
+            error.message,
+        )
+        assertFailsWith<MalformedPersistenceException> {
+            RunSaveCodec.encode(
+                sampleRun().copy(
+                    stageId = initial.stageId.value,
+                    playableBattleState = initial.copy(base = initial.base.copy(health = 0)),
+                ),
+            )
+        }
+    }
+
+    @Test
+    fun `malformed playable state reports exact nested field paths`() {
         val state = PlayableBattleEngine.initialState()
         val run = sampleRun().copy(
             stageId = state.stageId.value,
             playableBattleState = state,
         )
-        val malformed = RunSaveCodec.encode(run)
-            .replace("state.resource=${state.resource}", "state.resource=-1")
+        val encoded = RunSaveCodec.encode(run)
 
-        val error = assertFailsWith<MalformedPersistenceException> {
-            RunSaveCodec.decode(malformed)
+        val malformedResource = replaceField(encoded, "state.resource", "not-an-int")
+        val malformedResourceError = assertFailsWith<MalformedPersistenceException> {
+            RunSaveCodec.decode(malformedResource)
         }
+        assertEquals(
+            "Malformed integer in persistence field: state.resource",
+            malformedResourceError.message,
+        )
 
-        assertTrue(error.message.orEmpty().contains("state.resource"))
+        val negativeResource = replaceField(encoded, "state.resource", "-1")
+        val negativeResourceError = assertFailsWith<MalformedPersistenceException> {
+            RunSaveCodec.decode(negativeResource)
+        }
+        assertEquals(
+            "Value outside range in persistence field: state.resource",
+            negativeResourceError.message,
+        )
+
+        val negativeEnemyHealth = replaceField(encoded, "state.enemy.0.health", "-1")
+        val negativeEnemyError = assertFailsWith<MalformedPersistenceException> {
+            RunSaveCodec.decode(negativeEnemyHealth)
+        }
+        assertEquals(
+            "Negative value in persistence field: state.enemy.0.health",
+            negativeEnemyError.message,
+        )
+    }
+
+    @Test
+    fun `malformed playable state rejects duplicate ids and wrong counts`() {
+        val initial = PlayableBattleEngine.initialState()
+        val firstEnemy = initial.enemies.single().copy(id = "enemy-z")
+        val state = initial.copy(
+            slots = listOf(
+                initial.slots[0].copy(id = ContentId.of("slot-z")),
+                initial.slots[1].copy(id = ContentId.of("slot-a")),
+            ),
+            enemies = listOf(firstEnemy, firstEnemy.copy(id = "enemy-a")),
+            waveSpawnedCount = 2,
+        )
+        val encoded = RunSaveCodec.encode(
+            sampleRun().copy(stageId = state.stageId.value, playableBattleState = state),
+        )
+
+        val duplicateSlot = replaceField(
+            encoded,
+            "state.slot.1.id",
+            PersistenceWire.encodeText("slot-z"),
+        )
+        val duplicateSlotError = assertFailsWith<MalformedPersistenceException> {
+            RunSaveCodec.decode(duplicateSlot)
+        }
+        assertEquals(
+            "Duplicate playable state slot id: state.slot.1.id",
+            duplicateSlotError.message,
+        )
+
+        val duplicateEnemy = replaceField(
+            encoded,
+            "state.enemy.1.id",
+            PersistenceWire.encodeText("enemy-z"),
+        )
+        val duplicateEnemyError = assertFailsWith<MalformedPersistenceException> {
+            RunSaveCodec.decode(duplicateEnemy)
+        }
+        assertEquals(
+            "Duplicate playable state enemy id: state.enemy.1.id",
+            duplicateEnemyError.message,
+        )
+
+        val wrongSlotCount = replaceField(encoded, "state.slotCount", "3")
+        val wrongSlotCountError = assertFailsWith<MalformedPersistenceException> {
+            RunSaveCodec.decode(wrongSlotCount)
+        }
+        assertTrue(wrongSlotCountError.message.orEmpty().contains("state.slot.2.id"))
+
+        val wrongEnemyCount = replaceField(encoded, "state.enemyCount", "3")
+        val wrongEnemyCountError = assertFailsWith<MalformedPersistenceException> {
+            RunSaveCodec.decode(wrongEnemyCount)
+        }
+        assertTrue(wrongEnemyCountError.message.orEmpty().contains("state.enemy.2.id"))
+    }
+
+    @Test
+    fun `malformed run counts reject negative and oversized inputs`() {
+        val encoded = RunSaveCodec.encode(sampleRun())
+
+        val negativeCommandCount = replaceField(encoded, "commandCount", "-1")
+        val negativeCommandError = assertFailsWith<MalformedPersistenceException> {
+            RunSaveCodec.decode(negativeCommandCount)
+        }
+        assertEquals(
+            "Invalid item count in persistence field: commandCount",
+            negativeCommandError.message,
+        )
+
+        val oversizedModifierCount = replaceField(encoded, "modifierCount", "10001")
+        val oversizedModifierError = assertFailsWith<MalformedPersistenceException> {
+            RunSaveCodec.decode(oversizedModifierCount)
+        }
+        assertEquals(
+            "Invalid item count in persistence field: modifierCount",
+            oversizedModifierError.message,
+        )
+
+        val wrongCommandCount = replaceField(encoded, "commandCount", "0")
+        val wrongCommandCountError = assertFailsWith<MalformedPersistenceException> {
+            RunSaveCodec.decode(wrongCommandCount)
+        }
+        assertTrue(wrongCommandCountError.message.orEmpty().contains("command.0.id"))
+
+        val malformedField = "$encoded\nmalformed-without-separator"
+        val malformedFieldError = assertFailsWith<MalformedPersistenceException> {
+            RunSaveCodec.decode(malformedField)
+        }
+        assertEquals("Malformed persistence field", malformedFieldError.message)
     }
 
     private fun sampleRun() = RunSave(
@@ -403,6 +664,7 @@ class PersistenceCodecTest {
         assertEquals("tower-a", command.payload)
         assertEquals(listOf("calm-start"), run.modifiers)
         assertEquals(terminalResult, run.terminalResult)
+        assertEquals(null, run.playableBattleState)
     }
 
     private fun reorderV3CommandBlocks(payload: String, order: List<Int>): String {
@@ -450,5 +712,42 @@ class PersistenceCodecTest {
         )
         if (version >= 2) fields["simulationVersion"] = "7"
         return PersistenceWire.document("run-save", version, fields)
+    }
+
+    private fun legacyV3RunPayload(active: Boolean): String {
+        val fields = linkedMapOf(
+            "runId" to PersistenceWire.encodeText("legacy-run"),
+            "stageId" to PersistenceWire.encodeText("stage-alpha"),
+            "contentVersion" to "3",
+            "simulationVersion" to "7",
+            "seed" to "-42",
+            "rngState" to "-7",
+            "tick" to "12",
+            "active" to if (active) "1" else "0",
+            "commandCount" to "1",
+            "command.0.id" to "4",
+            "command.0.scheduledTick" to "18",
+            "command.0.type" to PersistenceWire.encodeText("place"),
+            "command.0.actorPresent" to "1",
+            "command.0.actorId" to "9",
+            "command.0.payload" to PersistenceWire.encodeText("tower-a"),
+            "modifierCount" to "1",
+            "modifier.0" to PersistenceWire.encodeText("calm-start"),
+            "terminalPresent" to "0",
+            "terminalResult" to "",
+        )
+        return PersistenceWire.document("run-save", 3, fields)
+    }
+
+    private fun replaceField(payload: String, key: String, replacement: String): String {
+        var replaced = false
+        return payload.lineSequence().map { line ->
+            if (!replaced && line.startsWith("$key=")) {
+                replaced = true
+                "$key=$replacement"
+            } else {
+                line
+            }
+        }.joinToString("\n")
     }
 }

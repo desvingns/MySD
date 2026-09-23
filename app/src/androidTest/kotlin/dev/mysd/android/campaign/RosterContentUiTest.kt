@@ -1,16 +1,14 @@
 package dev.mysd.android.campaign
 
-import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertWidthIsAtLeast
-import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
@@ -264,21 +262,24 @@ class RosterContentUiTest {
     }
 
     private fun captureScreenshot(fileName: String, rootTag: String? = null) {
-        device.waitForIdle()
+        composeTestRule.waitForIdle()
+        if (rootTag == null) composeTestRule.onRoot().assertIsDisplayed()
+        else composeTestRule.onNodeWithTag(rootTag).assertIsDisplayed()
         val outputDirectory = requireNotNull(context.getExternalFilesDir("fit"))
         check(outputDirectory.mkdirs() || outputDirectory.isDirectory)
         val screenshot = File(outputDirectory, fileName)
-        val screenshotWritten = screenshot.outputStream().use { output ->
-            val image = if (rootTag == null) {
-                composeTestRule.onRoot().captureToImage()
-            } else {
-                composeTestRule.onNodeWithTag(rootTag).captureToImage()
-            }
-            image.asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, output)
-        }
-        assertTrue(screenshotWritten)
+        // Capture the compositor output including overlay windows. The earlier PixelCopy
+        // helper timed out awaiting a draw despite all settings semantics assertions passing.
+        assertTrue(device.takeScreenshot(screenshot))
         assertTrue(screenshot.isFile)
         assertTrue(screenshot.length() > 0L)
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(screenshot.absolutePath, bounds)
+        assertTrue(bounds.outWidth > 0 && bounds.outHeight > 0)
+        File(outputDirectory, "$fileName.capture.csv").writeText(
+            "filename,capture_method,width_px,height_px,scope,asserted_root\n" +
+                "$fileName,ui-device-takeScreenshot,${bounds.outWidth},${bounds.outHeight},physical-display,${rootTag ?: "activity-root"}\n",
+        )
         val remoteScreenshot = "/sdcard/Download/$fileName"
         device.executeShellCommand("cp ${screenshot.absolutePath} $remoteScreenshot")
         val remoteScreenshotSize = device

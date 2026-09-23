@@ -1,6 +1,7 @@
 package dev.mysd.android.campaign
 
 import android.content.Context
+import android.content.SharedPreferences
 import androidx.lifecycle.Lifecycle
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -11,6 +12,7 @@ import androidx.test.uiautomator.Until
 import dev.mysd.android.MainActivity
 import dev.mysd.android.R
 import dev.mysd.android.persistence.AndroidRunSaveStorage
+import dev.mysd.android.persistence.AndroidProductPersistence
 import dev.mysd.game.battle.playable.PlayableBattleEngine
 import dev.mysd.game.battle.playable.PlayableBattlePhase
 import dev.mysd.game.battle.playable.PlayableBattleTerminal
@@ -69,6 +71,25 @@ class LifecyclePersistenceUiTest {
     }
 
     @Test
+    fun completedLegacyRunCanEnterFullProductWithoutLosingOriginalDocument() = withCleanRunSave {
+        val scenario = launchVictoryRun()
+        try {
+            val original = requireStoredEncodedSave()
+            click(R.string.product_legacy_continue)
+            waitForText(R.string.product_campaign_title)
+            val persistence = AndroidProductPersistence(context)
+            assertTrue(persistence.hasProductProfile())
+            assertNull(persistence.loadRunSave())
+            val archive = context.getSharedPreferences(
+                AndroidProductPersistence.PRODUCT_PREFERENCES_NAME, Context.MODE_PRIVATE,
+            ).getString(AndroidProductPersistence.ARCHIVED_LEGACY_RUN_KEY, null)
+            assertEquals(RunSaveCodec.decode(original), RunSaveCodec.decode(requireNotNull(archive)))
+        } finally {
+            scenario.close()
+        }
+    }
+
+    @Test
     fun backgroundPersistsDefeatPlayableRunWithoutResumePrompt() = withCleanRunSave {
         val scenario = launchDefeatRun()
         try {
@@ -102,6 +123,27 @@ class LifecyclePersistenceUiTest {
             scenario.recreate()
             assertVictoryTerminalVisible()
             assertVictoryPlayableSave(requireStoredRunSave())
+        } finally {
+            scenario.close()
+        }
+    }
+
+    @Test
+    fun recreateRestoresVictoryAfterLivePlayableTransition() = withCleanRunSave {
+        val active = liveVictoryReadyRun()
+        assertTrue(active.active)
+        assertNull(active.terminalResult)
+        assertNull(active.playableBattleState?.terminalResult)
+        seedRunSave(active)
+
+        val scenario = ActivityScenario.launch(MainActivity::class.java)
+        try {
+            assertVictoryTerminalVisible()
+
+            scenario.recreate()
+
+            assertVictoryPlayableSave(requireStoredRunSave())
+            assertVictoryTerminalVisible()
         } finally {
             scenario.close()
         }
@@ -183,9 +225,10 @@ class LifecyclePersistenceUiTest {
             ActivityScenario.launch(MainActivity::class.java)
         }
         try {
+            acknowledgeRecoveryArchive()
             waitForText(R.string.campaign_enter_action)
             click(R.string.campaign_enter_action)
-            waitForText(R.string.campaign_selection_title)
+            waitForText(R.string.product_campaign_title)
             assertFalse(
                 "Malformed storage must not create a resume prompt",
                 device.wait(
@@ -205,9 +248,10 @@ class LifecyclePersistenceUiTest {
             ActivityScenario.launch(MainActivity::class.java)
         }
         try {
+            acknowledgeRecoveryArchive()
             waitForText(R.string.campaign_enter_action)
             click(R.string.campaign_enter_action)
-            waitForText(R.string.campaign_selection_title)
+            waitForText(R.string.product_campaign_title)
             assertFalse(
                 "An unsupported stage must not create a resume prompt",
                 device.wait(
@@ -349,9 +393,10 @@ class LifecyclePersistenceUiTest {
     }
 
     private fun assertCleanCampaignWithoutResumePrompt() {
+        acknowledgeRecoveryArchive()
         waitForText(R.string.campaign_enter_action)
         click(R.string.campaign_enter_action)
-        waitForText(R.string.campaign_selection_title)
+        waitForText(R.string.product_campaign_title)
         device.waitForIdle(UI_TIMEOUT_MS)
         assertFalse(
             "Defeat restore must not show an unfinished-run prompt",
@@ -361,6 +406,15 @@ class LifecyclePersistenceUiTest {
             "Defeat restore must not show an active battle surface",
             device.hasObject(By.text(context.getString(R.string.active_battle_title))),
         )
+    }
+
+    private fun acknowledgeRecoveryArchive() {
+        waitForText(R.string.product_recovery_title)
+        waitForText(R.string.product_recovery_archived)
+        click(R.string.product_service_confirm)
+        assertTrue(context.getSharedPreferences(
+            AndroidProductPersistence.PRODUCT_PREFERENCES_NAME, Context.MODE_PRIVATE,
+        ).all.keys.any { it.startsWith(AndroidProductPersistence.RECOVERY_PREFIX) })
     }
 
     private fun assertActivePlayableSave(saved: RunSave) {
@@ -528,6 +582,32 @@ class LifecyclePersistenceUiTest {
         )
     }
 
+    private fun liveVictoryReadyRun(): RunSave {
+        val initial = PlayableBattleEngine.initialState(
+            initialResource = 83,
+            incomePerSecond = 7,
+            phase = PlayableBattlePhase.ACTIVE,
+        )
+        return RunSave(
+            runId = "instrumented-live-victory-playable-run",
+            stageId = "stage-ember-path",
+            contentVersion = 1,
+            simulationVersion = 1,
+            seed = 31L,
+            rngState = 37L,
+            tick = 60L,
+            active = true,
+            pendingCommands = emptyList(),
+            modifiers = emptyList(),
+            terminalResult = null,
+            playableBattleState = initial.copy(
+                enemies = emptyList(),
+                waveSpawnedCount = initial.waveSpawnCount,
+                waveElapsedTicks = 28,
+            ),
+        )
+    }
+
     private fun legacyVictoryRun(): RunSave = RunSave(
         runId = "instrumented-legacy-victory-contour",
         stageId = "stage-ember-path",
@@ -637,11 +717,17 @@ class LifecyclePersistenceUiTest {
             AndroidRunSaveStorage.ENCODED_SAVE_KEY,
             null,
         )
+        val productPreferences = context.getSharedPreferences(
+            AndroidProductPersistence.PRODUCT_PREFERENCES_NAME,
+            Context.MODE_PRIVATE,
+        )
+        val previousProductValues = productPreferences.all.toMap()
         check(
             preferences.edit()
                 .remove(AndroidRunSaveStorage.ENCODED_SAVE_KEY)
                 .commit(),
         )
+        check(productPreferences.edit().clear().commit())
         return try {
             block()
         } finally {
@@ -652,7 +738,26 @@ class LifecyclePersistenceUiTest {
                 editor.remove(AndroidRunSaveStorage.ENCODED_SAVE_KEY)
             }
             check(editor.commit())
+            restorePreferences(productPreferences, previousProductValues)
         }
+    }
+
+    private fun restorePreferences(
+        preferences: SharedPreferences,
+        values: Map<String, *>,
+    ) {
+        val editor = preferences.edit().clear()
+        values.forEach { (key, value) ->
+            when (value) {
+                is Boolean -> editor.putBoolean(key, value)
+                is Float -> editor.putFloat(key, value)
+                is Int -> editor.putInt(key, value)
+                is Long -> editor.putLong(key, value)
+                is String -> editor.putString(key, value)
+                is Set<*> -> editor.putStringSet(key, value.filterIsInstance<String>().toSet())
+            }
+        }
+        check(editor.commit())
     }
 
     private companion object {

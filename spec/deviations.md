@@ -13,5 +13,6 @@ These deviations are locked before crawl and suppress false parity failures:
 | DEV-007 | IAP | local catalog/result fake, no payment | compare surface/guards; no transaction |
 | DEV-008 | Arena | local service-shaped state, no network match | mark network path service_adapter/blocked |
 | DEV-009 | Accessibility | minimum 48 dp targets and scalable text | intentional bounds/hit-area deviation if needed |
+| DEV-010 | Unobserved full-product semantics | original MySD mechanics approved by the 2026-09-16 human decision | validate internally; never score or describe them as observed parity |
 
 Additional deviations found during crawl require a human decision at Gate 1 or Gate 2.

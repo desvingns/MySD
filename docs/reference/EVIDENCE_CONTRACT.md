@@ -52,14 +52,33 @@ IDs to the same row.
 
 ## Coverage gate
 
-The crawl is eligible for Gate 1 when:
+Gate 1 is a semantic/behavioral inventory and scope gate. It does not certify visual parity. The
+crawl is eligible for Gate 1 review when:
 
 - every root tab is reached;
-- one full core loop reaches victory or defeat and both terminal states are captured or blocked with
-  an explicit reason;
+- one full core loop reaches a terminal state, and every other required terminal is either observed
+  or represented by a structured safety/access blocker;
 - each visible affordance maps to an edge, deviation, or blocker;
-- positive and negative resource/access states exist;
+- positive resource/access evidence exists, and negative coverage is represented by an observed
+  zero/unavailable state or by an observed zero-resource state plus a structured blocker for an
+  unavailable transition that cannot be reached safely;
 - six consecutive iterations add no node, affordance, or claim;
 - every inference below `0.8` is present in `open-questions.md`.
 
 Passing this gate means the inventory is reviewable, not that the game spec is accepted.
+
+## Evidence tiers and Visual Fit Gate
+
+Behavioral claims may use action-level traces, UI dumps, stable semantic/structural signatures, and
+sanitized observations. A screenshot is required only when a claim is visual. Corrupted legacy PNGs
+remain preserved with their original hashes but are unusable for visual claims.
+
+Per-surface Visual Fit Gates run during implementation of each accepted surface. They own valid
+visual anchors, before/after PNG pairs, perceptual hashes, masks, measurable bounds, composition,
+and timing parity. Missing visual anchors or hashes do not block Gate 1 when the behavioral contour
+is otherwise traceable. If GameCanvas child bounds are unavailable, record a structured reason and
+defer measurement; never invent coordinates.
+
+Deferred or excluded areas create no production requirements. Shop and Tech remain deferred until
+distinct content is observed or a later human product decision adds original scope. Ads, IAP, and
+Arena are limited to deterministic local adapters. Low-confidence claims never become requirements.

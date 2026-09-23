@@ -117,6 +117,7 @@ class CampaignSession(
     private val unfinishedRun: UnfinishedCampaignRun?
     private var lifecycleRunSave: RunSave? = null
     private var persistContourMetadata = true
+    private var terminalPlayableModifiers: List<String>? = null
 
     private var battleSetupSession: BattleSetupSession? = null
     private var activeBattleSession: ActiveBattleSession? = null
@@ -213,7 +214,8 @@ class CampaignSession(
     fun runSave(): RunSave? {
         val playableSession = playableBattleSession
         val playableState = playableSession?.state()
-        if (playableState?.terminalResult == PlayableBattleTerminal.DEFEAT) {
+        val playableTerminalResult = playableState?.terminalResult
+        if (playableTerminalResult != null) {
             val base = lifecycleRunSave ?: newRunSave(CampaignStageId.of(playableState.stageId.value))
             return base.copy(
                 stageId = playableState.stageId.value,
@@ -223,23 +225,29 @@ class CampaignSession(
                 tick = playableSession.currentTick,
                 active = false,
                 pendingCommands = playableSession.pendingCommands(),
-                terminalResult = RunTerminalResult.DEFEAT,
+                // A live terminal transition freezes normalized modifiers before contour sessions
+                // are cleared. Restored terminal saves retain their already-persisted payload.
+                modifiers = terminalPlayableModifiers ?: base.modifiers,
+                terminalResult = when (playableTerminalResult) {
+                    PlayableBattleTerminal.VICTORY -> RunTerminalResult.VICTORY
+                    PlayableBattleTerminal.DEFEAT -> RunTerminalResult.DEFEAT
+                },
                 playableBattleState = playableState,
             )
         }
         val activeBattle = activeBattleSession
         if (activeBattle == null) {
-            // No active contour is projected. A terminal playable save (for example a defeat) is
-            // returned frozen and terminal-guarded so it can never resurface as an unfinished
-            // active run, while a supported non-terminal save is returned as-is.
+            // No active contour is projected. A terminal playable save is returned frozen and
+            // terminal-guarded so it can never resurface as an unfinished active run, while a
+            // supported non-terminal save is returned as-is.
             return lifecycleRunSave?.takeIf {
                 it.terminalResult != null || it.active
             }
         }
 
         val activeSnapshot = if (victorySession != null) {
-            // Victory remains a contour-only compatibility surface; no active projection is
-            // exposed there because legacy saves cannot reconstruct canonical battle entities.
+            // Legacy manual victory remains a contour-only compatibility surface; no active
+            // projection is exposed there because that path cannot reconstruct canonical entities.
             activeBattle.snapshot()
         } else {
             activeBattleSnapshot() ?: return null
@@ -299,10 +307,7 @@ class CampaignSession(
     @Synchronized
     fun submit(intent: ActiveBattleIntent): ActiveBattleSnapshot? {
         val activeBattleSession = activeBattleSession ?: return null
-        if (victorySession != null) {
-            syncActiveBattleProjection()
-            return activeBattleSession.snapshot()
-        }
+        if (victorySession != null) return activeBattleSession.snapshot()
         val wasEnhancementChoiceVisible = activeBattleSession.snapshot().enhancementChoiceVisible
         if (intent == ActiveBattleIntent.PauseOrResume && playableBattleSession != null) {
             val playable = requireNotNull(playableBattleSession)
@@ -313,7 +318,11 @@ class CampaignSession(
             }
             // The existing contour is synchronous. Apply the queued canonical command at the
             // next fixed tick before publishing the projection and lifecycle save.
-            playable.advance(SimulationClock.TICK_DURATION_MILLIS)
+            val playableSnapshot = advancePlayableSession(
+                playable = playable,
+                elapsedMillis = SimulationClock.TICK_DURATION_MILLIS,
+            )
+            if (playableSnapshot.state.isTerminal) return null
         } else {
             activeBattleSession.submit(intent)
         }
@@ -347,16 +356,55 @@ class CampaignSession(
 
     /** Routes playable-battle commands to the canonical session without exposing mutable state. */
     @Synchronized
-    fun submit(command: PlayableBattleCommand): PlayableBattleSnapshot? =
-        playableBattleSession?.submit(command)
+    fun submit(command: PlayableBattleCommand): PlayableBattleSnapshot? {
+        val playable = playableBattleSession ?: return null
+        if (victorySession != null) return playable.snapshot()
+        return playable.submit(command)
+    }
 
     /** Advances the authoritative playable session and republishes its projection. */
     @Synchronized
     fun advance(elapsedMillis: Long): PlayableBattleSnapshot? {
         val playable = playableBattleSession ?: return null
+        require(elapsedMillis >= 0L) { "elapsedMillis must be non-negative." }
+        if (victorySession != null) return playable.snapshot()
+        return advancePlayableSession(playable, elapsedMillis)
+    }
+
+    private fun advancePlayableSession(
+        playable: PlayableBattleSession,
+        elapsedMillis: Long,
+    ): PlayableBattleSnapshot {
+        val wasTerminal = playable.state().isTerminal
         playable.advance(elapsedMillis)
         syncActiveBattleProjection()
-        if (playable.state().terminalResult == PlayableBattleTerminal.DEFEAT) {
+        val playableState = playable.state()
+        if (!wasTerminal && playableState.isTerminal) {
+            val baseModifiers = lifecycleRunSave?.modifiers.orEmpty()
+            terminalPlayableModifiers = when (playableState.terminalResult) {
+                PlayableBattleTerminal.VICTORY -> {
+                    if (persistContourMetadata) {
+                        val active = checkNotNull(activeBattleSession) {
+                            "A live victory must retain its active contour until metadata is frozen."
+                        }.snapshot()
+                        contourModifiers(
+                            baseModifiers = baseModifiers,
+                            phase = PersistedContourPhase.VICTORY,
+                            active = active,
+                            enhancement = enhancementSession?.snapshot(),
+                            selectedEnhancementId = selectedEnhancementId,
+                            setupOrigin = state.setupOrigin ?: LevelSetupOrigin.UNFINISHED_RUN,
+                        )
+                    } else {
+                        baseModifiers
+                    }
+                }
+
+                PlayableBattleTerminal.DEFEAT ->
+                    baseModifiers.filterNot { it.startsWith(CONTOUR_MARKER_PREFIX) }
+
+                null -> error("A terminal playable state must expose its result.")
+            }
             activeBattleSession = null
             enhancementSession = null
             victorySession = null
@@ -369,6 +417,7 @@ class CampaignSession(
     @Synchronized
     fun submit(intent: EnhancementIntent): EnhancementSnapshot? {
         val enhancement = enhancementSession ?: return null
+        if (victorySession != null) return enhancement.snapshot()
         val snapshot = enhancement.submit(intent)
         if (snapshot.returnToBattle) {
             selectedEnhancementId = snapshot.selectedOfferId
@@ -484,7 +533,7 @@ class CampaignSession(
     /**
      * Restores a supported run through the existing Android lifecycle boundary.
      *
-     * A full playable payload is the canonical restore path for active and defeat saves; legacy
+     * A full playable payload is the canonical restore path for active and terminal saves; legacy
      * contour-only saves keep the existing compatibility fallback, especially victory.
      */
     private fun restoreSavedRun(runSave: RunSave?) {

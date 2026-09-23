@@ -526,5 +526,11 @@ class CampaignSessionTest {
             assertNull(snapshot.selectedStageId)
             assertNull(snapshot.setupOrigin)
         }
+
+        if (snapshot.arenaOpen) {
+            assertEquals(CampaignRoute.CAMPAIGN_SELECTION, snapshot.route)
+            assertNull(snapshot.selectedStageId)
+            assertNull(snapshot.setupOrigin)
+        }
     }
 }

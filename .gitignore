@@ -21,3 +21,8 @@ local.properties
 .DS_Store
 Thumbs.db
 *.hprof
+
+# Local caches, generated graphs and local-only working notes.
+.kotlin/
+graphify-out/
+.ai/local/

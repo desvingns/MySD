@@ -297,7 +297,8 @@ object PlayableBattleEngine {
 
     /**
      * Calculates one upgrade from the current level using the level fixture's integer-only
-     * formula. Level zero uses the configured base stats; level one applies one further step.
+     * formula. The purchased level is the next level, so the first paid upgrade already applies
+     * one stat step instead of charging for a base-stat no-op.
      */
     fun calculateTowerUpgrade(
         state: PlayableBattleState,
@@ -316,14 +317,15 @@ object PlayableBattleEngine {
                 ),
             ),
         )
+        val nextLevel = currentLevel + 1
         val nextDamage = Math.toIntExact(
             Math.addExact(
                 state.towerBaseDamage.toLong(),
-                Math.multiplyExact(currentLevel.toLong(), state.towerDamageStep.toLong()),
+                Math.multiplyExact(nextLevel.toLong(), state.towerDamageStep.toLong()),
             ),
         )
         val steppedCooldown = state.towerBaseCooldownTicks.toLong() -
-            Math.multiplyExact(currentLevel.toLong(), state.towerCooldownStep.toLong())
+            Math.multiplyExact(nextLevel.toLong(), state.towerCooldownStep.toLong())
         val nextCooldownTicks = Math.toIntExact(
             maxOf(state.towerMinCooldownTicks.toLong(), steppedCooldown),
         )
@@ -331,7 +333,7 @@ object PlayableBattleEngine {
         return PlayableBattleTowerUpgrade(
             currentLevel = currentLevel,
             cost = cost,
-            nextLevel = currentLevel + 1,
+            nextLevel = nextLevel,
             nextDamage = nextDamage,
             nextCooldownTicks = nextCooldownTicks,
         )

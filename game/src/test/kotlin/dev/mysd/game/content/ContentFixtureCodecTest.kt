@@ -163,7 +163,7 @@ class ContentFixtureCodecTest {
         val encoded = ContentFixtureCodec.encode(OriginalContentFixtures.foundationCatalog())
 
         val numericFields = listOf(
-            "level.base.health" to 120,
+            "level.base.health" to 96,
             "level.base.positionTicks" to 120,
             "level.slot.0.positionTicks" to 30,
             "level.slot.1.positionTicks" to 60,

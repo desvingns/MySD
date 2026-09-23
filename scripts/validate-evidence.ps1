@@ -44,6 +44,12 @@ foreach ($node in $graph.nodes) {
         $null -eq $node.signatures.semantic) {
         $errors.Add("node $($node.id) is missing one or more signatures")
     }
+    if (@("behavioral", "behavioral_and_visual") -notcontains $node.evidence_tier) {
+        $errors.Add("node $($node.id) has invalid evidence_tier $($node.evidence_tier)")
+    }
+    if (@("usable", "deferred_missing_signature", "preserved_unusable") -notcontains $node.visual_status) {
+        $errors.Add("node $($node.id) has invalid visual_status $($node.visual_status)")
+    }
     foreach ($affordance in @($node.visible_affordances)) {
         $affordanceIds.Add($affordance.id)
         if ($affordance.id -notmatch '^AF-[0-9]{4}$') {
@@ -55,6 +61,10 @@ foreach ($node in $graph.nodes) {
         if ($affordance.coverage_status -ne "unmatched" -and
             [string]::IsNullOrWhiteSpace($affordance.coverage_ref)) {
             $errors.Add("affordance $($affordance.id) is missing coverage_ref")
+        }
+        if ($null -eq $affordance.bounds_dp -and
+            [string]::IsNullOrWhiteSpace($affordance.bounds_unavailable_reason)) {
+            $errors.Add("affordance $($affordance.id) requires bounds or bounds_unavailable_reason")
         }
     }
 }
@@ -177,6 +187,29 @@ foreach ($node in $graph.nodes) {
     foreach ($evidenceId in @($node.evidence_ids)) {
         Test-EvidenceReference -EvidenceId $evidenceId -Context "node $($node.id)"
     }
+    foreach ($evidenceId in @($node.visual_evidence_ids)) {
+        Test-EvidenceReference -EvidenceId $evidenceId -Context "node $($node.id) visual evidence"
+        $row = $evidenceRows | Where-Object { $_.evidence_id -eq $evidenceId } | Select-Object -First 1
+        if ($null -ne $row -and $row.source_type -ne "screenshot") {
+            $errors.Add("node $($node.id) visual evidence must be a screenshot: $evidenceId")
+        }
+    }
+    if ($node.visual_status -eq "usable") {
+        if ($node.evidence_tier -ne "behavioral_and_visual") {
+            $errors.Add("usable visual node $($node.id) requires behavioral_and_visual evidence_tier")
+        }
+        if (@($node.visual_evidence_ids).Count -eq 0 -or
+            [string]::IsNullOrWhiteSpace($node.signatures.visual.perceptual_hash)) {
+            $errors.Add("usable visual node $($node.id) requires visual evidence and perceptual hash")
+        }
+    } else {
+        if ($node.evidence_tier -ne "behavioral") {
+            $errors.Add("non-usable visual node $($node.id) must remain behavioral-only")
+        }
+        if ($node.visual_status -eq "preserved_unusable" -and @($node.visual_evidence_ids).Count -gt 0) {
+            $errors.Add("preserved-unusable node $($node.id) must not expose visual evidence IDs")
+        }
+    }
 }
 foreach ($edge in $graph.edges) {
     foreach ($evidenceId in @($edge.before_evidence_ids) + @($edge.after_evidence_ids)) {
@@ -239,10 +272,78 @@ if ($gateReady) {
     if ($missingRoots.Count -gt 0) {
         $errors.Add("Gate 1 missing root routes: $($missingRoots -join ',')")
     }
-    $missingTerminalStates = @("victory", "defeat" |
-        Where-Object { $graph.coverage.terminal_states_seen -notcontains $_ })
-    if ($missingTerminalStates.Count -gt 0) {
-        $errors.Add("Gate 1 missing terminal states: $($missingTerminalStates -join ',')")
+    foreach ($terminal in @("victory", "defeat")) {
+        $observed = $graph.coverage.terminal_states_seen -contains $terminal
+        $blockers = @($graph.coverage.terminal_state_blockers |
+            Where-Object { $_.terminal -eq $terminal })
+        if (-not $observed -and $blockers.Count -eq 0) {
+            $errors.Add("Gate 1 terminal '$terminal' requires observation or structured blocker")
+        }
+        foreach ($blocker in $blockers) {
+            if ($edgeIds -notcontains $blocker.edge_id) {
+                $errors.Add("Gate 1 terminal blocker references unknown edge $($blocker.edge_id)")
+                continue
+            }
+            $blockerEdge = $graph.edges | Where-Object { $_.id -eq $blocker.edge_id } | Select-Object -First 1
+            if ($blockerEdge.classification -ne "blocked") {
+                $errors.Add("Gate 1 terminal blocker edge $($blocker.edge_id) must be classified blocked")
+            }
+            if ($null -ne $blockerEdge.to -or $blockerEdge.action -ne "reach_$($terminal)_terminal") {
+                $errors.Add("Gate 1 terminal blocker edge $($blocker.edge_id) must target no inferred state and match terminal '$terminal'")
+            }
+            if ($blocker.reason_code -ne "safe_boundary_unreachable" -or
+                [string]::IsNullOrWhiteSpace($blocker.reason)) {
+                $errors.Add("Gate 1 terminal blocker for '$terminal' requires a structured safe-boundary reason")
+            }
+        }
+    }
+    if (@("observed", "observed_zero_plus_structured_blocker") -notcontains
+        $graph.coverage.negative_access_coverage.status) {
+        $errors.Add("Gate 1 requires observed negative access or observed zero plus structured blocker")
+    }
+    $negativeObservationIds = @($graph.coverage.negative_access_coverage.observation_ids)
+    foreach ($observationId in $negativeObservationIds) {
+        if ($observationIds -notcontains $observationId) {
+            $errors.Add("Gate 1 negative-access coverage references unknown observation $observationId")
+        }
+    }
+    $zeroObservations = @($graph.observations | Where-Object {
+        $_.id -in $negativeObservationIds -and "$( $_.value )" -match '^0(?:\.0+)?$'
+    })
+    $negativeBlockers = @($graph.coverage.negative_access_coverage.blockers)
+    if ($graph.coverage.negative_access_coverage.status -eq "observed_zero_plus_structured_blocker" -and
+        ($zeroObservations.Count -eq 0 -or $negativeBlockers.Count -eq 0)) {
+        $errors.Add("Gate 1 zero-resource fallback requires an observed zero and structured blocker")
+    }
+    foreach ($blocker in $negativeBlockers) {
+        if ($blocker.id -notmatch '^G1-BL-[0-9]{3}$' -or
+            $blocker.access_condition -ne "energy_unavailable" -or
+            $blocker.reason_code -ne "safe_boundary_unreachable" -or
+            $blocker.safety_boundary -ne $true -or
+            [string]::IsNullOrWhiteSpace($blocker.reason)) {
+            $errors.Add("Gate 1 negative-access blocker must identify energy_unavailable and its safe-boundary reason")
+        }
+    }
+    $scopeIds = @($graph.coverage.scope_decisions | ForEach-Object { $_.inventory_id })
+    if (($scopeIds | Sort-Object -Unique).Count -ne $scopeIds.Count) {
+        $errors.Add("Gate 1 scope decision inventory IDs must be unique")
+    }
+    foreach ($requiredScope in @("INV-001", "INV-002", "INV-003", "INV-004", "INV-005", "INV-006", "INV-007", "INV-008")) {
+        if ($scopeIds -notcontains $requiredScope) {
+            $errors.Add("Gate 1 missing scope decision $requiredScope")
+        }
+    }
+    # INV-004/005 were evidence-deferred at Gate 1, then explicitly promoted as original MySD
+    # product scope by the 2026-09-16 human decision. This does not alter their observation status
+    # or permit a reference-parity claim; it only authorizes DEV-010 implementation requirements.
+    foreach ($humanDecidedScope in @("INV-004", "INV-005")) {
+        $decision = $graph.coverage.scope_decisions | Where-Object { $_.inventory_id -eq $humanDecidedScope } | Select-Object -First 1
+        if ($decision.decision -ne "accept" -or $decision.human_lock -ne "accepted") {
+            $errors.Add("Human-decided product scope $humanDecidedScope must be accepted and human-locked")
+        }
+    }
+    if ($graph.coverage.visual_fit_status.gate1_required -ne $false) {
+        $errors.Add("Gate 1 must not require visual-fit completeness")
     }
     if (@($graph.coverage.unmatched_affordance_ids).Count -gt 0) {
         $errors.Add("Gate 1 has unmatched affordances: $($graph.coverage.unmatched_affordance_ids -join ',')")
@@ -264,6 +365,16 @@ if ($gateReady) {
             [ref]$confidence
         ) -and $confidence -lt 0.8 -and $claim.status -ne "open_question") {
             $errors.Add("low-confidence claim $($claim.claim_id) must be open_question at Gate 1")
+        }
+        if ([double]::TryParse(
+            $claim.confidence,
+            [Globalization.NumberStyles]::Float,
+            [Globalization.CultureInfo]::InvariantCulture,
+            [ref]$confidence
+        ) -and $confidence -lt 0.8 -and
+            (-not [string]::IsNullOrWhiteSpace($claim.future_fr_links) -or
+             -not [string]::IsNullOrWhiteSpace($claim.future_eng_links))) {
+            $errors.Add("low-confidence claim $($claim.claim_id) must not link to FR or ENG at Gate 1")
         }
     }
 }

@@ -151,7 +151,9 @@ object OriginalContentFixtures {
         stageId = OriginalContentIds.FOUNDATION_STAGE,
         base = MainBaseContent(
             id = OriginalContentIds.FOUNDATION_BASE,
-            health = 120,
+            // Nine unopposed leaks deal 108 damage, so the shipped fixture has a natural defeat
+            // path while successful construction and upgrades can still produce victory.
+            health = 96,
             positionTicks = 120,
         ),
         buildSlots = listOf(

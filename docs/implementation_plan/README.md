@@ -1,0 +1,43 @@
+# MySD — implementation plan (phase model)
+
+The per-phase plan for a large / clone build. **State lives in `PROGRESS.md` — open it first.**
+
+Current override (2026-09-16 user instruction): PHASE_05 executes the complete engine/game product
+as one implementation batch. The task-by-task verification protocol below is historical for
+PHASE_01..04. Do not run tests/builds/validators until every PHASE_05 source change is complete;
+then use `FINAL_FULL_PRODUCT_VERIFICATION.md` for the integrated gate.
+
+## 1. What this is
+
+The build is split into sequential **phases** (`phases/PHASE_NN_*.md`), each ~14–30 tasks, sized to
+one focused session. Phases are generated/reconciled from the design by `/mp --plan --phases`
+(the `mp-phase-planner` bridge) and worked one task at a time by `/mp --phase`. This heavy phase
+model is for clones / large multi-subsystem builds; ad-hoc features use the lightweight backlog
+board under `.claude/specs/` instead.
+
+## 2. Session protocol
+
+1. Read `PROGRESS.md` → the **active** phase row.
+2. Open `phases/PHASE_NN_*.md`; re-read its `## Anchors` (the design sections it cites).
+3. Take the first unchecked `- [ ] TASK-NN.k`. `/mp --phase` synthesises a SPEC from it and
+   runs the develop → review → test → verify pipeline.
+4. Tick the checkbox; append one line to `PROGRESS.md`'s session log.
+5. Stop. One task (or one phase) per session.
+
+## 3. Files
+
+- `PROGRESS.md` — authoritative state (active phase, completion table, decisions log, session log).
+- `00_overview.md` — the spine: §1 phase map, §2 dependency graph, §3 anchor index, §4 decisions.
+- `phases/PHASE_NN_*.md` — the work units. Generated regions are wrapped in
+  `<!-- mp:plan:gen … -->`; `## Notes for next session` is human-owned and never regenerated.
+
+## 4. Conventions
+
+Stack / architecture / module map: see the repo-root `AGENTS.md`. Anchors are content-addressed
+(`slug:` + `h:` hash) so they survive design edits; `/mp --check` reports drift.
+
+## 5. Fit (clone projects)
+
+The last phase is a **Fit gate**: `/mp --fit` compares every built screen against its reference
+image; each unexplained divergence becomes a backlog SPEC. The plan is done when the fit score
+meets the clone-done threshold and only `spec/deviations.md` entries remain.

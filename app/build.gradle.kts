@@ -19,6 +19,17 @@ android {
         compose = true
     }
 
+    buildTypes {
+        create("benchmark") {
+            initWith(getByName("release"))
+            // Local profiling only: release behavior with the existing development signature.
+            // Keep the package ID so install -r preserves the real, ordinarily reached save.
+            isDebuggable = false
+            signingConfig = signingConfigs.getByName("debug")
+            matchingFallbacks += listOf("release")
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

@@ -16,6 +16,7 @@ java {
 
 dependencies {
     api("dev.myengine:engine-core:0.0.1")
+    implementation("dev.myengine:engine-runtime:0.0.1")
     implementation("dev.myengine:engine-world:0.0.1")
     implementation("dev.myengine:engine-content:0.0.1")
     implementation("dev.myengine:engine-entities:0.0.1")

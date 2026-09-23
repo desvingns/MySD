@@ -1,0 +1,22 @@
+Synthetic reset-window fixture; not a device measurement.
+** Graphics info for pid 1234 [dev.mysd.android] **
+Stats since: 2000000000ns
+Total frames rendered: 8
+Janky frames: 4 (50.00%)
+Window: dev.mysd.android/MainActivity
+Stats since: 1000000000ns
+---PROFILEDATA---
+Flags,FrameTimelineVsyncId,IntendedVsync,FrameCompleted,ExtraApiColumn,
+0,1,999999999,5220999999,123,
+0,2,1000000000,1010000000,123,
+0,3,1500000000,1520000000,123,
+0,2,1000000000,1010000000,123,
+1,4,500000000,504000000,123,
+0,5,500000000,0,123,
+---PROFILEDATA---
+Window: dev.mysd.android/Dialog
+---PROFILEDATA---
+Flags,FrameTimelineVsyncId,IntendedVsync,FrameCompleted,ExtraApiColumn,
+0,6,1999999999,6220999999,123,
+0,7,2000000000,2030000000,123,
+---PROFILEDATA---

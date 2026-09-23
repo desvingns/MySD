@@ -248,21 +248,30 @@ class PlayableBattleEngineTest {
     @Test
     fun `tower upgrade calculation uses fixture formula and cooldown clamp`() {
         val state = PlayableBattleEngine.initialState()
+        val originalTower = OriginalContentFixtures.foundationPlayableLevel().tower
 
         val first = PlayableBattleEngine.calculateTowerUpgrade(state, currentLevel = 0)
         val second = PlayableBattleEngine.calculateTowerUpgrade(state, currentLevel = 1)
 
+        assertEquals(originalTower.upgradeBaseCost, state.towerUpgradeBaseCost)
+        assertEquals(originalTower.upgradeCostStep, state.towerUpgradeCostStep)
+        assertEquals(originalTower.damageStep, state.towerDamageStep)
+        assertEquals(originalTower.cooldownStep, state.towerCooldownStep)
+        assertEquals(originalTower.minCooldownTicks, state.towerMinCooldownTicks)
         assertEquals(0, first.currentLevel)
         assertEquals(30, first.cost)
         assertEquals(1, first.nextLevel)
-        assertEquals(state.towerBaseDamage, first.nextDamage)
-        assertEquals(state.towerBaseCooldownTicks, first.nextCooldownTicks)
+        assertEquals(state.towerBaseDamage + state.towerDamageStep, first.nextDamage)
+        assertEquals(
+            maxOf(state.towerMinCooldownTicks, state.towerBaseCooldownTicks - state.towerCooldownStep),
+            first.nextCooldownTicks,
+        )
         assertEquals(1, second.currentLevel)
         assertEquals(50, second.cost)
         assertEquals(2, second.nextLevel)
-        assertEquals(state.towerBaseDamage + state.towerDamageStep, second.nextDamage)
+        assertEquals(state.towerBaseDamage + state.towerDamageStep * 2, second.nextDamage)
         assertEquals(
-            maxOf(state.towerMinCooldownTicks, state.towerBaseCooldownTicks - state.towerCooldownStep),
+            maxOf(state.towerMinCooldownTicks, state.towerBaseCooldownTicks - state.towerCooldownStep * 2),
             second.nextCooldownTicks,
         )
     }
@@ -283,15 +292,21 @@ class PlayableBattleEngineTest {
         val secondTower = second.state.slots.first { it.id == target }
 
         assertTrue(first.accepted)
+        assertTrue(first.successful)
+        assertEquals(target, first.targetSlotId)
+        assertEquals(null, first.rejection)
         assertEquals(1, firstTower.towerLevel)
-        assertEquals(initial.towerBaseDamage, firstTower.towerDamage)
-        assertEquals(initial.towerBaseCooldownTicks, firstTower.towerCooldownTicks)
+        assertEquals(initial.towerBaseDamage + initial.towerDamageStep, firstTower.towerDamage)
+        assertEquals(
+            maxOf(initial.towerMinCooldownTicks, initial.towerBaseCooldownTicks - initial.towerCooldownStep),
+            firstTower.towerCooldownTicks,
+        )
         assertEquals(150 - initial.buildCost - initial.towerUpgradeBaseCost, first.resource)
         assertTrue(second.accepted)
         assertEquals(2, secondTower.towerLevel)
-        assertEquals(initial.towerBaseDamage + initial.towerDamageStep, secondTower.towerDamage)
+        assertEquals(initial.towerBaseDamage + initial.towerDamageStep * 2, secondTower.towerDamage)
         assertEquals(
-            maxOf(initial.towerMinCooldownTicks, initial.towerBaseCooldownTicks - initial.towerCooldownStep),
+            maxOf(initial.towerMinCooldownTicks, initial.towerBaseCooldownTicks - initial.towerCooldownStep * 2),
             secondTower.towerCooldownTicks,
         )
         assertEquals(
@@ -299,6 +314,9 @@ class PlayableBattleEngineTest {
                 (initial.towerUpgradeBaseCost + initial.towerUpgradeCostStep),
             second.resource,
         )
+        assertTrue(second.resource >= 0)
+        assertEquals(initial.slots[1], second.state.slots[1])
+        assertEquals(initial.slots[2], second.state.slots[2])
     }
 
     @Test
@@ -316,13 +334,13 @@ class PlayableBattleEngineTest {
         val first = PlayableBattleEngine.upgradeTower(built, target).state
         val second = PlayableBattleEngine.upgradeTower(first, target).state
         val maxLevel = PlayableBattleEngine.upgradeTower(second, target)
-        val noFunds = PlayableBattleEngine.upgradeTower(
-            PlayableBattleEngine.buildTower(
-                PlayableBattleEngine.initialState(initialResource = 40, incomePerSecond = 0),
-                target,
-            ).state,
+        val noFundsState = PlayableBattleEngine.buildTower(
+            PlayableBattleEngine.initialState(initialResource = 40, incomePerSecond = 0),
             target,
-        )
+        ).state
+        val noFunds = PlayableBattleEngine.upgradeTower(noFundsState, target)
+        val pausedInput = built.copy(phase = PlayableBattlePhase.PAUSED)
+        val paused = PlayableBattleEngine.upgradeTower(pausedInput, target)
 
         assertFalse(empty.accepted)
         assertEquals(PlayableBattleSpendRejection.TARGET_SLOT_EMPTY, empty.rejection)
@@ -333,11 +351,17 @@ class PlayableBattleEngineTest {
         assertFalse(maxLevel.accepted)
         assertEquals(PlayableBattleSpendRejection.TOWER_MAX_LEVEL, maxLevel.rejection)
         assertSame(second, maxLevel.state)
+        assertEquals(second.resource, maxLevel.resource)
+        assertEquals(2, maxLevel.state.slots.first { it.id == target }.towerLevel)
         assertFalse(noFunds.accepted)
         assertEquals(PlayableBattleSpendRejection.INSUFFICIENT_RESOURCE, noFunds.rejection)
+        assertSame(noFundsState, noFunds.state)
         assertEquals(0, noFunds.resource)
         assertEquals(0, noFunds.state.slots.first { it.id == target }.towerLevel)
         assertEquals(null, noFunds.state.slots.first { it.id == target }.towerDamage)
+        assertFalse(paused.accepted)
+        assertEquals(PlayableBattleSpendRejection.BATTLE_PAUSED, paused.rejection)
+        assertSame(pausedInput, paused.state)
     }
 
     @Test

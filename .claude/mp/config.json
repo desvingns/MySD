@@ -1,0 +1,10 @@
+{
+  "projectName": "MySD",
+  "package": "dev.mysd.android",
+  "packagePath": "dev/mysd/android",
+  "platforms": ["android"],
+  "sourceRoot": "app/src/main/kotlin/dev/mysd/android",
+  "stack": "Kotlin 2.4.0 · Android Gradle Plugin 9.2.1 · JVM 17 · Android-only :app + Android-free :game · Gradle composite MyEngine",
+  "uiLang": "ru",
+  "docsAgent": "inert"
+}
